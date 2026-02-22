@@ -31,8 +31,11 @@ export class LightingCalculator {
     return deg * Math.PI / 180;
   }
 
-  private areaCircle(diameter: number): number {
-    return Math.PI * (diameter / 2) ** 2;
+  // Ellipse area: π × semi-axis-a × semi-axis-b
+  // Used for beam and field coverage areas, which are elliptical projections
+  // when H and V angles differ. Degenerates to a circle when H === V.
+  private areaEllipse(diameterH: number, diameterV: number): number {
+    return Math.PI * (diameterH / 2) * (diameterV / 2);
   }
 
   public static getFixtureModels(): string[] {
@@ -67,7 +70,8 @@ export class LightingCalculator {
     const fixture = FIXTURE_DATA[fixtureModel];
     const beamDiaH = 2 * throwDistance * Math.tan(this.degToRad(fixture.beam_h_deg / 2));
     const beamDiaV = 2 * throwDistance * Math.tan(this.degToRad(fixture.beam_v_deg / 2));
-    const beamAreaM2 = this.areaCircle(beamDiaH);
+    // Ellipse area: accounts for asymmetric H/V beam angles (e.g. VSP-120F: 33.8° × 34.2°)
+    const beamAreaM2 = this.areaEllipse(beamDiaH, beamDiaV);
 
     let fieldDiaH: number | undefined;
     let fieldDiaV: number | undefined;
@@ -76,7 +80,8 @@ export class LightingCalculator {
     if (fixture.field_h_deg && fixture.field_v_deg) {
       fieldDiaH = 2 * throwDistance * Math.tan(this.degToRad(fixture.field_h_deg / 2));
       fieldDiaV = 2 * throwDistance * Math.tan(this.degToRad(fixture.field_v_deg / 2));
-      fieldAreaM2 = this.areaCircle(fieldDiaH);
+      // Ellipse area for field coverage
+      fieldAreaM2 = this.areaEllipse(fieldDiaH, fieldDiaV);
     }
 
     const irradianceMWm2 = fixture.peak_irradiance_mWm2 / (throwDistance ** 2);
