@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import { theme } from '@/constants/theme';
 
 const logoSource = require('@/assets/images/wildfire-logo.png');
-const logoAsset = Image.resolveAssetSource(logoSource);
 
 interface LogoProps {
   size?: 'small' | 'medium' | 'large';
@@ -19,7 +18,7 @@ const sizes = {
 
 export function Logo({ size = 'medium', showTagline = false, imageOnly = false }: LogoProps) {
   const s = sizes[size];
-  const aspectRatio = logoAsset?.width && logoAsset?.height ? logoAsset.width / logoAsset.height : s.ratio;
+  const aspectRatio = s.ratio;
   const logoWidth = Math.min(s.imgH * aspectRatio, 180);
 
   if (imageOnly) {
