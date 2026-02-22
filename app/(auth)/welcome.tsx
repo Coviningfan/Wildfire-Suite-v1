@@ -1,25 +1,42 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 import { PoweredBy } from '@/components/ui/PoweredBy';
 import { theme } from '@/constants/theme';
-import { Ruler, Lightbulb, ShieldCheck, ScanLine } from 'lucide-react-native';
+import { Ruler, Lightbulb, ShieldCheck, ScanLine, Apple } from 'lucide-react-native';
+import { useAuthStore } from '@/stores/auth-store';
+import { isAppleAuthAvailable } from '@/utils/apple-auth';
 
 const { height } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const [appleAvailable, setAppleAvailable] = useState<boolean>(false);
+  const { loginWithApple, isLoading } = useAuthStore();
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
+    checkApple();
   }, [fadeAnim, slideAnim]);
+
+  const checkApple = async () => {
+    const available = await isAppleAuthAvailable();
+    setAppleAvailable(available);
+  };
+
+  const handleAppleSignIn = async () => {
+    const success = await loginWithApple();
+    if (success) {
+      router.replace('/(tabs)/(home)' as any);
+    }
+  };
 
   return (
     <LinearGradient
@@ -52,7 +69,7 @@ export default function WelcomeScreen() {
           <FeatureItem icon={<Ruler size={18} color={theme.colors.primary} />} text="Instant beam & irradiance calculations" />
           <FeatureItem icon={<Lightbulb size={18} color={theme.colors.secondary} />} text="23+ professional fixture database" />
           <FeatureItem icon={<ShieldCheck size={18} color={theme.colors.success} />} text="Safety level assessments" />
-          <FeatureItem icon={<ScanLine size={18} color={theme.colors.accent} />} text="QR code fixture scanning" />
+          <FeatureItem icon={<ScanLine size={18} color={theme.colors.accent} />} text="QR code & barcode fixture scanning" />
         </View>
 
         <View style={styles.buttonContainer}>
@@ -68,6 +85,17 @@ export default function WelcomeScreen() {
             variant="outline"
             size="large"
           />
+          {appleAvailable && (
+            <TouchableOpacity
+              style={styles.appleBtn}
+              onPress={handleAppleSignIn}
+              activeOpacity={0.7}
+              disabled={isLoading}
+            >
+              <Apple size={18} color="#fff" />
+              <Text style={styles.appleBtnText}>Sign in with Apple</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <PoweredBy />
@@ -171,5 +199,21 @@ const styles = StyleSheet.create({
   featureText: { fontSize: 14, color: theme.colors.text, flex: 1, fontWeight: '500' as const },
   buttonContainer: {
     gap: 10,
+  },
+  appleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 15,
+    borderRadius: 14,
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  appleBtnText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#fff',
   },
 });

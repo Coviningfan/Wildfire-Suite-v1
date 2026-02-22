@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform } from 'react-native';
-import { History, Search, Filter, Trash2, Eye, X, FileText, Zap } from 'lucide-react-native';
+import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown } from 'lucide-react-native';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
 import { ResultCard } from '@/components/ResultCard';
 import { Card } from '@/components/ui/Card';
@@ -13,6 +13,7 @@ import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { exportCalculationAsText } from '@/utils/file-helpers';
 
 export default function CalculationsScreen() {
   const { savedCalculations, deleteCalculation, loadCalculation } = useLightingStore();
@@ -115,6 +116,18 @@ export default function CalculationsScreen() {
           <Zap size={14} color={theme.colors.secondary} />
           <Text style={[styles.actionText, { color: theme.colors.secondary }]}>Load</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.actionBtn} onPress={async () => {
+          if ('irradiance_report' in item.result) {
+            const result = await exportCalculationAsText(
+              item.name, item.fixture, item.inputs,
+              item.result as Record<string, any>, item.safetyLevel,
+            );
+            if (!result.success) Alert.alert('Error', result.error ?? 'Export failed');
+          }
+        }} activeOpacity={0.7}>
+          <FileDown size={14} color={theme.colors.success} />
+          <Text style={[styles.actionText, { color: theme.colors.success }]}>Export</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item.id, item.name)} activeOpacity={0.7}>
           <Trash2 size={14} color={theme.colors.error} />
           <Text style={[styles.actionText, { color: theme.colors.error }]}>Delete</Text>
@@ -143,8 +156,28 @@ export default function CalculationsScreen() {
             {selectedCalculation.description ? <Text style={styles.detailDesc}>{selectedCalculation.description}</Text> : null}
           </View>
           <View style={styles.detailActions}>
-            <Button title="Back to History" onPress={() => setSelectedCalculation(null)} variant="outline" size="medium" />
-            <Button title="Load to Calculator" onPress={() => { loadCalculation(selectedCalculation.id); setSelectedCalculation(null); }} variant="primary" size="medium" />
+            <Button title="Back" onPress={() => setSelectedCalculation(null)} variant="outline" size="medium" />
+            <Button
+              title="Export"
+              onPress={async () => {
+                const result = await exportCalculationAsText(
+                  selectedCalculation.name,
+                  selectedCalculation.fixture,
+                  selectedCalculation.inputs,
+                  selectedCalculation.result as Record<string, any>,
+                  selectedCalculation.safetyLevel,
+                );
+                if (result.success) {
+                  Alert.alert('Exported', 'Report exported successfully.');
+                } else {
+                  Alert.alert('Error', result.error ?? 'Export failed');
+                }
+              }}
+              variant="secondary"
+              size="medium"
+              icon={<FileDown size={16} color={theme.colors.text} />}
+            />
+            <Button title="Load" onPress={() => { loadCalculation(selectedCalculation.id); setSelectedCalculation(null); }} variant="primary" size="medium" />
           </View>
           <Card>
             <Text style={styles.summaryTitle}>Summary</Text>

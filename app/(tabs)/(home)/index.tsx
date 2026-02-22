@@ -14,6 +14,7 @@ import { OnboardingModal } from '@/components/ui/OnboardingModal';
 import { CalculationPreview } from '@/components/CalculationPreview';
 import { QRScanner } from '@/components/QRScanner';
 import { SaveCalculationModal } from '@/components/SaveCalculationModal';
+import { LightSensorCard } from '@/components/LightSensorCard';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFirstLaunch } from '@/hooks/useFirstLaunch';
@@ -143,6 +144,8 @@ export default function CalculatorScreen() {
             <Text style={styles.errorText}>{lastCalculation.error}</Text>
           </Card>
         )}
+
+        <LightSensorCard />
 
         <PoweredBy />
       </ScrollView>

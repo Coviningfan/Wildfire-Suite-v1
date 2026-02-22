@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Modal,
 } from 'react-native';
-import { X, Lightbulb, Radio, Zap, Activity, Info } from 'lucide-react-native';
+import { X, Lightbulb, Radio, Zap, Activity, Info, FileDown, ExternalLink } from 'lucide-react-native';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { FixtureCoverageCard } from '@/components/fixtures/FixtureCoverageCard';
 import { theme } from '@/constants/theme';
@@ -15,6 +15,8 @@ import {
   getFixturePowerWatts,
   getFixtureNotes,
 } from '@/utils/fixture-helpers';
+import { exportTechSheet, getFixtureManualUrl } from '@/utils/file-helpers';
+import { Alert, Platform } from 'react-native';
 
 interface Props {
   model: string;
@@ -109,6 +111,47 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
                 </View>
               </View>
             )}
+
+            <View style={styles.exportSection}>
+              <Text style={styles.sectionTitle}>Documents</Text>
+              <View style={styles.exportRow}>
+                <TouchableOpacity
+                  style={styles.exportBtn}
+                  onPress={async () => {
+                    const result = await exportTechSheet(model);
+                    if (result.success) {
+                      Alert.alert('Exported', 'Tech sheet exported successfully.');
+                    } else {
+                      Alert.alert('Error', result.error ?? 'Export failed');
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <FileDown size={16} color={theme.colors.accent} />
+                  <Text style={styles.exportBtnText}>Tech Sheet</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.exportBtn}
+                  onPress={async () => {
+                    const url = await getFixtureManualUrl(model);
+                    if (url) {
+                      try {
+                        const WebBrowser = await import('expo-web-browser');
+                        await WebBrowser.openBrowserAsync(url);
+                      } catch {
+                        Alert.alert('Manual', `Visit: ${url}`);
+                      }
+                    } else {
+                      Alert.alert('Not Available', 'Manual URL not available for this fixture.');
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <ExternalLink size={16} color={theme.colors.secondary} />
+                  <Text style={styles.exportBtnText}>Manual</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <View style={styles.actions}>
               <TouchableOpacity style={[styles.btn, styles.btnOutline]} onPress={onClose} activeOpacity={0.7}>
@@ -210,6 +253,28 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: theme.colors.border,
   },
   infoText: { flex: 1, fontSize: 13, color: theme.colors.textSecondary, lineHeight: 19 },
+  exportSection: {
+    marginBottom: 14,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  exportRow: { flexDirection: 'row', gap: 10 },
+  exportBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  exportBtnText: { fontSize: 13, fontWeight: '600' as const, color: theme.colors.text },
   actions: { flexDirection: 'row', gap: 10, marginTop: 20, marginBottom: 12 },
   btn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
   btnOutline: { borderWidth: 1, borderColor: theme.colors.border },
