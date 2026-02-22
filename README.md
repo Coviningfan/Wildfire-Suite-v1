@@ -1,8 +1,8 @@
-# Welcome to your Rork app
+# Wildfire Suite v1
 
-## Project info
+## Project Info
 
-This is a native cross-platform mobile app created with [Rork](https://rork.com)
+This is a native cross-platform mobile app for Wildfire UV lighting professionals — built with Expo Router and React Native.
 
 **Platform**: Native iOS & Android app, exportable to web
 **Framework**: Expo Router + React Native
@@ -11,17 +11,9 @@ This is a native cross-platform mobile app created with [Rork](https://rork.com)
 
 There are several ways of editing your native mobile application.
 
-### **Use Rork**
-
-Simply visit [rork.com](https://rork.com) and prompt to build your app with AI.
-
-Changes made via Rork will be committed automatically to this GitHub repo.
-
-Whenever you make a change in your local code editor and push it to GitHub, it will be also reflected in Rork.
-
 ### **Use your preferred code editor**
 
-If you want to work locally using your own code editor, you can clone this repo and push changes. Pushed changes will also be reflected in Rork.
+If you want to work locally using your own code editor, you can clone this repo and push changes.
 
 If you are new to coding and unsure which editor to use, we recommend Cursor. If you're familiar with terminals, try Claude Code.
 
@@ -39,7 +31,7 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 bun i
 
-# Step 4: Start the instant web preview of your Rork app in your browser, with auto-reloading of your changes
+# Step 4: Start the instant web preview of your app in your browser, with auto-reloading of your changes
 bun run start-web
 
 # Step 5: Start iOS preview
@@ -70,7 +62,7 @@ This project is built with the most popular native mobile cross-platform technic
 
 ### **On your phone (Recommended)**
 
-1. **iOS**: Download the [Rork app from the App Store](https://apps.apple.com/app/rork) or [Expo Go](https://apps.apple.com/app/expo-go/id982107779)
+1. **iOS**: Download [Expo Go](https://apps.apple.com/app/expo-go/id982107779)
 2. **Android**: Download the [Expo Go app from Google Play](https://play.google.com/store/apps/details?id=host.exp.exponent)
 3. Run `bun run start` and scan the QR code from your development server
 
@@ -80,7 +72,7 @@ Run `bun start-web` to test in a web browser. Note: The browser preview is great
 
 ### **iOS Simulator / Android Emulator**
 
-You can test Rork apps in Expo Go or Rork iOS app. You don't need XCode or Android Studio for most features.
+You can test the app in Expo Go. You don't need XCode or Android Studio for most features.
 
 **When do you need Custom Development Builds?**
 
@@ -168,32 +160,37 @@ Alternative web deployment options:
 
 ## App Features
 
-This template includes:
-
+- **UV Lighting Calculator** - Irradiance, throw distance, beam coverage, safety levels
+- **Fixture Library** - Full Wildfire fixture database with specs and QR scan support
+- **AI Assistant** - On-device UV lighting expert powered by AI
+- **Calculation History** - Save, search, filter and export past calculations
 - **Cross-platform compatibility** - Works on iOS, Android, and Web
 - **File-based routing** with Expo Router
-- **Tab navigation** with customizable tabs
-- **Modal screens** for overlays and dialogs
 - **TypeScript support** for better development experience
 - **Async storage** for local data persistence
-- **Vector icons** with Lucide React Native
+- **Biometric authentication** support (Face ID / Touch ID)
 
 ## Project Structure
 
 ```
 ├── app/                    # App screens (Expo Router)
+│   ├── (auth)/            # Auth screens (welcome, login, register)
 │   ├── (tabs)/            # Tab navigation screens
-│   │   ├── _layout.tsx    # Tab layout configuration
-│   │   └── index.tsx      # Home tab screen
+│   │   ├── (home)/        # UV Calculator
+│   │   ├── fixtures/      # Fixture library
+│   │   ├── ai/            # AI assistant
+│   │   ├── calculations/  # Saved history
+│   │   └── profile/       # User profile & settings
 │   ├── _layout.tsx        # Root layout
-│   ├── modal.tsx          # Modal screen example
 │   └── +not-found.tsx     # 404 screen
-├── assets/                # Static assets
-│   └── images/           # App icons and images
-├── constants/            # App constants and configuration
-├── app.json             # Expo configuration
-├── package.json         # Dependencies and scripts
-└── tsconfig.json        # TypeScript configuration
+├── components/            # Shared UI components
+├── constants/             # Theme and config
+├── hooks/                 # Custom React hooks
+├── stores/                # Zustand state stores
+├── utils/                 # Calculator logic and helpers
+├── app.json               # Expo configuration
+├── package.json           # Dependencies and scripts
+└── tsconfig.json          # TypeScript configuration
 ```
 
 ## Custom Development Builds
@@ -204,7 +201,7 @@ For advanced native features, you'll need to create a Custom Development Build i
 
 - **Native Authentication**: Face ID, Touch ID, Apple Sign In, Google Sign In
 - **In-App Purchases**: App Store and Google Play subscriptions
-- **Advanced Native Features**: Third-party SDKs, platform-specifc features (e.g. Widgets on iOS)
+- **Advanced Native Features**: Third-party SDKs, platform-specific features (e.g. Widgets on iOS)
 - **Background Processing**: Background tasks, location tracking
 
 ### **Creating a Custom Development Build**
@@ -276,11 +273,6 @@ Monetize your app:
 - **RevenueCat** - Cross-platform in-app purchases and subscriptions - [Expo Integration Guide](https://www.revenuecat.com/docs/expo)
 - **Expo In-App Purchases** - Direct App Store/Google Play integration - [Implementation Guide](https://docs.expo.dev/versions/latest/sdk/in-app-purchases/)
 
-**Paywall Optimization:**
-
-- **Superwall** - Paywall A/B testing and optimization - [React Native SDK](https://docs.superwall.com/docs/react-native)
-- **Adapty** - Mobile subscription analytics and paywalls - [Expo Integration](https://docs.adapty.io/docs/expo)
-
 ## I want to use a custom domain - is that possible?
 
 For web deployments, you can use custom domains with:
@@ -309,10 +301,3 @@ For mobile apps, you'll configure your app's deep linking scheme in `app.json`.
 
 - Check [Expo's documentation](https://docs.expo.dev/) for native APIs
 - Browse [React Native's documentation](https://reactnative.dev/docs/getting-started) for core components
-- Visit [Rork's FAQ](https://rork.com/faq) for platform-specific questions
-
-## About Rork
-
-Rork builds fully native mobile apps using React Native and Expo - the same technology stack used by Discord, Shopify, Coinbase, Instagram, and nearly 30% of the top 100 apps on the App Store.
-
-Your Rork app is production-ready and can be published to both the App Store and Google Play Store. You can also export your app to run on the web, making it truly cross-platform.
