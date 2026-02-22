@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform } from 'react-native';
-import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown } from 'lucide-react-native';
+import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown, ChevronRight } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
 import { ResultCard } from '@/components/ResultCard';
 import { Card } from '@/components/ui/Card';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Picker } from '@/components/ui/Picker';
 import { Logo } from '@/components/ui/Logo';
-import { PoweredBy } from '@/components/ui/PoweredBy';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { theme } from '@/constants/theme';
@@ -38,7 +38,7 @@ export default function CalculationsScreen() {
 
   const formatDate = useCallback((ts: number) =>
     new Date(ts).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
+      month: 'short', day: 'numeric',
       hour: '2-digit', minute: '2-digit',
     }), []);
 
@@ -70,71 +70,81 @@ export default function CalculationsScreen() {
   }, []);
 
   const handleDelete = useCallback((id: string, name: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Delete Calculation', `Delete "${name}"?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteCalculation(id) },
     ]);
   }, [deleteCalculation]);
 
-  const renderItem = useCallback(({ item }: { item: SavedCalculation }) => (
-    <TouchableOpacity style={styles.calcItem} onPress={() => setSelectedCalculation(item)} activeOpacity={0.7}>
-      <View style={styles.calcHeader}>
-        <View style={styles.calcInfo}>
-          <Text style={styles.calcName}>{item.name}</Text>
-          <Text style={styles.calcDetails}>{item.fixture} · {formatDate(item.timestamp)}</Text>
-          {item.projectId ? <Text style={styles.projectId}>Project: {item.projectId}</Text> : null}
-          {'irradiance_report' in item.result && (
-            <View style={styles.quickStatsRow}>
-              <Text style={styles.quickStats}>
-                {item.result.irradiance_report.throw_distance_m.toFixed(1)}m throw
-              </Text>
-              <View style={styles.quickStatDot} />
-              <Text style={styles.quickStats}>
-                {item.result.irradiance_report.irradiance_mWm2.toFixed(0)} mW/m²
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.calcMeta}>
-          <View style={[styles.safetyPill, { backgroundColor: getSafetyColor(item.safetyLevel) + '18' }]}>
+  const renderItem = useCallback(({ item }: { item: SavedCalculation }) => {
+    const hasReport = 'irradiance_report' in item.result;
+    return (
+      <TouchableOpacity
+        style={styles.calcCard}
+        onPress={() => setSelectedCalculation(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.calcTop}>
+          <View style={styles.calcInfo}>
+            <Text style={styles.calcName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.calcMeta}>{item.fixture} · {formatDate(item.timestamp)}</Text>
+            {item.projectId ? <Text style={styles.projectTag}>#{item.projectId}</Text> : null}
+          </View>
+          <View style={[styles.safetyPill, { backgroundColor: getSafetyColor(item.safetyLevel) + '14' }]}>
             <View style={[styles.safetyDot, { backgroundColor: getSafetyColor(item.safetyLevel) }]} />
             <Text style={[styles.safetyLabel, { color: getSafetyColor(item.safetyLevel) }]}>
               {item.safetyLevel.toUpperCase()}
             </Text>
           </View>
         </View>
-      </View>
-      <View style={styles.calcActions}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectedCalculation(item)} activeOpacity={0.7}>
-          <Eye size={14} color={theme.colors.accent} />
-          <Text style={[styles.actionText, { color: theme.colors.accent }]}>Details</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => {
-          loadCalculation(item.id);
-          Alert.alert('Loaded', 'Switch to the Calculator tab to see the result.');
-        }} activeOpacity={0.7}>
-          <Zap size={14} color={theme.colors.secondary} />
-          <Text style={[styles.actionText, { color: theme.colors.secondary }]}>Load</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={async () => {
-          if ('irradiance_report' in item.result) {
-            const result = await exportCalculationAsText(
-              item.name, item.fixture, item.inputs,
-              item.result as Record<string, any>, item.safetyLevel,
-            );
-            if (!result.success) Alert.alert('Error', result.error ?? 'Export failed');
-          }
-        }} activeOpacity={0.7}>
-          <FileDown size={14} color={theme.colors.success} />
-          <Text style={[styles.actionText, { color: theme.colors.success }]}>Export</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item.id, item.name)} activeOpacity={0.7}>
-          <Trash2 size={14} color={theme.colors.error} />
-          <Text style={[styles.actionText, { color: theme.colors.error }]}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  ), [formatDate, getSafetyColor, loadCalculation, handleDelete]);
+        {hasReport && (
+          <View style={styles.quickStats}>
+            <View style={styles.quickStat}>
+              <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.throw_distance_m.toFixed(1)}m</Text>
+              <Text style={styles.quickStatLabel}>throw</Text>
+            </View>
+            <View style={styles.quickStatDivider} />
+            <View style={styles.quickStat}>
+              <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.irradiance_mWm2.toFixed(0)}</Text>
+              <Text style={styles.quickStatLabel}>mW/m²</Text>
+            </View>
+            <View style={styles.quickStatDivider} />
+            <View style={styles.quickStat}>
+              <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.beam_area_m2.toFixed(1)}m²</Text>
+              <Text style={styles.quickStatLabel}>area</Text>
+            </View>
+          </View>
+        )}
+        <View style={styles.calcActions}>
+          <TouchableOpacity style={styles.actionChip} onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            loadCalculation(item.id);
+            Alert.alert('Loaded', 'Switch to Calculator tab to see the result.');
+          }} activeOpacity={0.7}>
+            <Zap size={13} color={theme.colors.secondary} />
+            <Text style={[styles.actionChipText, { color: theme.colors.secondary }]}>Load</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionChip} onPress={async () => {
+            if (hasReport) {
+              const result = await exportCalculationAsText(
+                item.name, item.fixture, item.inputs,
+                item.result as Record<string, any>, item.safetyLevel,
+              );
+              if (!result.success) Alert.alert('Error', result.error ?? 'Export failed');
+            }
+          }} activeOpacity={0.7}>
+            <FileDown size={13} color={theme.colors.success} />
+            <Text style={[styles.actionChipText, { color: theme.colors.success }]}>Export</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionChip} onPress={() => handleDelete(item.id, item.name)} activeOpacity={0.7}>
+            <Trash2 size={13} color={theme.colors.error} />
+            <Text style={[styles.actionChipText, { color: theme.colors.error }]}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [formatDate, getSafetyColor, loadCalculation, handleDelete]);
 
   if (selectedCalculation != null && 'irradiance_report' in selectedCalculation.result) {
     const { irradiance_report, beam_calculators } = selectedCalculation.result;
@@ -145,59 +155,54 @@ export default function CalculationsScreen() {
 
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.detailTopBar}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedCalculation(null)} activeOpacity={0.7}>
+            <ChevronRight size={20} color={theme.colors.text} style={{ transform: [{ rotate: '180deg' }] }} />
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
+          <Button
+            title="Export"
+            onPress={async () => {
+              const result = await exportCalculationAsText(
+                selectedCalculation.name,
+                selectedCalculation.fixture,
+                selectedCalculation.inputs,
+                selectedCalculation.result as Record<string, any>,
+                selectedCalculation.safetyLevel,
+              );
+              if (result.success) Alert.alert('Exported', 'Report exported successfully.');
+              else Alert.alert('Error', result.error ?? 'Export failed');
+            }}
+            variant="secondary"
+            size="small"
+            icon={<FileDown size={14} color={theme.colors.text} />}
+          />
+        </View>
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.detailHeader}>
-            <Logo size="medium" />
-            <View style={styles.detailIconWrap}>
-              <FileText size={22} color={theme.colors.secondary} />
-            </View>
             <Text style={styles.detailTitle}>{selectedCalculation.name}</Text>
             <Text style={styles.detailSubtitle}>{selectedCalculation.fixture} · {formatDate(selectedCalculation.timestamp)}</Text>
             {selectedCalculation.description ? <Text style={styles.detailDesc}>{selectedCalculation.description}</Text> : null}
           </View>
-          <View style={styles.detailActions}>
-            <Button title="Back" onPress={() => setSelectedCalculation(null)} variant="outline" size="medium" />
-            <Button
-              title="Export"
-              onPress={async () => {
-                const result = await exportCalculationAsText(
-                  selectedCalculation.name,
-                  selectedCalculation.fixture,
-                  selectedCalculation.inputs,
-                  selectedCalculation.result as Record<string, any>,
-                  selectedCalculation.safetyLevel,
-                );
-                if (result.success) {
-                  Alert.alert('Exported', 'Report exported successfully.');
-                } else {
-                  Alert.alert('Error', result.error ?? 'Export failed');
-                }
-              }}
-              variant="secondary"
-              size="medium"
-              icon={<FileDown size={16} color={theme.colors.text} />}
-            />
-            <Button title="Load" onPress={() => { loadCalculation(selectedCalculation.id); setSelectedCalculation(null); }} variant="primary" size="medium" />
+          <View style={styles.summaryGrid}>
+            {([
+              ['Throw Distance', `${irradiance_report.throw_distance_m.toFixed(2)} m`],
+              ['Beam Area', `${irradiance_report.beam_area_m2.toFixed(2)} m²`],
+              ['Irradiance', `${irradiance_report.irradiance_mWm2.toFixed(2)} mW/m²`],
+              ['Safety', selectedCalculation.safetyLevel.toUpperCase()],
+            ] as const).map(([label, value]) => (
+              <View key={label} style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>{label}</Text>
+                <Text style={[styles.summaryValue, label === 'Safety' ? { color: getSafetyColor(selectedCalculation.safetyLevel) } : null]}>{value}</Text>
+              </View>
+            ))}
           </View>
-          <Card>
-            <Text style={styles.summaryTitle}>Summary</Text>
-            <View style={styles.summaryGrid}>
-              {([
-                ['Throw Distance', `${irradiance_report.throw_distance_m.toFixed(2)} m`],
-                ['Beam Area', `${irradiance_report.beam_area_m2.toFixed(2)} m²`],
-                ['Irradiance', `${irradiance_report.irradiance_mWm2.toFixed(2)} mW/m²`],
-                ['Safety', selectedCalculation.safetyLevel.toUpperCase()],
-              ] as const).map(([label, value]) => (
-                <View key={label} style={styles.summaryItem}>
-                  <Text style={styles.summaryLabel}>{label}</Text>
-                  <Text style={[styles.summaryValue, label === 'Safety' ? { color: getSafetyColor(selectedCalculation.safetyLevel) } : null]}>{value}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
           <ResultCard title="Irradiance Report" data={numeric(irradiance_report as unknown as Record<string, unknown>)} />
           <ResultCard title="Beam Calculators" data={numeric(beam_calculators as unknown as Record<string, unknown>)} />
-          <PoweredBy />
+          <View style={styles.footer}>
+            <View style={styles.footerDivider} />
+            <Text style={styles.footerText}>Powered by <Text style={styles.footerBrand}>JABVLabs</Text></Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
     );
@@ -205,19 +210,14 @@ export default function CalculationsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.listHeader}>
-        <Logo size="medium" />
-        <View style={styles.titleRow}>
-          <View style={styles.titleIconWrap}>
-            <History size={18} color={theme.colors.secondary} />
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <View style={styles.titleIcon}>
+            <History size={16} color={theme.colors.secondary} />
           </View>
-          <Text style={styles.title}>Calculation History</Text>
-          <InfoTooltip
-            title="Calculation History"
-            body="All saved calculations appear here. Tap a row for the full report. Tap Load to pull a result back into the Calculator. Use filters to search."
-          />
+          <Text style={styles.screenTitle}>History</Text>
         </View>
-        <Text style={styles.subtitle}>Tap any row for the full report</Text>
+        <Text style={styles.countBadge}>{savedCalculations.length}</Text>
       </View>
 
       <View style={styles.searchSection}>
@@ -235,25 +235,24 @@ export default function CalculationsScreen() {
           ) : null}
         </View>
         {showFilters && (
-          <Card style={styles.filtersCard}>
+          <View style={styles.filtersCard}>
             <Picker label="Fixture" value={filterFixture || 'All'} options={fixtureModels.map(f => f || 'All')} onValueChange={(v) => setFilterFixture(v === 'All' ? '' : v)} />
             <Picker label="Sort By" value={sortBy} options={sortOptions} onValueChange={setSortBy} />
-          </Card>
+          </View>
         )}
-        <Text style={styles.resultsCount}>{filteredCalculations.length} of {savedCalculations.length} results</Text>
       </View>
 
       {filteredCalculations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconWrap}>
-            <History size={40} color={theme.colors.textTertiary} />
+            <History size={36} color={theme.colors.textTertiary} />
           </View>
           <Text style={styles.emptyTitle}>
-            {savedCalculations.length === 0 ? 'No Saved Calculations Yet' : 'No Results Found'}
+            {savedCalculations.length === 0 ? 'No Saved Calculations' : 'No Results Found'}
           </Text>
           <Text style={styles.emptySubtitle}>
             {savedCalculations.length === 0
-              ? 'Run a calculation in the Calculator tab, then tap "Save Result".'
+              ? 'Run a calculation, then tap Save.'
               : 'Try adjusting your search or filters.'}
           </Text>
         </View>
@@ -275,81 +274,139 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   scrollContainer: { flex: 1 },
   scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
-  listHeader: { alignItems: 'center', padding: 20, paddingTop: 14, paddingBottom: 8 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
-  titleIconWrap: {
-    width: 32, height: 32, borderRadius: 10,
-    backgroundColor: 'rgba(245, 166, 35, 0.12)',
-    justifyContent: 'center', alignItems: 'center',
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
-  title: { flex: 1, fontSize: 20, fontWeight: '800' as const, color: theme.colors.text, letterSpacing: -0.3 },
-  subtitle: { fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center' as const, marginTop: 6 },
-  searchSection: { paddingHorizontal: 16, marginBottom: 8 },
-  filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, marginBottom: 8 },
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  titleIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(245, 166, 35, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  screenTitle: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: theme.colors.text,
+    letterSpacing: -0.3,
+  },
+  countBadge: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: theme.colors.textSecondary,
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  searchSection: { paddingHorizontal: 16, paddingTop: 12, marginBottom: 4 },
+  filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 8 },
   filterToggle: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 8, paddingHorizontal: 14,
+    paddingVertical: 7, paddingHorizontal: 12,
     borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
-  filterToggleActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.glow,
-  },
-  filterToggleText: { fontSize: 13, color: theme.colors.textSecondary, fontWeight: '600' as const },
+  filterToggleActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.glow },
+  filterToggleText: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '600' as const },
   filterToggleTextActive: { color: theme.colors.primary },
-  clearButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, paddingHorizontal: 14 },
-  clearButtonText: { fontSize: 13, color: theme.colors.error, fontWeight: '600' as const },
-  filtersCard: { marginBottom: 8, marginHorizontal: 0 },
-  resultsCount: { fontSize: 12, color: theme.colors.textTertiary, fontWeight: '500' as const },
-  calcList: { flex: 1, paddingHorizontal: 16 },
-  calcItem: {
+  clearButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 7, paddingHorizontal: 12 },
+  clearButtonText: { fontSize: 12, color: theme.colors.error, fontWeight: '600' as const },
+  filtersCard: {
     backgroundColor: theme.colors.surface,
-    borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: theme.colors.border,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-  calcHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  calcInfo: { flex: 1 },
-  calcName: { fontSize: 16, fontWeight: '700' as const, color: theme.colors.text, marginBottom: 4, letterSpacing: -0.2 },
-  calcDetails: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 2 },
-  projectId: { fontSize: 11, color: theme.colors.primary, marginBottom: 2, fontWeight: '500' as const },
-  quickStatsRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  quickStatDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: theme.colors.textTertiary },
-  quickStats: { fontSize: 12, color: theme.colors.accent, fontWeight: '600' as const },
-  calcMeta: { marginLeft: 10 },
+  calcList: { flex: 1, paddingHorizontal: 16 },
+  calcCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  calcTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  calcInfo: { flex: 1, marginRight: 12 },
+  calcName: { fontSize: 16, fontWeight: '700' as const, color: theme.colors.text, marginBottom: 3, letterSpacing: -0.2 },
+  calcMeta: { fontSize: 12, color: theme.colors.textSecondary },
+  projectTag: { fontSize: 11, color: theme.colors.accent, marginTop: 3, fontWeight: '600' as const },
   safetyPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
   },
   safetyDot: { width: 6, height: 6, borderRadius: 3 },
   safetyLabel: { fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.5 },
-  calcActions: { flexDirection: 'row', gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border, paddingTop: 10 },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 },
-  actionText: { fontSize: 12, fontWeight: '600' as const },
+  quickStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  quickStat: { flex: 1, alignItems: 'center' },
+  quickStatValue: { fontSize: 15, fontWeight: '700' as const, color: theme.colors.text },
+  quickStatLabel: { fontSize: 10, color: theme.colors.textTertiary, marginTop: 2 },
+  quickStatDivider: { width: 1, height: 24, backgroundColor: theme.colors.border },
+  calcActions: { flexDirection: 'row', gap: 8 },
+  actionChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 6, paddingHorizontal: 10,
+    borderRadius: 8, backgroundColor: theme.colors.surfaceSecondary,
+  },
+  actionChipText: { fontSize: 11, fontWeight: '600' as const },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   emptyIconWrap: {
-    width: 80, height: 80, borderRadius: 24,
+    width: 72, height: 72, borderRadius: 22,
     backgroundColor: theme.colors.surface,
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 1, borderColor: theme.colors.border,
-    marginBottom: 20,
+    marginBottom: 18,
   },
-  emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: theme.colors.text, textAlign: 'center' as const, letterSpacing: -0.2 },
+  emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: theme.colors.text, textAlign: 'center' as const },
   emptySubtitle: { fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center' as const, marginTop: 8, lineHeight: 20 },
-  detailHeader: { alignItems: 'center', padding: 20 },
-  detailIconWrap: {
-    width: 44, height: 44, borderRadius: 14,
-    backgroundColor: 'rgba(245, 166, 35, 0.12)',
-    justifyContent: 'center', alignItems: 'center',
-    marginTop: 16, marginBottom: 8,
+  detailTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backText: { fontSize: 15, color: theme.colors.text, fontWeight: '600' as const },
+  detailHeader: { alignItems: 'center', padding: 20 },
   detailTitle: { fontSize: 22, fontWeight: '800' as const, color: theme.colors.text, textAlign: 'center' as const, letterSpacing: -0.3 },
   detailSubtitle: { fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center' as const, marginTop: 4 },
   detailDesc: { fontSize: 14, color: theme.colors.text, textAlign: 'center' as const, marginTop: 8, fontStyle: 'italic' as const },
-  detailActions: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 16 },
-  summaryTitle: { fontSize: 15, fontWeight: '700' as const, color: theme.colors.text, marginBottom: 12, letterSpacing: -0.1 },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  summaryItem: { flex: 1, minWidth: '45%', backgroundColor: theme.colors.surfaceSecondary, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 16 },
+  summaryItem: {
+    flex: 1, minWidth: '45%',
+    backgroundColor: theme.colors.surface, padding: 14, borderRadius: 14,
+    borderWidth: 1, borderColor: theme.colors.border,
+  },
   summaryLabel: { fontSize: 11, color: theme.colors.textTertiary, marginBottom: 4, fontWeight: '500' as const, letterSpacing: 0.3 },
   summaryValue: { fontSize: 15, color: theme.colors.text, fontWeight: '700' as const },
+  footer: { alignItems: 'center', paddingVertical: 28 },
+  footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: theme.colors.border, marginBottom: 14 },
+  footerText: { fontSize: 11, color: theme.colors.textTertiary },
+  footerBrand: { color: theme.colors.primary, fontWeight: '700' as const },
 });

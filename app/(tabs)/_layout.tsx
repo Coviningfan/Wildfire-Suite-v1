@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
-import { Calculator, History, Lightbulb, User } from 'lucide-react-native';
+import { Calculator, History, Lightbulb, User, Sparkles } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { theme } from '@/constants/theme';
 import { Platform } from 'react-native';
@@ -35,7 +35,7 @@ export default function TabLayout() {
           }),
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '600' as const,
           letterSpacing: 0.2,
         },
@@ -53,17 +53,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="calculations"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ color, size }) => <History size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
-        }}
-      />
-      <Tabs.Screen
         name="fixtures"
         options={{
           title: 'Fixtures',
           tabBarIcon: ({ color, size }) => <Lightbulb size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="ai"
+        options={{
+          title: 'AI',
+          tabBarIcon: ({ color, size }) => <Sparkles size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="calculations"
+        options={{
+          title: 'History',
+          tabBarIcon: ({ color, size }) => <History size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
         }}
       />
       <Tabs.Screen

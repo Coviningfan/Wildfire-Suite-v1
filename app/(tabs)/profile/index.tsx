@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { router } from 'expo-router';
-import { User, LogOut, BookOpen, Flame, ChevronRight, Fingerprint, FileDown, Shield } from 'lucide-react-native';
+import { User, LogOut, BookOpen, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Logo } from '@/components/ui/Logo';
-import { PoweredBy } from '@/components/ui/PoweredBy';
 import { OnboardingModal } from '@/components/ui/OnboardingModal';
 import { useAuthStore } from '@/stores/auth-store';
 import { useLightingStore } from '@/stores/lighting-store';
@@ -36,6 +35,7 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: () => { logout(); router.replace('/(auth)/welcome' as any); } },
@@ -86,125 +86,132 @@ export default function ProfileScreen() {
     }
   }, [savedCalculations]);
 
+  const initial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <OnboardingModal visible={showTutorial} onDismiss={() => setShowTutorial(false)} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Logo size="medium" />
-        </View>
-
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarRing}>
+        <View style={styles.profileSection}>
+          <View style={styles.avatarOuter}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
-              </Text>
+              <Text style={styles.avatarText}>{initial}</Text>
             </View>
           </View>
           <Text style={styles.userName}>{user?.name ?? 'User'}</Text>
           <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
+        </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{savedCalculations.length}</Text>
-              <Text style={styles.statLabel}>Calculations</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: theme.colors.glow }]}>
+              <Calculator size={16} color={theme.colors.primary} />
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>23</Text>
-              <Text style={styles.statLabel}>Fixtures</Text>
+            <Text style={styles.statValue}>{savedCalculations.length}</Text>
+            <Text style={styles.statLabel}>Calculations</Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
+              <Lightbulb size={16} color={theme.colors.accent} />
             </View>
+            <Text style={styles.statValue}>23</Text>
+            <Text style={styles.statLabel}>Fixtures</Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+              <Shield size={16} color={theme.colors.success} />
+            </View>
+            <Text style={styles.statValue}>
+              {savedCalculations.filter(c => c.safetyLevel === 'safe').length}
+            </Text>
+            <Text style={styles.statLabel}>Safe</Text>
           </View>
         </View>
 
-        <Card>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <InfoRow label="Name" value={user?.name ?? 'Not available'} />
-          <InfoRow label="Email" value={user?.email ?? 'Not available'} />
-          <InfoRow
-            label="Member Since"
-            value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Not available'}
-            isLast
-          />
-        </Card>
-
-        {Platform.OS !== 'web' && biometricAvailable && (
-          <Card>
-            <Text style={styles.sectionTitle}>Security</Text>
-            <View style={styles.biometricRow}>
-              <View style={styles.biometricIconWrap}>
-                <Fingerprint size={18} color={theme.colors.accent} />
-              </View>
-              <View style={styles.biometricText}>
-                <Text style={styles.biometricTitle}>{biometricType} Login</Text>
-                <Text style={styles.biometricSub}>Quick sign-in using {biometricType.toLowerCase()}</Text>
-              </View>
-              <Switch
-                value={biometricEnabled}
-                onValueChange={handleToggleBiometric}
-                trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.primary + '80' }}
-                thumbColor={biometricEnabled ? theme.colors.primary : theme.colors.textTertiary}
-              />
-            </View>
-          </Card>
-        )}
-
-        <Card>
-          <Text style={styles.sectionTitle}>Data & Export</Text>
-          <TouchableOpacity style={styles.menuItem} onPress={handleExportAll} activeOpacity={0.7} disabled={isExporting}>
-            <View style={[styles.menuIconWrap, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
-              <FileDown size={18} color={theme.colors.success} />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={styles.menuTitle}>Export All Calculations</Text>
-              <Text style={styles.menuSub}>Download as CSV ({savedCalculations.length} records)</Text>
-            </View>
-            <ChevronRight size={18} color={theme.colors.textTertiary} />
-          </TouchableOpacity>
-        </Card>
-
-        <Card>
-          <Text style={styles.sectionTitle}>Help & Tutorial</Text>
-          <TouchableOpacity style={styles.menuItem} onPress={() => setShowTutorial(true)} activeOpacity={0.7}>
-            <View style={styles.menuIconWrap}>
-              <BookOpen size={18} color={theme.colors.primary} />
-            </View>
-            <View style={styles.menuText}>
-              <Text style={styles.menuTitle}>App Tutorial</Text>
-              <Text style={styles.menuSub}>Learn how to use all features</Text>
-            </View>
-            <ChevronRight size={18} color={theme.colors.textTertiary} />
-          </TouchableOpacity>
-        </Card>
-
-        <Card>
-          <Text style={styles.sectionTitle}>FLAME Formula Reference</Text>
-          {FLAME_ITEMS.map(({ letter, title, desc }, index) => (
-            <View key={letter} style={[styles.flameRow, index === FLAME_ITEMS.length - 1 && styles.flameRowLast]}>
-              <View style={[styles.flameBadge, { backgroundColor: FLAME_COLORS[index] }]}>
-                <Text style={styles.flameLetter}>{letter}</Text>
-              </View>
-              <View style={styles.flameContent}>
-                <Text style={styles.flameTitle}>{title}</Text>
-                <Text style={styles.flameDesc}>{desc}</Text>
-              </View>
-            </View>
-          ))}
-        </Card>
-
-        <View style={styles.logoutContainer}>
-          <Button
-            title="Sign Out"
-            onPress={handleLogout}
-            variant="outline"
-            size="large"
-            icon={<LogOut size={18} color={theme.colors.text} />}
-          />
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>ACCOUNT</Text>
+          <View style={styles.menuCard}>
+            <InfoRow label="Name" value={user?.name ?? 'N/A'} />
+            <InfoRow label="Email" value={user?.email ?? 'N/A'} />
+            <InfoRow
+              label="Member Since"
+              value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+              isLast
+            />
+          </View>
         </View>
 
-        <PoweredBy />
+        {Platform.OS !== 'web' && biometricAvailable && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>SECURITY</Text>
+            <View style={styles.menuCard}>
+              <View style={styles.biometricRow}>
+                <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
+                  <Fingerprint size={16} color={theme.colors.accent} />
+                </View>
+                <View style={styles.menuItemText}>
+                  <Text style={styles.menuItemTitle}>{biometricType} Login</Text>
+                  <Text style={styles.menuItemSub}>Quick sign-in</Text>
+                </View>
+                <Switch
+                  value={biometricEnabled}
+                  onValueChange={handleToggleBiometric}
+                  trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.primary + '80' }}
+                  thumbColor={biometricEnabled ? theme.colors.primary : theme.colors.textTertiary}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>ACTIONS</Text>
+          <View style={styles.menuCard}>
+            <MenuItem
+              icon={<FileDown size={16} color={theme.colors.success} />}
+              iconBg="rgba(34, 197, 94, 0.12)"
+              title="Export All Calculations"
+              subtitle={`CSV · ${savedCalculations.length} records`}
+              onPress={handleExportAll}
+            />
+            <MenuItem
+              icon={<BookOpen size={16} color={theme.colors.primary} />}
+              iconBg={theme.colors.glow}
+              title="App Tutorial"
+              subtitle="Learn all features"
+              onPress={() => setShowTutorial(true)}
+              isLast
+            />
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionLabel}>FLAME FORMULA</Text>
+          <View style={styles.menuCard}>
+            {FLAME_ITEMS.map(({ letter, title, desc }, index) => (
+              <View key={letter} style={[styles.flameRow, index === FLAME_ITEMS.length - 1 && styles.flameRowLast]}>
+                <View style={[styles.flameBadge, { backgroundColor: FLAME_COLORS[index] }]}>
+                  <Text style={styles.flameLetter}>{letter}</Text>
+                </View>
+                <View style={styles.flameContent}>
+                  <Text style={styles.flameTitle}>{title}</Text>
+                  <Text style={styles.flameDesc}>{desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
+          <LogOut size={16} color={theme.colors.error} />
+          <Text style={styles.logoutText}>Sign Out</Text>
+        </TouchableOpacity>
+
+        <View style={styles.footer}>
+          <Logo size="small" imageOnly />
+          <Text style={styles.footerVersion}>v1.0.0 · Powered by JABVLabs</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -219,20 +226,35 @@ function InfoRow({ label, value, isLast }: { label: string; value: string; isLas
   );
 }
 
-const FLAME_COLORS = [
-  '#E8412A',
-  '#7C6BF0',
-  '#F5A623',
-  '#22C55E',
-  '#3B82F6',
-];
+function MenuItem({ icon, iconBg, title, subtitle, onPress, isLast }: {
+  icon: React.ReactNode; iconBg: string; title: string; subtitle: string;
+  onPress: () => void; isLast?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      style={[menuStyles.item, isLast === true && menuStyles.itemLast]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={[menuStyles.iconWrap, { backgroundColor: iconBg }]}>
+        {icon}
+      </View>
+      <View style={menuStyles.text}>
+        <Text style={menuStyles.title}>{title}</Text>
+        <Text style={menuStyles.sub}>{subtitle}</Text>
+      </View>
+      <ChevronRight size={16} color={theme.colors.textTertiary} />
+    </TouchableOpacity>
+  );
+}
 
+const FLAME_COLORS = ['#E8412A', '#7C6BF0', '#F5A623', '#22C55E', '#3B82F6'];
 const FLAME_ITEMS = [
-  { letter: 'F', title: 'Fixture', desc: 'Choose the right UV fixture for your application' },
-  { letter: 'L', title: 'Location', desc: 'Set mounting height & horizontal throw distance' },
-  { letter: 'A', title: 'Angle', desc: 'Match beam angle to your target coverage area' },
-  { letter: 'M', title: 'Material', desc: 'UV-reactive surfaces peak at 365-370 nm' },
-  { letter: 'E', title: 'Effect', desc: 'Verify irradiance meets your design requirement' },
+  { letter: 'F', title: 'Fixture', desc: 'Choose the right UV fixture' },
+  { letter: 'L', title: 'Location', desc: 'Set mounting height & throw' },
+  { letter: 'A', title: 'Angle', desc: 'Match beam to coverage area' },
+  { letter: 'M', title: 'Material', desc: 'UV-reactive at 365-370nm' },
+  { letter: 'E', title: 'Effect', desc: 'Verify irradiance requirement' },
 ];
 
 const infoStyles = StyleSheet.create({
@@ -240,80 +262,199 @@ const infoStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
-  rowLast: {
-    borderBottomWidth: 0,
-  },
+  rowLast: { borderBottomWidth: 0 },
   label: { fontSize: 14, color: theme.colors.textSecondary },
   value: { fontSize: 14, color: theme.colors.text, fontWeight: '500' as const },
+});
+
+const menuStyles = StyleSheet.create({
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+  },
+  itemLast: { borderBottomWidth: 0 },
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  text: { flex: 1 },
+  title: { fontSize: 15, fontWeight: '600' as const, color: theme.colors.text },
+  sub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 1 },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   content: { flex: 1 },
-  scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
-  header: { alignItems: 'center', padding: 20, paddingTop: 14, paddingBottom: 8 },
-  avatarSection: { alignItems: 'center', paddingVertical: 16, paddingBottom: 24 },
-  avatarRing: {
-    width: 84, height: 84, borderRadius: 42,
+  scrollContent: { paddingBottom: Platform.select({ ios: 30, android: 110, default: 30 }) },
+  profileSection: {
+    alignItems: 'center',
+    paddingTop: 24,
+    paddingBottom: 20,
+  },
+  avatarOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
     borderWidth: 2,
     borderColor: theme.colors.primary,
-    justifyContent: 'center', alignItems: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 14,
-    ...theme.shadows.glow,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
   },
   avatar: {
-    width: 76, height: 76, borderRadius: 38,
+    width: 72,
+    height: 72,
+    borderRadius: 21,
     backgroundColor: theme.colors.surface,
-    justifyContent: 'center', alignItems: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatarText: { fontSize: 30, fontWeight: '800' as const, color: theme.colors.primary },
-  userName: { fontSize: 22, fontWeight: '700' as const, color: theme.colors.text, letterSpacing: -0.3 },
-  userEmail: { fontSize: 14, color: theme.colors.textSecondary, marginTop: 3 },
+  avatarText: {
+    fontSize: 28,
+    fontWeight: '800' as const,
+    color: theme.colors.primary,
+  },
+  userName: {
+    fontSize: 22,
+    fontWeight: '700' as const,
+    color: theme.colors.text,
+    letterSpacing: -0.3,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    marginTop: 3,
+  },
   statsRow: {
-    flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 0,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
     backgroundColor: theme.colors.surface,
     borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
   },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 24, fontWeight: '800' as const, color: theme.colors.text },
-  statLabel: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2, fontWeight: '500' as const, letterSpacing: 0.3 },
-  statDivider: { width: 1, height: 32, backgroundColor: theme.colors.border, marginHorizontal: 20 },
-  sectionTitle: { fontSize: 15, fontWeight: '700' as const, color: theme.colors.text, marginBottom: 10, letterSpacing: -0.1 },
-  biometricRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  biometricIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(124, 107, 240, 0.12)',
-    justifyContent: 'center', alignItems: 'center',
+  statIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  biometricText: { flex: 1 },
-  biometricTitle: { fontSize: 15, fontWeight: '600' as const, color: theme.colors.text },
-  biometricSub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
-  menuIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: theme.colors.glow,
-    justifyContent: 'center', alignItems: 'center',
+  statValue: {
+    fontSize: 20,
+    fontWeight: '800' as const,
+    color: theme.colors.text,
   },
-  menuText: { flex: 1 },
-  menuTitle: { fontSize: 15, fontWeight: '600' as const, color: theme.colors.text },
-  menuSub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
-  flameRow: { flexDirection: 'row', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border },
+  statLabel: {
+    fontSize: 10,
+    color: theme.colors.textTertiary,
+    fontWeight: '500' as const,
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  sectionContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 20,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: theme.colors.textTertiary,
+    letterSpacing: 1,
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  menuCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  biometricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuItemIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuItemText: { flex: 1 },
+  menuItemTitle: { fontSize: 15, fontWeight: '600' as const, color: theme.colors.text },
+  menuItemSub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 1 },
+  flameRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingBottom: 12,
+    marginBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+  },
   flameRowLast: { borderBottomWidth: 0, marginBottom: 0, paddingBottom: 0 },
   flameBadge: {
-    width: 32, height: 32, borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center',
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  flameLetter: { fontSize: 14, fontWeight: '800' as const, color: '#fff' },
+  flameLetter: { fontSize: 13, fontWeight: '800' as const, color: '#fff' },
   flameContent: { flex: 1 },
   flameTitle: { fontSize: 14, fontWeight: '700' as const, color: theme.colors.text },
-  flameDesc: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2, lineHeight: 17 },
-  logoutContainer: { paddingHorizontal: 16, paddingVertical: 16 },
+  flameDesc: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: theme.colors.error,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingBottom: 16,
+    gap: 8,
+  },
+  footerVersion: {
+    fontSize: 11,
+    color: theme.colors.textTertiary,
+  },
 });
