@@ -51,7 +51,7 @@ interface LightingState {
   openQRScanner: () => void;
   closeQRScanner: () => void;
   handleQRScan: (data: string) => void;
-  saveCalculation: (name: string, description?: string, projectId?: string) => void;
+  saveCalculation: (name: string, description?: string, projectId?: string) => boolean;
   deleteCalculation: (id: string) => void;
   loadCalculation: (id: string) => void;
   getSafetyLevel: (result: CalculationResponse) => 'safe' | 'caution' | 'warning' | 'danger';
@@ -139,12 +139,16 @@ export const useLightingStore = create<LightingState>()(
 
       saveCalculation: (name: string, description?: string, projectId?: string) => {
         const state = get();
-        if (!state.lastCalculation || 'error' in state.lastCalculation) return;
+        if (!state.lastCalculation || 'error' in state.lastCalculation) {
+          console.log('saveCalculation skipped: missing or invalid lastCalculation');
+          return false;
+        }
+        const timestamp = Date.now();
         const calculation: SavedCalculation = {
-          id: Date.now().toString(),
+          id: `${timestamp}-${Math.floor(Math.random() * 100000)}`,
           name,
           description,
-          timestamp: Date.now(),
+          timestamp,
           fixture: state.selectedFixture,
           inputs: {
             verticalHeight: state.verticalHeight,
@@ -160,6 +164,8 @@ export const useLightingStore = create<LightingState>()(
           safetyLevel: state.getSafetyLevel(state.lastCalculation),
         };
         set(s => ({ savedCalculations: [calculation, ...s.savedCalculations] }));
+        console.log('saveCalculation success:', calculation.id, calculation.name);
+        return true;
       },
 
       deleteCalculation: (id: string) => {

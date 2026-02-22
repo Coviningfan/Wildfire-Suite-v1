@@ -49,10 +49,14 @@ export default function CalculatorScreen() {
   }, [selectedFixture, calculate]);
 
   const handleSaveCalculation = useCallback((name: string, description?: string, projectId?: string) => {
-    saveCalculation(name, description, projectId);
-    setShowSaveModal(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Saved', 'Calculation saved to your history.');
+    const didSave = saveCalculation(name, description, projectId);
+    if (didSave) {
+      setShowSaveModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Saved', 'Calculation saved to your history.');
+    } else {
+      Alert.alert('Unable to Save', 'Run a calculation first, then try saving again.');
+    }
   }, [saveCalculation]);
 
   const handleAIInsight = useCallback(async () => {
