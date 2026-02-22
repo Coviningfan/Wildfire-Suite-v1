@@ -1,0 +1,153 @@
+import { TextStyle } from 'react-native';
+
+type FontWeight = '100' | '200' | '300' | '400' | '500' | '600' | '700' | '800' | '900' | 'normal' | 'bold';
+
+export const theme = {
+  colors: {
+    background: '#09090B',
+    surface: '#16161A',
+    surfaceSecondary: '#1E1E24',
+    surfaceElevated: '#28282F',
+    border: '#2A2A32',
+    borderSubtle: '#222229',
+    borderFocus: '#E8412A',
+    text: '#F4F4F5',
+    textSecondary: '#A1A1AA',
+    textTertiary: '#71717A',
+    textInverse: '#09090B',
+    primary: '#E8412A',
+    primaryLight: '#F06B57',
+    primaryDark: '#C22B18',
+    secondary: '#F5A623',
+    secondaryLight: '#F7BC55',
+    secondaryDark: '#D4900E',
+    success: '#22C55E',
+    successLight: '#4ADE80',
+    successDark: '#16A34A',
+    warning: '#F5A623',
+    warningLight: '#F7BC55',
+    warningDark: '#D4900E',
+    error: '#EF4444',
+    errorLight: '#F87171',
+    errorDark: '#DC2626',
+    accent: '#7C6BF0',
+    accentLight: '#9B8DF7',
+    accentDark: '#5B49D6',
+    focus: '#3B82F6',
+    disabled: '#52525B',
+    placeholder: '#71717A',
+    safetyGreen: '#22C55E',
+    safetyYellow: '#EAB308',
+    safetyRed: '#EF4444',
+    safetyOrange: '#F97316',
+    glow: 'rgba(232, 65, 42, 0.15)',
+    glowStrong: 'rgba(232, 65, 42, 0.25)',
+  },
+
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+    xxl: 48,
+    xxxl: 64,
+    touchTarget: 56,
+    minTouch: 44,
+  },
+
+  borderRadius: {
+    none: 0,
+    sm: 6,
+    md: 10,
+    lg: 14,
+    xl: 20,
+    xxl: 28,
+    full: 9999,
+  },
+
+  typography: {
+    h1: {
+      fontSize: 26,
+      fontWeight: '700' as FontWeight,
+      lineHeight: 34,
+      letterSpacing: -0.3,
+    } as TextStyle,
+    h2: {
+      fontSize: 21,
+      fontWeight: '700' as FontWeight,
+      lineHeight: 28,
+      letterSpacing: -0.2,
+    } as TextStyle,
+    h3: {
+      fontSize: 18,
+      fontWeight: '600' as FontWeight,
+      lineHeight: 24,
+      letterSpacing: -0.1,
+    } as TextStyle,
+    body: {
+      fontSize: 16,
+      fontWeight: '400' as FontWeight,
+      lineHeight: 24,
+      letterSpacing: 0.1,
+    } as TextStyle,
+    bodySmall: {
+      fontSize: 14,
+      fontWeight: '400' as FontWeight,
+      lineHeight: 20,
+      letterSpacing: 0.15,
+    } as TextStyle,
+    label: {
+      fontSize: 14,
+      fontWeight: '500' as FontWeight,
+      lineHeight: 18,
+      letterSpacing: 0.05,
+    } as TextStyle,
+    caption: {
+      fontSize: 12,
+      fontWeight: '400' as FontWeight,
+      lineHeight: 16,
+      letterSpacing: 0.3,
+    } as TextStyle,
+    button: {
+      fontSize: 16,
+      fontWeight: '600' as FontWeight,
+      lineHeight: 20,
+      letterSpacing: 0,
+    } as TextStyle,
+  },
+
+  shadows: {
+    sm: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.25,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    md: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+    lg: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    glow: {
+      shadowColor: '#E8412A',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 6,
+    },
+  },
+} as const;
+
+export type Theme = typeof theme;
+export default theme;
