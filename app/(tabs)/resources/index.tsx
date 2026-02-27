@@ -1,26 +1,27 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  Platform, Linking, Alert, Animated,
+  Platform, Linking, Alert, TextInput,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import {
   BookOpen, GraduationCap, ShieldAlert, FileBarChart,
   Settings2, Ruler, Award, ExternalLink, FileText,
-  Archive, ChevronRight, Search, X,
+  Archive, ChevronRight, Search, X, Clock,
+  Atom, Zap, Lightbulb, Flame, Cpu, Camera,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '@/constants/theme';
 import { WILDFIRE_RESOURCES, ResourceCategory, ResourceItem } from '@/constants/resources';
+import { TUTORIALS, Tutorial } from '@/constants/tutorials';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Award,
-  GraduationCap,
-  ShieldAlert,
-  FileBarChart,
-  BookOpen,
-  Settings2,
-  Ruler,
+  Award, GraduationCap, ShieldAlert, FileBarChart, BookOpen, Settings2, Ruler,
+};
+
+const TUTORIAL_ICON_MAP: Record<string, React.ComponentType<any>> = {
+  Atom, Zap, Lightbulb, Flame, Cpu, Camera, BookOpen,
 };
 
 const FORMAT_META: Record<string, { label: string; icon: React.ComponentType<any>; color: string }> = {
@@ -46,26 +47,44 @@ async function openUrl(url: string) {
   }
 }
 
+type TabKey = 'tutorials' | 'documents';
+
 export default function ResourcesScreen() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabKey>('tutorials');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const totalDocs = useMemo(() =>
-    WILDFIRE_RESOURCES.reduce((sum, cat) => sum + cat.items.length, 0),
+  const docCategories = useMemo(() =>
+    WILDFIRE_RESOURCES.filter(c => c.id !== 'tutorials'),
     []
   );
 
-  const filteredResources = useMemo(() => {
-    if (!searchQuery.trim()) return WILDFIRE_RESOURCES;
+  const totalDocs = useMemo(() =>
+    docCategories.reduce((sum, cat) => sum + cat.items.length, 0),
+    [docCategories]
+  );
+
+  const filteredTutorials = useMemo(() => {
+    if (!searchQuery.trim()) return TUTORIALS;
     const q = searchQuery.toLowerCase();
-    return WILDFIRE_RESOURCES.map(cat => ({
+    return TUTORIALS.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      t.subtitle.toLowerCase().includes(q)
+    );
+  }, [searchQuery]);
+
+  const filteredResources = useMemo(() => {
+    if (!searchQuery.trim()) return docCategories;
+    const q = searchQuery.toLowerCase();
+    return docCategories.map(cat => ({
       ...cat,
       items: cat.items.filter(item =>
         item.title.toLowerCase().includes(q) ||
         cat.title.toLowerCase().includes(q)
       ),
     })).filter(cat => cat.items.length > 0);
-  }, [searchQuery]);
+  }, [searchQuery, docCategories]);
 
   const handleToggleCategory = useCallback((id: string) => {
     Haptics.selectionAsync();
@@ -76,6 +95,11 @@ export default function ResourcesScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await openUrl(item.url);
   }, []);
+
+  const handleOpenTutorial = useCallback((tutorial: Tutorial) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/resources/${tutorial.id}` as any);
+  }, [router]);
 
   const hasSearch = searchQuery.trim().length > 0;
 
@@ -88,23 +112,42 @@ export default function ResourcesScreen() {
           </View>
           <View>
             <Text style={styles.screenTitle}>Resources</Text>
-            <Text style={styles.screenSub}>{totalDocs} documents available</Text>
+            <Text style={styles.screenSub}>
+              {TUTORIALS.length} tutorials · {totalDocs} documents
+            </Text>
           </View>
         </View>
+      </View>
+
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'tutorials' && styles.tabActive]}
+          onPress={() => { Haptics.selectionAsync(); setActiveTab('tutorials'); }}
+          activeOpacity={0.7}
+        >
+          <GraduationCap size={15} color={activeTab === 'tutorials' ? theme.colors.primary : theme.colors.textTertiary} />
+          <Text style={[styles.tabText, activeTab === 'tutorials' && styles.tabTextActive]}>Tutorials</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'documents' && styles.tabActive]}
+          onPress={() => { Haptics.selectionAsync(); setActiveTab('documents'); }}
+          activeOpacity={0.7}
+        >
+          <FileText size={15} color={activeTab === 'documents' ? theme.colors.primary : theme.colors.textTertiary} />
+          <Text style={[styles.tabText, activeTab === 'documents' && styles.tabTextActive]}>Documents</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchWrap}>
         <View style={styles.searchBar}>
           <Search size={16} color={theme.colors.textTertiary} />
-          <View style={styles.searchInputWrap}>
-            <TextInputNative
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search documents..."
-              placeholderTextColor={theme.colors.placeholder}
-            />
-          </View>
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={activeTab === 'tutorials' ? 'Search tutorials...' : 'Search documents...'}
+            placeholderTextColor={theme.colors.placeholder}
+          />
           {hasSearch && (
             <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <X size={16} color={theme.colors.textTertiary} />
@@ -119,78 +162,123 @@ export default function ResourcesScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {filteredResources.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Search size={28} color={theme.colors.textTertiary} />
-            </View>
-            <Text style={styles.emptyTitle}>No Results</Text>
-            <Text style={styles.emptySub}>Try a different search term.</Text>
-          </View>
-        ) : (
-          filteredResources.map((category) => {
-            const isExpanded = expandedCategory === category.id || hasSearch;
-            const IconComponent = ICON_MAP[category.icon] ?? BookOpen;
-            return (
-              <View key={category.id} style={styles.categoryCard}>
-                <TouchableOpacity
-                  style={styles.categoryHeader}
-                  onPress={() => handleToggleCategory(category.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.categoryIconWrap, { backgroundColor: category.color + '18' }]}>
-                    <IconComponent size={18} color={category.color} />
-                  </View>
-                  <View style={styles.categoryTextWrap}>
-                    <Text style={styles.categoryTitle}>{category.title}</Text>
-                    <Text style={styles.categoryCount}>
-                      {category.items.length} document{category.items.length !== 1 ? 's' : ''}
-                    </Text>
-                  </View>
-                  <View style={[styles.chevronWrap, isExpanded && styles.chevronExpanded]}>
-                    <ChevronRight size={16} color={theme.colors.textTertiary} />
-                  </View>
-                </TouchableOpacity>
-
-                {isExpanded && (
-                  <View style={styles.itemsList}>
-                    {category.items.map((item, idx) => {
-                      const fmt = FORMAT_META[item.format];
-                      const FormatIcon = fmt.icon;
-                      const isLast = idx === category.items.length - 1;
-                      return (
-                        <TouchableOpacity
-                          key={item.title + idx}
-                          style={[styles.itemRow, isLast && styles.itemRowLast]}
-                          onPress={() => handleOpenResource(item)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={[styles.formatBadge, { backgroundColor: fmt.color + '14' }]}>
-                            <FormatIcon size={13} color={fmt.color} />
-                          </View>
-                          <View style={styles.itemTextWrap}>
-                            <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
-                            <Text style={[styles.itemFormat, { color: fmt.color }]}>{fmt.label}</Text>
-                          </View>
-                          <ExternalLink size={14} color={theme.colors.textTertiary} />
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
+        {activeTab === 'tutorials' && (
+          <>
+            {filteredTutorials.length === 0 ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIcon}>
+                  <Search size={28} color={theme.colors.textTertiary} />
+                </View>
+                <Text style={styles.emptyTitle}>No Results</Text>
+                <Text style={styles.emptySub}>Try a different search term.</Text>
               </View>
-            );
-          })
+            ) : (
+              filteredTutorials.map((tutorial) => {
+                const TutIcon = TUTORIAL_ICON_MAP[tutorial.icon] ?? BookOpen;
+                return (
+                  <TouchableOpacity
+                    key={tutorial.id}
+                    style={styles.tutorialCard}
+                    onPress={() => handleOpenTutorial(tutorial)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.tutorialIconWrap, { backgroundColor: tutorial.color + '18' }]}>
+                      <TutIcon size={20} color={tutorial.color} />
+                    </View>
+                    <View style={styles.tutorialInfo}>
+                      <Text style={styles.tutorialTitle}>{tutorial.title}</Text>
+                      <Text style={styles.tutorialSubtitle} numberOfLines={1}>{tutorial.subtitle}</Text>
+                      <View style={styles.tutorialMeta}>
+                        <Clock size={11} color={theme.colors.textTertiary} />
+                        <Text style={styles.tutorialMetaText}>{tutorial.readTime}</Text>
+                        <View style={styles.tutorialDot} />
+                        <Text style={styles.tutorialMetaText}>{tutorial.sections.length} sections</Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={16} color={theme.colors.textTertiary} />
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </>
         )}
 
-        <TouchableOpacity
-          style={styles.supportLink}
-          onPress={() => openUrl('https://wildfirelighting.com/support/')}
-          activeOpacity={0.7}
-        >
-          <ExternalLink size={14} color={theme.colors.primary} />
-          <Text style={styles.supportLinkText}>View all on wildfirelighting.com</Text>
-        </TouchableOpacity>
+        {activeTab === 'documents' && (
+          <>
+            {filteredResources.length === 0 ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIcon}>
+                  <Search size={28} color={theme.colors.textTertiary} />
+                </View>
+                <Text style={styles.emptyTitle}>No Results</Text>
+                <Text style={styles.emptySub}>Try a different search term.</Text>
+              </View>
+            ) : (
+              filteredResources.map((category) => {
+                const isExpanded = expandedCategory === category.id || hasSearch;
+                const IconComponent = ICON_MAP[category.icon] ?? BookOpen;
+                return (
+                  <View key={category.id} style={styles.categoryCard}>
+                    <TouchableOpacity
+                      style={styles.categoryHeader}
+                      onPress={() => handleToggleCategory(category.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.categoryIconWrap, { backgroundColor: category.color + '18' }]}>
+                        <IconComponent size={18} color={category.color} />
+                      </View>
+                      <View style={styles.categoryTextWrap}>
+                        <Text style={styles.categoryTitle}>{category.title}</Text>
+                        <Text style={styles.categoryCount}>
+                          {category.items.length} document{category.items.length !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                      <View style={[styles.chevronWrap, isExpanded && styles.chevronExpanded]}>
+                        <ChevronRight size={16} color={theme.colors.textTertiary} />
+                      </View>
+                    </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View style={styles.itemsList}>
+                        {category.items.map((item, idx) => {
+                          const fmt = FORMAT_META[item.format];
+                          const FormatIcon = fmt.icon;
+                          const isLast = idx === category.items.length - 1;
+                          return (
+                            <TouchableOpacity
+                              key={item.title + idx}
+                              style={[styles.itemRow, isLast && styles.itemRowLast]}
+                              onPress={() => handleOpenResource(item)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[styles.formatBadge, { backgroundColor: fmt.color + '14' }]}>
+                                <FormatIcon size={13} color={fmt.color} />
+                              </View>
+                              <View style={styles.itemTextWrap}>
+                                <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
+                                <Text style={[styles.itemFormat, { color: fmt.color }]}>{fmt.label}</Text>
+                              </View>
+                              <ExternalLink size={14} color={theme.colors.textTertiary} />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              })
+            )}
+
+            <TouchableOpacity
+              style={styles.supportLink}
+              onPress={() => openUrl('https://wildfirelighting.com/support/')}
+              activeOpacity={0.7}
+            >
+              <ExternalLink size={14} color={theme.colors.primary} />
+              <Text style={styles.supportLinkText}>View all on wildfirelighting.com</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <View style={styles.footer}>
           <View style={styles.footerDivider} />
@@ -199,11 +287,6 @@ export default function ResourcesScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function TextInputNative(props: React.ComponentProps<typeof import('react-native').TextInput>) {
-  const { TextInput } = require('react-native');
-  return <TextInput {...props} />;
 }
 
 const styles = StyleSheet.create({
@@ -240,6 +323,36 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
     marginTop: 1,
   },
+  tabRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 12,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  tabActive: {
+    backgroundColor: theme.colors.glow,
+    borderColor: 'rgba(232, 65, 42, 0.25)',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: theme.colors.textTertiary,
+  },
+  tabTextActive: {
+    color: theme.colors.primary,
+  },
   searchWrap: {
     paddingHorizontal: 16,
     paddingBottom: 12,
@@ -255,8 +368,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  searchInputWrap: { flex: 1 },
   searchInput: {
+    flex: 1,
     fontSize: 14,
     color: theme.colors.text,
     padding: 0,
@@ -266,6 +379,57 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }),
+  },
+  tutorialCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  tutorialIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tutorialInfo: {
+    flex: 1,
+  },
+  tutorialTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: theme.colors.text,
+    letterSpacing: -0.1,
+    marginBottom: 2,
+  },
+  tutorialSubtitle: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '500' as const,
+    marginBottom: 6,
+  },
+  tutorialMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  tutorialMetaText: {
+    fontSize: 11,
+    color: theme.colors.textTertiary,
+    fontWeight: '500' as const,
+  },
+  tutorialDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: theme.colors.textTertiary,
+    marginHorizontal: 3,
   },
   categoryCard: {
     backgroundColor: theme.colors.surface,
