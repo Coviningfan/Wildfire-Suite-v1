@@ -1,16 +1,18 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { Lightbulb, Search, Filter, X, Sparkles, Zap } from 'lucide-react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
+import { Lightbulb, Search, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { useLightingStore } from '@/stores/lighting-store';
 import { Input } from '@/components/ui/Input';
-import { Picker } from '@/components/ui/Picker';
 import { FixtureCard } from '@/components/fixtures/FixtureCard';
 import { FixtureDetailModal } from '@/components/fixtures/FixtureDetailModal';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getFixtureCategory, FIXTURE_SERIES_LABELS, getFixtureControlType, getFixturePowerWatts } from '@/utils/fixture-helpers';
+import { getFixtureCategory, FIXTURE_SERIES_LABELS, getFixtureControlType } from '@/utils/fixture-helpers';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmallPhone = SCREEN_WIDTH < 380;
 
 const SERIES_COLORS: Record<string, string> = {
   VSP: '#E8412A',
@@ -36,29 +38,25 @@ function getSeriesKey(category: string) {
 export default function FixtureLibraryScreen() {
   const { selectedFixture, setSelectedFixture } = useLightingStore();
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [selectedSeries, setSelectedSeries] = useState<string>('');
   const [detailFixture, setDetailFixture] = useState<string | null>(null);
 
   const fixtureModels = LightingCalculator.getFixtureModels();
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(fixtureModels.map(getFixtureCategory)));
-    return ['', ...cats];
+    return cats;
   }, [fixtureModels]);
-
-  const categoryOptions = useMemo(() =>
-    categories.map(c => (c === '' ? 'All Series' : c)), [categories]);
 
   const filteredFixtures = useMemo(() =>
     fixtureModels.filter(model => {
       const matchesSearch = searchQuery === '' ||
         model.toLowerCase().includes(searchQuery.toLowerCase()) ||
         getFixtureCategory(model).toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = selectedCategory === '' || selectedCategory === 'All Series' ||
-        getFixtureCategory(model) === selectedCategory;
-      return matchesSearch && matchesCategory;
-    }), [fixtureModels, searchQuery, selectedCategory]);
+      const matchesSeries = selectedSeries === '' ||
+        getSeriesKey(getFixtureCategory(model)) === selectedSeries;
+      return matchesSearch && matchesSeries;
+    }), [fixtureModels, searchQuery, selectedSeries]);
 
   const groupedFixtures = useMemo(() =>
     filteredFixtures.reduce<Record<string, string[]>>((acc, model) => {
@@ -70,8 +68,10 @@ export default function FixtureLibraryScreen() {
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
-    setSelectedCategory('');
+    setSelectedSeries('');
   }, []);
+
+  const hasFilters = searchQuery !== '' || selectedSeries !== '';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -95,46 +95,60 @@ export default function FixtureLibraryScreen() {
           </View>
           <View>
             <Text style={styles.screenTitle}>Fixtures</Text>
-            <Text style={styles.screenSub}>{fixtureModels.length} models</Text>
+            <Text style={styles.screenSub}>{filteredFixtures.length} of {fixtureModels.length} models</Text>
           </View>
         </View>
-      </View>
-
-      <View style={styles.seriesRow}>
-        {Object.entries(FIXTURE_SERIES_LABELS).map(([key, label]) => {
-          const shortLabel = key;
-          const isActive = selectedCategory === '' || getSeriesKey(selectedCategory) === key;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[styles.seriesChip, { borderColor: isActive ? getSeriesColor(key) + '40' : theme.colors.border, backgroundColor: isActive ? getSeriesColor(key) + '10' : 'transparent' }]}
-              onPress={() => {
-                Haptics.selectionAsync();
-                if (getSeriesKey(selectedCategory) === key) {
-                  setSelectedCategory('');
-                } else {
-                  const cat = categories.find(c => c.startsWith(key));
-                  setSelectedCategory(cat ?? '');
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.seriesChipDot, { backgroundColor: getSeriesColor(key) }]} />
-              <Text style={[styles.seriesChipText, { color: isActive ? getSeriesColor(key) : theme.colors.textTertiary }]}>{shortLabel}</Text>
-            </TouchableOpacity>
-          );
-        })}
+        {hasFilters && (
+          <TouchableOpacity style={styles.clearBtn} onPress={clearFilters} activeOpacity={0.7}>
+            <X size={14} color={theme.colors.error} />
+            <Text style={styles.clearBtnText}>Clear</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.searchSection}>
         <Input label="" value={searchQuery} onChangeText={setSearchQuery} placeholder="Search fixtures..." />
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.seriesScroll}
+        contentContainerStyle={styles.seriesScrollContent}
+      >
+        {Object.entries(FIXTURE_SERIES_LABELS).map(([key, label]) => {
+          const isActive = selectedSeries === key;
+          const color = getSeriesColor(key);
+          const count = fixtureModels.filter(m => getSeriesKey(getFixtureCategory(m)) === key).length;
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[
+                styles.seriesChip,
+                {
+                  borderColor: isActive ? color + '60' : theme.colors.border,
+                  backgroundColor: isActive ? color + '14' : theme.colors.surface,
+                },
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedSeries(selectedSeries === key ? '' : key);
+              }}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.seriesChipDot, { backgroundColor: color }]} />
+              <Text style={[styles.seriesChipText, { color: isActive ? color : theme.colors.textSecondary }]}>{key}</Text>
+              <Text style={[styles.seriesChipCount, { color: isActive ? color : theme.colors.textTertiary }]}>{count}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {Object.keys(groupedFixtures).length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconWrap}>
-              <Search size={32} color={theme.colors.textTertiary} />
+              <Search size={28} color={theme.colors.textTertiary} />
             </View>
             <Text style={styles.emptyTitle}>No Fixtures Found</Text>
             <Text style={styles.emptySubtitle}>Try a different search or clear filters.</Text>
@@ -151,12 +165,12 @@ export default function FixtureLibraryScreen() {
                 <View style={styles.categoryHeader}>
                   <View style={[styles.categoryLine, { backgroundColor: color }]} />
                   <View style={styles.categoryTitleWrap}>
-                    <Text style={styles.categoryTitle}>{category}</Text>
+                    <Text style={styles.categoryTitle} numberOfLines={1}>{category}</Text>
                     <View style={styles.categoryMeta}>
                       <View style={[styles.controlBadge, { backgroundColor: color + '14' }]}>
                         <Text style={[styles.controlText, { color }]}>{getFixtureControlType(fixtures[0])}</Text>
                       </View>
-                      <Text style={styles.categoryCount}>{fixtures.length} fixtures</Text>
+                      <Text style={styles.categoryCount}>{fixtures.length} fixture{fixtures.length !== 1 ? 's' : ''}</Text>
                     </View>
                   </View>
                 </View>
@@ -191,20 +205,19 @@ export default function FixtureLibraryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   scrollContainer: { flex: 1 },
-  scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
+  scrollContent: { paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }) },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   topBarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1,
   },
   titleIcon: {
     width: 36,
@@ -215,7 +228,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   screenTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800' as const,
     color: theme.colors.text,
     letterSpacing: -0.3,
@@ -226,19 +239,40 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
     marginTop: 1,
   },
-  seriesRow: {
+  clearBtn: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
+  clearBtnText: {
+    fontSize: 12,
+    color: theme.colors.error,
+    fontWeight: '600' as const,
+  },
+  searchSection: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  seriesScroll: {
+    maxHeight: 44,
+  },
+  seriesScrollContent: {
+    paddingHorizontal: 16,
     gap: 8,
+    alignItems: 'center',
+    paddingBottom: 10,
   },
   seriesChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    gap: 6,
+    paddingHorizontal: isSmallPhone ? 10 : 12,
+    paddingVertical: 7,
+    borderRadius: 10,
     borderWidth: 1,
   },
   seriesChipDot: {
@@ -247,10 +281,13 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   seriesChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700' as const,
   },
-  searchSection: { paddingHorizontal: 16, marginBottom: 4 },
+  seriesChipCount: {
+    fontSize: 10,
+    fontWeight: '600' as const,
+  },
   categorySection: {
     marginBottom: 16,
     paddingHorizontal: 16,
@@ -258,8 +295,8 @@ const styles = StyleSheet.create({
   categoryHeader: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 12,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 10,
   },
   categoryLine: {
     width: 3,
@@ -269,7 +306,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryTitle: {
-    fontSize: 14,
+    fontSize: isSmallPhone ? 13 : 14,
     fontWeight: '700' as const,
     color: theme.colors.text,
     letterSpacing: -0.1,
@@ -295,7 +332,7 @@ const styles = StyleSheet.create({
     fontWeight: '500' as const,
   },
   fixturesGrid: { gap: 8 },
-  emptyContainer: { alignItems: 'center', padding: 40 },
+  emptyContainer: { alignItems: 'center', padding: 40, marginTop: 20 },
   emptyIconWrap: {
     width: 64, height: 64, borderRadius: 20,
     backgroundColor: theme.colors.surface,

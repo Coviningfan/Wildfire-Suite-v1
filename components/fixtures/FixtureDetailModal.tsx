@@ -1,9 +1,9 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Modal,
+  TouchableOpacity, Modal, Linking, Platform,
 } from 'react-native';
-import { X, Lightbulb, Radio, Zap, Activity, Info, FileDown, ExternalLink } from 'lucide-react-native';
+import { X, Lightbulb, Radio, Zap, Activity, Info, FileDown, ExternalLink, ShoppingCart, Calculator, Share2, Shield, BarChart3, Globe, HelpCircle } from 'lucide-react-native';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { FixtureCoverageCard } from '@/components/fixtures/FixtureCoverageCard';
 import { theme } from '@/constants/theme';
@@ -15,14 +15,41 @@ import {
   getFixturePowerWatts,
   getFixtureNotes,
 } from '@/utils/fixture-helpers';
-import { exportTechSheet, getFixtureManualUrl } from '@/utils/file-helpers';
-import { Alert, Platform } from 'react-native';
+import {
+  exportTechSheet,
+  getFixtureManualUrl,
+  getFixtureStoreUrl,
+  getFixtureSpecPageUrl,
+  getFixtureSafetyGuideUrl,
+  getFixtureComparisonUrl,
+  getWildfireMainUrl,
+  getWildfireSupportUrl,
+} from '@/utils/file-helpers';
+import { Alert } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 interface Props {
   model: string;
   isSelected: boolean;
   onSelect: () => void;
   onClose: () => void;
+}
+
+async function openUrl(url: string) {
+  try {
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+    } else {
+      const WebBrowser = await import('expo-web-browser');
+      await WebBrowser.openBrowserAsync(url);
+    }
+  } catch {
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Open Link', `Visit: ${url}`);
+    }
+  }
 }
 
 export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Props) {
@@ -32,6 +59,49 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
   const dmxChannels = getFixtureDMXChannels(model);
   const powerWatts = getFixturePowerWatts(model);
   const notes = getFixtureNotes(model);
+  const storeUrl = getFixtureStoreUrl(model);
+  const specPageUrl = getFixtureSpecPageUrl(model);
+  const comparisonUrl = getFixtureComparisonUrl(model);
+  const safetyGuideUrl = getFixtureSafetyGuideUrl();
+
+  const handleShare = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const lines = [
+      `${model} — Wildfire Lighting`,
+      `Series: ${getFixtureSeries(model)}`,
+      `Control: ${controlType}`,
+    ];
+    if (powerWatts) lines.push(`Power: ${powerWatts}W`);
+    if (data) {
+      lines.push(`Beam Angle: ${data.beam_h_deg}° × ${data.beam_v_deg}°`);
+      lines.push(`Peak Irradiance: ${data.peak_irradiance_mWm2.toLocaleString()} mW/m²`);
+    }
+    if (storeUrl) lines.push(`\nStore: ${storeUrl}`);
+    const text = lines.join('\n');
+
+    if (Platform.OS === 'web') {
+      try {
+        await navigator.clipboard.writeText(text);
+        Alert.alert('Copied', 'Fixture info copied to clipboard.');
+      } catch {
+        Alert.alert('Fixture Info', text);
+      }
+      return;
+    }
+    try {
+      const Sharing = await import('expo-sharing');
+      const { File, Paths } = await import('expo-file-system');
+      const file = new File(Paths.cache, `${model}_info.txt`);
+      file.create({ overwrite: true });
+      file.write(text);
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(file.uri, { mimeType: 'text/plain', dialogTitle: `Share ${model} Info` });
+      }
+    } catch {
+      Alert.alert('Fixture Info', text);
+    }
+  };
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
@@ -112,12 +182,13 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
               </View>
             )}
 
-            <View style={styles.exportSection}>
-              <Text style={styles.sectionTitle}>Documents</Text>
-              <View style={styles.exportRow}>
+            <View style={styles.docsSection}>
+              <Text style={styles.sectionTitle}>Documents & Links</Text>
+              <View style={styles.docsGrid}>
                 <TouchableOpacity
-                  style={styles.exportBtn}
+                  style={styles.docBtn}
                   onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     const result = await exportTechSheet(model);
                     if (result.success) {
                       Alert.alert('Exported', 'Tech sheet exported successfully.');
@@ -127,28 +198,139 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
                   }}
                   activeOpacity={0.7}
                 >
-                  <FileDown size={16} color={theme.colors.accent} />
-                  <Text style={styles.exportBtnText}>Tech Sheet</Text>
+                  <View style={[styles.docIconWrap, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
+                    <FileDown size={16} color={theme.colors.accent} />
+                  </View>
+                  <Text style={styles.docBtnLabel}>Tech Sheet</Text>
+                  <Text style={styles.docBtnSub}>Export .txt</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
-                  style={styles.exportBtn}
+                  style={styles.docBtn}
                   onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     const url = await getFixtureManualUrl(model);
                     if (url) {
-                      try {
-                        const WebBrowser = await import('expo-web-browser');
-                        await WebBrowser.openBrowserAsync(url);
-                      } catch {
-                        Alert.alert('Manual', `Visit: ${url}`);
-                      }
+                      await openUrl(url);
                     } else {
-                      Alert.alert('Not Available', 'Manual URL not available for this fixture.');
+                      Alert.alert('Not Available', 'Product page not available for this fixture.');
                     }
                   }}
                   activeOpacity={0.7}
                 >
-                  <ExternalLink size={16} color={theme.colors.secondary} />
-                  <Text style={styles.exportBtnText}>Manual</Text>
+                  <View style={[styles.docIconWrap, { backgroundColor: 'rgba(245, 166, 35, 0.12)' }]}>
+                    <ExternalLink size={16} color={theme.colors.secondary} />
+                  </View>
+                  <Text style={styles.docBtnLabel}>Product Page</Text>
+                  <Text style={styles.docBtnSub}>Manual & specs</Text>
+                </TouchableOpacity>
+
+                {storeUrl && (
+                  <TouchableOpacity
+                    style={styles.docBtn}
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      await openUrl(storeUrl);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.docIconWrap, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+                      <ShoppingCart size={16} color={theme.colors.success} />
+                    </View>
+                    <Text style={styles.docBtnLabel}>Store</Text>
+                    <Text style={styles.docBtnSub}>Buy / pricing</Text>
+                  </TouchableOpacity>
+                )}
+
+                {specPageUrl && (
+                  <TouchableOpacity
+                    style={styles.docBtn}
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      await openUrl(specPageUrl);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.docIconWrap, { backgroundColor: 'rgba(59, 130, 246, 0.12)' }]}>
+                      <Calculator size={16} color="#3B82F6" />
+                    </View>
+                    <Text style={styles.docBtnLabel}>Spec Sheet</Text>
+                    <Text style={styles.docBtnSub}>Full specifications</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.docBtn}
+                  onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    await openUrl(safetyGuideUrl);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.docIconWrap, { backgroundColor: 'rgba(249, 115, 22, 0.12)' }]}>
+                    <Shield size={16} color={theme.colors.safetyOrange} />
+                  </View>
+                  <Text style={styles.docBtnLabel}>Safety Guide</Text>
+                  <Text style={styles.docBtnSub}>UV-A exposure</Text>
+                </TouchableOpacity>
+
+                {comparisonUrl && (
+                  <TouchableOpacity
+                    style={styles.docBtn}
+                    onPress={async () => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      await openUrl(comparisonUrl);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.docIconWrap, { backgroundColor: 'rgba(59, 159, 232, 0.12)' }]}>
+                      <BarChart3 size={16} color="#3B9FE8" />
+                    </View>
+                    <Text style={styles.docBtnLabel}>Compare</Text>
+                    <Text style={styles.docBtnSub}>Series comparison</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.docBtn}
+                  onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    await openUrl(getWildfireMainUrl());
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.docIconWrap, { backgroundColor: 'rgba(232, 65, 42, 0.12)' }]}>
+                    <Globe size={16} color={theme.colors.primary} />
+                  </View>
+                  <Text style={styles.docBtnLabel}>Website</Text>
+                  <Text style={styles.docBtnSub}>wildfirelighting.com</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.docBtn}
+                  onPress={handleShare}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.docIconWrap, { backgroundColor: 'rgba(155, 109, 255, 0.12)' }]}>
+                    <Share2 size={16} color="#9B6DFF" />
+                  </View>
+                  <Text style={styles.docBtnLabel}>Share</Text>
+                  <Text style={styles.docBtnSub}>Send info</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.docBtn}
+                  onPress={async () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    await openUrl(getWildfireSupportUrl());
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.docIconWrap, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+                    <HelpCircle size={16} color={theme.colors.success} />
+                  </View>
+                  <Text style={styles.docBtnLabel}>Support</Text>
+                  <Text style={styles.docBtnSub}>Get help</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -158,7 +340,7 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
                 <Text style={styles.btnOutlineText}>Close</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={onSelect} activeOpacity={0.8}>
-                <Text style={styles.btnPrimaryText}>{isSelected ? 'Selected' : 'Select Fixture'}</Text>
+                <Text style={styles.btnPrimaryText}>{isSelected ? 'Selected' : 'Use in Calculator'}</Text>
               </TouchableOpacity>
             </View>
             <View style={{ height: 40 }} />
@@ -253,7 +435,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: theme.colors.border,
   },
   infoText: { flex: 1, fontSize: 13, color: theme.colors.textSecondary, lineHeight: 19 },
-  exportSection: {
+  docsSection: {
     marginBottom: 14,
     backgroundColor: theme.colors.surface,
     borderRadius: 16,
@@ -261,20 +443,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  exportRow: { flexDirection: 'row', gap: 10 },
-  exportBtn: {
-    flex: 1,
+  docsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 8,
-    paddingVertical: 12,
+  },
+  docBtn: {
+    width: '47%',
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: theme.colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  exportBtnText: { fontSize: 13, fontWeight: '600' as const, color: theme.colors.text },
+  docIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  docBtnLabel: { fontSize: 13, fontWeight: '600' as const, color: theme.colors.text, marginBottom: 2 },
+  docBtnSub: { fontSize: 10, color: theme.colors.textTertiary },
   actions: { flexDirection: 'row', gap: 10, marginTop: 20, marginBottom: 12 },
   btn: { flex: 1, paddingVertical: 14, borderRadius: 14, alignItems: 'center' },
   btnOutline: { borderWidth: 1, borderColor: theme.colors.border },

@@ -204,21 +204,101 @@ function buildCalculationReport(
   return lines.join('\n');
 }
 
+const MANUAL_URLS: Record<string, string> = {
+  'VSP-120F': 'https://wildfirelighting.com/products/viostorm-uv-led-lighting-series/',
+  'VSP-120S': 'https://wildfirelighting.com/products/viostorm-uv-led-lighting-series/',
+  'VSP-120WS': 'https://wildfirelighting.com/products/viostorm-uv-led-lighting-series/',
+  'VSP-60F': 'https://wildfirelighting.com/products/viostorm-uv-led-lighting-series/',
+  'VSP-60S': 'https://wildfirelighting.com/products/viostorm-uv-led-lighting-series/',
+  'VSP-60WS': 'https://wildfirelighting.com/products/viostorm-uv-led-lighting-series/',
+  'EM-44V': 'https://wildfirelighting.com/products/effects-master-series/',
+  'EM-44L': 'https://wildfirelighting.com/products/effects-master-series/',
+  'EM-42L': 'https://wildfirelighting.com/products/effects-master-series/',
+  'EM-22L': 'https://wildfirelighting.com/products/effects-master-series/',
+  'EM-43E': 'https://wildfirelighting.com/products/effects-master-series/',
+  'EM-42E': 'https://wildfirelighting.com/products/effects-master-series/',
+  'UB-44': 'https://wildfirelighting.com/products/ultrablack-series/',
+  'UB-42': 'https://wildfirelighting.com/products/ultrablack-series/',
+  'UB-41': 'https://wildfirelighting.com/products/ultrablack-series/',
+  'UB-21': 'https://wildfirelighting.com/products/ultrablack-series/',
+  'UR-46': 'https://wildfirelighting.com/products/ultraray-series/',
+  'UR-22': 'https://wildfirelighting.com/products/ultraray-series/',
+  'UR-12': 'https://wildfirelighting.com/products/ultraray-series/',
+};
+
 export async function getFixtureManualUrl(model: string): Promise<string | null> {
-  const baseUrl = 'https://www.wildfirelighting.com';
-  if (model.startsWith('VSP')) {
-    return `${baseUrl}/viostorm`;
-  }
-  if (model.startsWith('EM')) {
-    return `${baseUrl}/effects-master`;
-  }
-  if (model.startsWith('UB')) {
-    return `${baseUrl}/ultrablack`;
-  }
-  if (model.startsWith('UR')) {
-    return `${baseUrl}/ultraray`;
-  }
+  if (MANUAL_URLS[model]) return MANUAL_URLS[model];
+  const base = 'https://wildfirelighting.com/products';
+  if (model.startsWith('VSP')) return `${base}/viostorm-uv-led-lighting-series/`;
+  if (model.startsWith('EM')) return `${base}/effects-master-series/`;
+  if (model.startsWith('UB')) return `${base}/ultrablack-series/`;
+  if (model.startsWith('UR')) return `${base}/ultraray-series/`;
+  if (model.startsWith('L')) return `${base}/sablelux-sableled-lamps/`;
   return null;
+}
+
+const STORE_URLS: Record<string, string> = {
+  'VSP-120F': 'https://store.wildfirelighting.com/lighting/viostorm-led-series/',
+  'VSP-120S': 'https://store.wildfirelighting.com/lighting/viostorm-led-series/viostorm-vs-120s-120w-365nm-uv-led-spot/',
+  'VSP-120WS': 'https://store.wildfirelighting.com/lighting/viostorm-led-series/viostorm-vs-120ws-120w-365nm-uv-led-wide-spot/',
+  'VSP-60F': 'https://store.wildfirelighting.com/lighting/viostorm-led-series/viostorm-vs-60f-60w-365nm-uv-led-flood/',
+  'VSP-60S': 'https://store.wildfirelighting.com/lighting/viostorm-led-series/viostorm-vs-60s-60w-365nm-uv-led-spot/',
+  'VSP-60WS': 'https://store.wildfirelighting.com/lighting/viostorm-led-series/',
+  'EM-44V': 'https://store.wildfirelighting.com/lighting/',
+  'EM-44L': 'https://store.wildfirelighting.com/lighting/',
+  'EM-42L': 'https://store.wildfirelighting.com/lighting/',
+  'EM-22L': 'https://store.wildfirelighting.com/lighting/',
+  'EM-43E': 'https://store.wildfirelighting.com/lighting/',
+  'EM-42E': 'https://store.wildfirelighting.com/lighting/',
+  'UB-44': 'https://store.wildfirelighting.com/lighting/',
+  'UB-42': 'https://store.wildfirelighting.com/lighting/',
+  'UB-41': 'https://store.wildfirelighting.com/lighting/',
+  'UB-21': 'https://store.wildfirelighting.com/lighting/',
+  'UR-46': 'https://store.wildfirelighting.com/lighting/',
+  'UR-22': 'https://store.wildfirelighting.com/lighting/',
+  'UR-12': 'https://store.wildfirelighting.com/lighting/',
+};
+
+export function getFixtureStoreUrl(model: string): string | null {
+  if (STORE_URLS[model]) return STORE_URLS[model];
+  const store = 'https://store.wildfirelighting.com';
+  if (model.startsWith('VSP')) return `${store}/lighting/viostorm-led-series/`;
+  if (model.startsWith('EM')) return `${store}/lighting/`;
+  if (model.startsWith('UB')) return `${store}/lighting/`;
+  if (model.startsWith('UR')) return `${store}/lighting/`;
+  if (model.startsWith('L')) return `${store}/sableled-led-blb-lamps/`;
+  return null;
+}
+
+export function getFixtureSpecPageUrl(model: string): string | null {
+  const base = 'https://wildfirelighting.com/products';
+  if (model.startsWith('VSP')) return `${base}/viostorm-uv-led-lighting-series/#specifications`;
+  if (model.startsWith('EM')) return `${base}/effects-master-series/#specifications`;
+  if (model.startsWith('UB')) return `${base}/ultrablack-series/#specifications`;
+  if (model.startsWith('UR')) return `${base}/ultraray-series/#specifications`;
+  if (model.startsWith('L')) return `${base}/sablelux-sableled-lamps/#specifications`;
+  return null;
+}
+
+export function getFixtureSafetyGuideUrl(): string {
+  return 'https://wildfirelighting.com/uv-safety/';
+}
+
+export function getFixtureComparisonUrl(model: string): string | null {
+  const base = 'https://wildfirelighting.com/products';
+  if (model.startsWith('VSP')) return `${base}/viostorm-uv-led-lighting-series/#comparison`;
+  if (model.startsWith('EM')) return `${base}/effects-master-series/#comparison`;
+  if (model.startsWith('UB')) return `${base}/ultrablack-series/#comparison`;
+  if (model.startsWith('UR')) return `${base}/ultraray-series/#comparison`;
+  return null;
+}
+
+export function getWildfireMainUrl(): string {
+  return 'https://wildfirelighting.com';
+}
+
+export function getWildfireSupportUrl(): string {
+  return 'https://wildfirelighting.com/contact/';
 }
 
 export function getFixtureTechSheetContent(model: string): string {
