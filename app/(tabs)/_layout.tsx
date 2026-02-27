@@ -3,7 +3,7 @@ import { Tabs, Redirect } from 'expo-router';
 import { Calculator, History, Lightbulb, User, Sparkles, BookOpen } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { theme } from '@/constants/theme';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 
 export default function TabLayout() {
   const { isAuthenticated } = useAuthStore();
@@ -24,12 +24,12 @@ export default function TabLayout() {
           ...Platform.select({
             ios: {
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: -4 },
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
+              shadowOffset: { width: 0, height: -6 },
+              shadowOpacity: 0.2,
+              shadowRadius: 16,
             },
             android: {
-              elevation: 12,
+              elevation: 16,
             },
             default: {},
           }),
@@ -37,7 +37,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600' as const,
-          letterSpacing: 0.2,
+          letterSpacing: 0.3,
         },
         tabBarIconStyle: {
           marginBottom: -2,
@@ -63,7 +63,11 @@ export default function TabLayout() {
         name="ai"
         options={{
           title: 'AI',
-          tabBarIcon: ({ color, size }) => <Sparkles size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <View style={focused ? { shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6 } : undefined}>
+              <Sparkles size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen

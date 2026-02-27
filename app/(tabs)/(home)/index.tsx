@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity, Animated, Dimensions } from 'react-native';
-import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X } from 'lucide-react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity, Animated, Dimensions, Easing } from 'react-native';
+import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore } from '@/stores/lighting-store';
 import { LightingCalculator } from '@/utils/lighting-calculator';
@@ -99,8 +99,16 @@ export default function CalculatorScreen() {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [activeStep, setActiveStep] = useState<number>(0);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const resultFadeAnim = useRef(new Animated.Value(0)).current;
+  const resultSlideAnim = useRef(new Animated.Value(20)).current;
   const insightAnim = useRef(new Animated.Value(0)).current;
   const calcBtnScale = useRef(new Animated.Value(1)).current;
+  const calcBtnGlow = useRef(new Animated.Value(0)).current;
+  const stepContentAnim = useRef(new Animated.Value(1)).current;
+  const stepSlideAnim = useRef(new Animated.Value(0)).current;
+  const aiPulse = useRef(new Animated.Value(0.6)).current;
 
   const fixtureModels = LightingCalculator.getFixtureModels();
 
@@ -117,6 +125,56 @@ export default function CalculatorScreen() {
 
   const progressWidth = useMemo(() => (filledCount / 5) * 100, [filledCount]);
 
+  useEffect(() => {
+    Animated.spring(progressAnim, {
+      toValue: progressWidth,
+      tension: 40,
+      friction: 12,
+      useNativeDriver: false,
+    }).start();
+  }, [progressWidth, progressAnim]);
+
+  useEffect(() => {
+    if (selectedFixture && filledCount >= 2) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(calcBtnGlow, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+          Animated.timing(calcBtnGlow, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+        ])
+      ).start();
+    } else {
+      calcBtnGlow.setValue(0);
+    }
+  }, [selectedFixture, filledCount, calcBtnGlow]);
+
+  useEffect(() => {
+    if (aiLoading) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(aiPulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+          Animated.timing(aiPulse, { toValue: 0.6, duration: 800, useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [aiLoading, aiPulse]);
+
+  const animateStepChange = useCallback((newStep: number) => {
+    const direction = newStep > activeStep ? 1 : -1;
+    Animated.parallel([
+      Animated.timing(stepContentAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+      Animated.timing(stepSlideAnim, { toValue: -15 * direction, duration: 120, useNativeDriver: true }),
+    ]).start(() => {
+      setActiveStep(newStep);
+      stepSlideAnim.setValue(15 * direction);
+      Animated.parallel([
+        Animated.timing(stepContentAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(stepSlideAnim, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
+      ]).start();
+    });
+  }, [activeStep, stepContentAnim, stepSlideAnim]);
+
   const handleCalculate = useCallback(async () => {
     if (!selectedFixture) {
       Alert.alert('Select a Fixture', 'Please choose a fixture model before calculating.');
@@ -124,11 +182,20 @@ export default function CalculatorScreen() {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.sequence([
-      Animated.timing(calcBtnScale, { toValue: 0.95, duration: 80, useNativeDriver: true }),
-      Animated.timing(calcBtnScale, { toValue: 1, duration: 80, useNativeDriver: true }),
+      Animated.timing(calcBtnScale, { toValue: 0.93, duration: 80, useNativeDriver: true }),
+      Animated.timing(calcBtnScale, { toValue: 1, duration: 120, useNativeDriver: true }),
     ]).start();
+
+    resultFadeAnim.setValue(0);
+    resultSlideAnim.setValue(20);
+
     await calculate();
-  }, [selectedFixture, calculate, calcBtnScale]);
+
+    Animated.parallel([
+      Animated.timing(resultFadeAnim, { toValue: 1, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.spring(resultSlideAnim, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
+    ]).start();
+  }, [selectedFixture, calculate, calcBtnScale, resultFadeAnim, resultSlideAnim]);
 
   const handleSaveCalculation = useCallback((name: string, description?: string, projectId?: string) => {
     const didSave = saveCalculation(name, description, projectId);
@@ -163,6 +230,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
 
       const result = await generateText(prompt);
       setAiInsight(result);
+      insightAnim.setValue(0);
       Animated.spring(insightAnim, {
         toValue: 1,
         tension: 50,
@@ -189,11 +257,22 @@ Give a quick practical insight about this setup - is the throw distance optimal,
     setMaterial('');
     setEffect('');
     setActiveStep(0);
+    resultFadeAnim.setValue(0);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [resetInputs]);
+  }, [resetInputs, resultFadeAnim]);
 
   const canSave = lastCalculation != null && !('error' in lastCalculation);
   const hasResult = lastCalculation != null && !('error' in lastCalculation);
+
+  const animatedProgressWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
+
+  const calcBtnShadowOpacity = calcBtnGlow.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.6],
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -206,20 +285,23 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           </View>
           <View>
             <Text style={styles.topTitle}>FLAME Calculator</Text>
-            <Text style={styles.topSubtitle}>{filledCount}/5 parameters set</Text>
+            <Text style={styles.topSubtitle}>
+              {filledCount === 0 ? 'Start by selecting a fixture' : `${filledCount}/5 parameters set`}
+            </Text>
           </View>
         </View>
         <View style={styles.topBarRight}>
-          <TouchableOpacity onPress={handleReset} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <RotateCcw size={18} color={theme.colors.textTertiary} />
-          </TouchableOpacity>
-
+          {(filledCount > 0 || hasResult) && (
+            <TouchableOpacity onPress={handleReset} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
+              <RotateCcw size={17} color={theme.colors.textTertiary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
       <View style={styles.progressBarWrap}>
         <View style={styles.progressBarBg}>
-          <View style={[styles.progressBarFill, { width: `${progressWidth}%` }]} />
+          <Animated.View style={[styles.progressBarFill, { width: animatedProgressWidth }]} />
         </View>
       </View>
 
@@ -232,22 +314,29 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               key={step.letter}
               style={[
                 styles.stepTab,
-                isActive && styles.stepTabActive,
+                isActive && [styles.stepTabActive, { borderColor: step.color + '40' }],
                 filled && !isActive && styles.stepTabFilled,
               ]}
               onPress={() => {
                 Haptics.selectionAsync();
-                setActiveStep(i);
+                animateStepChange(i);
               }}
               activeOpacity={0.7}
             >
-              <Text style={[
-                styles.stepTabLetter,
-                { color: isActive ? step.color : filled ? step.color : theme.colors.textTertiary },
-              ]}>{step.letter}</Text>
-              {filled && !isActive && (
-                <View style={[styles.stepDoneIndicator, { backgroundColor: step.color }]} />
+              {filled && !isActive ? (
+                <View style={[styles.stepCheckWrap, { backgroundColor: step.color + '20' }]}>
+                  <Check size={12} color={step.color} strokeWidth={3} />
+                </View>
+              ) : (
+                <Text style={[
+                  styles.stepTabLetter,
+                  { color: isActive ? step.color : theme.colors.textTertiary },
+                ]}>{step.letter}</Text>
               )}
+              <Text style={[
+                styles.stepTabTitle,
+                { color: isActive ? step.color : filled ? theme.colors.textSecondary : theme.colors.textTertiary },
+              ]}>{step.title}</Text>
             </TouchableOpacity>
           );
         })}
@@ -259,104 +348,106 @@ Give a quick practical insight about this setup - is the throw distance optimal,
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.stepHeader}>
-          <View style={[styles.stepIconWrap, { backgroundColor: FLAME_STEPS[activeStep].color + '18' }]}>
-            {React.createElement(FLAME_STEPS[activeStep].icon, {
-              size: 22,
-              color: FLAME_STEPS[activeStep].color,
-            })}
-          </View>
-          <View style={styles.stepHeaderText}>
-            <Text style={styles.stepTitle}>{FLAME_STEPS[activeStep].title}</Text>
-            <Text style={styles.stepDesc}>{FLAME_STEPS[activeStep].desc}</Text>
-          </View>
-        </View>
-
-        {activeStep === 0 && (
-          <View style={styles.stepContent}>
-            <View style={styles.card}>
-              <Picker label="Fixture Model" value={selectedFixture} options={fixtureModels} onValueChange={setSelectedFixture} />
-              <TouchableOpacity style={styles.qrRow} onPress={openQRScanner} activeOpacity={0.7}>
-                <View style={styles.qrIconWrap}>
-                  <QrCode size={16} color={theme.colors.accent} />
-                </View>
-                <View style={styles.qrTextWrap}>
-                  <Text style={styles.qrTitle}>Scan QR Code</Text>
-                  <Text style={styles.qrSub}>Scan fixture label to auto-select</Text>
-                </View>
-                <ChevronDown size={16} color={theme.colors.textTertiary} style={{ transform: [{ rotate: '-90deg' }] }} />
-              </TouchableOpacity>
+        <Animated.View style={[styles.stepAnimWrap, { opacity: stepContentAnim, transform: [{ translateX: stepSlideAnim }] }]}>
+          <View style={styles.stepHeader}>
+            <View style={[styles.stepIconWrap, { backgroundColor: FLAME_STEPS[activeStep].color + '14' }]}>
+              {React.createElement(FLAME_STEPS[activeStep].icon, {
+                size: 22,
+                color: FLAME_STEPS[activeStep].color,
+              })}
             </View>
-            {selectedFixture ? (
-              <View style={styles.selectedInfo}>
-                <View style={[styles.selectedDot, { backgroundColor: theme.colors.success }]} />
-                <Text style={styles.selectedText}>{selectedFixture} selected</Text>
+            <View style={styles.stepHeaderText}>
+              <Text style={styles.stepTitle}>{FLAME_STEPS[activeStep].title}</Text>
+              <Text style={styles.stepDesc}>{FLAME_STEPS[activeStep].desc}</Text>
+            </View>
+          </View>
+
+          {activeStep === 0 && (
+            <View style={styles.stepContent}>
+              <View style={styles.card}>
+                <Picker label="Fixture Model" value={selectedFixture} options={fixtureModels} onValueChange={setSelectedFixture} />
+                <TouchableOpacity style={styles.qrRow} onPress={openQRScanner} activeOpacity={0.7}>
+                  <View style={styles.qrIconWrap}>
+                    <QrCode size={16} color={theme.colors.accent} />
+                  </View>
+                  <View style={styles.qrTextWrap}>
+                    <Text style={styles.qrTitle}>Scan QR Code</Text>
+                    <Text style={styles.qrSub}>Scan fixture label to auto-select</Text>
+                  </View>
+                  <ChevronDown size={16} color={theme.colors.textTertiary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                </TouchableOpacity>
               </View>
-            ) : null}
-          </View>
-        )}
+              {selectedFixture ? (
+                <View style={styles.selectedInfo}>
+                  <View style={[styles.selectedDot, { backgroundColor: theme.colors.success }]} />
+                  <Text style={styles.selectedText}>{selectedFixture} selected</Text>
+                </View>
+              ) : null}
+            </View>
+          )}
 
-        {activeStep === 1 && (
-          <View style={styles.stepContent}>
-            <View style={styles.card}>
-              <View style={styles.inputRow}>
-                <View style={styles.inputHalf}>
-                  <Input label="Vertical Height" value={verticalHeight} onChangeText={setVerticalHeight} keyboardType="decimal-pad" unit="m" placeholder="0.0" />
+          {activeStep === 1 && (
+            <View style={styles.stepContent}>
+              <View style={styles.card}>
+                <View style={styles.inputRow}>
+                  <View style={styles.inputHalf}>
+                    <Input label="Vertical Height" value={verticalHeight} onChangeText={setVerticalHeight} keyboardType="decimal-pad" unit="m" placeholder="0.0" />
+                  </View>
+                  <View style={styles.inputHalf}>
+                    <Input label="Horizontal Dist." value={horizontalDistance} onChangeText={setHorizontalDistance} keyboardType="decimal-pad" unit="m" placeholder="5.0" />
+                  </View>
                 </View>
-                <View style={styles.inputHalf}>
-                  <Input label="Horizontal Dist." value={horizontalDistance} onChangeText={setHorizontalDistance} keyboardType="decimal-pad" unit="m" placeholder="5.0" />
-                </View>
+                <InfoTooltip
+                  title="Throw Distance"
+                  body="Vertical Height: mounting height above target (metres).\nHorizontal Distance: horizontal offset from directly below.\nThe app calculates true throw distance using Pythagorean theorem."
+                />
               </View>
-              <InfoTooltip
-                title="Throw Distance"
-                body="Vertical Height: mounting height above target (metres).\nHorizontal Distance: horizontal offset from directly below.\nThe app calculates true throw distance using Pythagorean theorem."
-              />
             </View>
-          </View>
-        )}
+          )}
 
-        {activeStep === 2 && (
-          <View style={styles.stepContent}>
-            <View style={styles.card}>
-              <View style={styles.inputRow}>
-                <View style={styles.inputHalf}>
-                  <Input label="Width" value={beamWidth} onChangeText={setBeamWidth} keyboardType="decimal-pad" unit="m" placeholder="6.0" />
+          {activeStep === 2 && (
+            <View style={styles.stepContent}>
+              <View style={styles.card}>
+                <View style={styles.inputRow}>
+                  <View style={styles.inputHalf}>
+                    <Input label="Width" value={beamWidth} onChangeText={setBeamWidth} keyboardType="decimal-pad" unit="m" placeholder="6.0" />
+                  </View>
+                  <View style={styles.inputHalf}>
+                    <Input label="Height" value={beamHeight} onChangeText={setBeamHeight} keyboardType="decimal-pad" unit="m" placeholder="3.0" />
+                  </View>
                 </View>
-                <View style={styles.inputHalf}>
-                  <Input label="Height" value={beamHeight} onChangeText={setBeamHeight} keyboardType="decimal-pad" unit="m" placeholder="3.0" />
-                </View>
+                <InfoTooltip
+                  title="Beam Coverage"
+                  body="Define the rectangular target area you want to illuminate. The calculator verifies if the fixture beam angle covers your target at the given throw distance."
+                />
               </View>
-              <InfoTooltip
-                title="Beam Coverage"
-                body="Define the rectangular target area you want to illuminate. The calculator verifies if the fixture beam angle covers your target at the given throw distance."
-              />
             </View>
-          </View>
-        )}
+          )}
 
-        {activeStep === 3 && (
-          <View style={styles.stepContent}>
-            <View style={styles.card}>
-              <Picker label="Material Type" value={material} options={MATERIAL_OPTIONS} onValueChange={setMaterial} />
+          {activeStep === 3 && (
+            <View style={styles.stepContent}>
+              <View style={styles.card}>
+                <Picker label="Material Type" value={material} options={MATERIAL_OPTIONS} onValueChange={setMaterial} />
+              </View>
+              <View style={styles.tipCard}>
+                <Text style={styles.tipTitle}>Material matters</Text>
+                <Text style={styles.tipText}>Different materials reflect UV light differently. Fluorescent paint has the highest reactivity, while fabric may need higher irradiance levels.</Text>
+              </View>
             </View>
-            <View style={styles.tipCard}>
-              <Text style={styles.tipTitle}>Material matters</Text>
-              <Text style={styles.tipText}>Different materials reflect UV light differently. Fluorescent paint has the highest reactivity, while fabric may need higher irradiance levels.</Text>
-            </View>
-          </View>
-        )}
+          )}
 
-        {activeStep === 4 && (
-          <View style={styles.stepContent}>
-            <View style={styles.card}>
-              <Picker label="Desired Effect" value={effect} options={EFFECT_OPTIONS} onValueChange={setEffect} />
+          {activeStep === 4 && (
+            <View style={styles.stepContent}>
+              <View style={styles.card}>
+                <Picker label="Desired Effect" value={effect} options={EFFECT_OPTIONS} onValueChange={setEffect} />
+              </View>
+              <View style={styles.tipCard}>
+                <Text style={styles.tipTitle}>Choose wisely</Text>
+                <Text style={styles.tipText}>A full wash requires wider beam angles and more fixtures, while accent spots can use narrow-beam models at longer throws.</Text>
+              </View>
             </View>
-            <View style={styles.tipCard}>
-              <Text style={styles.tipTitle}>Choose wisely</Text>
-              <Text style={styles.tipText}>A full wash requires wider beam angles and more fixtures, while accent spots can use narrow-beam models at longer throws.</Text>
-            </View>
-          </View>
-        )}
+          )}
+        </Animated.View>
 
         <TouchableOpacity
           style={styles.volumeToggle}
@@ -409,7 +500,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
         )}
 
         {hasResult && (
-          <View style={styles.resultSection}>
+          <Animated.View style={[styles.resultSection, { opacity: resultFadeAnim, transform: [{ translateY: resultSlideAnim }] }]}>
             <View style={styles.resultHeader}>
               <Text style={styles.resultSectionTitle}>Results</Text>
               <TouchableOpacity
@@ -419,6 +510,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                   clearResult();
                   setAiInsight(null);
                   insightAnim.setValue(0);
+                  resultFadeAnim.setValue(0);
                 }}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -439,23 +531,23 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 return (
                   <>
                     <View style={styles.resultItem}>
-                      <Text style={styles.resultLabel}>Throw</Text>
+                      <Text style={styles.resultLabel}>THROW</Text>
                       <Text style={styles.resultValue}>{r.throw_distance_m.toFixed(1)}</Text>
                       <Text style={styles.resultUnit}>metres</Text>
                     </View>
                     <View style={styles.resultItem}>
-                      <Text style={styles.resultLabel}>Irradiance</Text>
+                      <Text style={styles.resultLabel}>IRRADIANCE</Text>
                       <Text style={styles.resultValue}>{r.irradiance_mWm2.toFixed(0)}</Text>
                       <Text style={styles.resultUnit}>mW/m²</Text>
                     </View>
                     <View style={styles.resultItem}>
-                      <Text style={styles.resultLabel}>Beam Area</Text>
+                      <Text style={styles.resultLabel}>BEAM AREA</Text>
                       <Text style={styles.resultValue}>{r.beam_area_m2.toFixed(1)}</Text>
                       <Text style={styles.resultUnit}>m²</Text>
                     </View>
-                    <View style={[styles.resultItem, { borderColor: safetyColors[safety] + '40' }]}>
-                      <Text style={styles.resultLabel}>Safety</Text>
-                      <View style={[styles.safetyBadge, { backgroundColor: safetyColors[safety] + '18' }]}>
+                    <View style={[styles.resultItem, { borderColor: safetyColors[safety] + '30' }]}>
+                      <Text style={styles.resultLabel}>SAFETY</Text>
+                      <View style={[styles.safetyBadge, { backgroundColor: safetyColors[safety] + '14' }]}>
                         <View style={[styles.safetyDot, { backgroundColor: safetyColors[safety] }]} />
                         <Text style={[styles.safetyText, { color: safetyColors[safety] }]}>{safety.toUpperCase()}</Text>
                       </View>
@@ -466,19 +558,21 @@ Give a quick practical insight about this setup - is the throw distance optimal,
             </View>
 
             <TouchableOpacity
-              style={styles.aiInsightBtn}
+              style={[styles.aiInsightBtn, aiLoading && styles.aiInsightBtnLoading]}
               onPress={handleAIInsight}
               disabled={aiLoading}
               activeOpacity={0.7}
             >
-              <Sparkles size={16} color={theme.colors.primary} />
+              <Animated.View style={aiLoading ? { opacity: aiPulse } : undefined}>
+                <Sparkles size={16} color={theme.colors.primary} />
+              </Animated.View>
               <Text style={styles.aiInsightBtnText}>
                 {aiLoading ? 'Analyzing...' : 'AI Analysis'}
               </Text>
             </TouchableOpacity>
 
             {aiInsight && (
-              <Animated.View style={[styles.aiInsightCard, { opacity: insightAnim, transform: [{ scale: insightAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] }]}>
+              <Animated.View style={[styles.aiInsightCard, { opacity: insightAnim, transform: [{ scale: insightAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
                 <View style={styles.aiInsightHeader}>
                   <Sparkles size={14} color={theme.colors.primary} />
                   <Text style={styles.aiInsightTitle}>AI Insight</Text>
@@ -486,7 +580,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 <Text style={styles.aiInsightText}>{aiInsight}</Text>
               </Animated.View>
             )}
-          </View>
+          </Animated.View>
         )}
 
         <LightSensorCard />
@@ -550,10 +644,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   progressBarWrap: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   progressBarBg: {
     height: 3,
@@ -568,8 +664,8 @@ const styles = StyleSheet.create({
   },
   stepsNav: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 6,
+    paddingHorizontal: 12,
+    gap: 4,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
@@ -577,30 +673,37 @@ const styles = StyleSheet.create({
   stepTab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     borderRadius: 10,
     backgroundColor: theme.colors.surface,
-    position: 'relative' as const,
+    gap: 3,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   stepTabActive: {
     backgroundColor: theme.colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
   },
   stepTabFilled: {
     backgroundColor: theme.colors.surface,
   },
+  stepCheckWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   stepTabLetter: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800' as const,
   },
-  stepDoneIndicator: {
-    position: 'absolute',
-    bottom: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+  stepTabTitle: {
+    fontSize: 9,
+    fontWeight: '600' as const,
+    letterSpacing: 0.2,
   },
+  stepAnimWrap: {},
   scrollContainer: { flex: 1 },
   scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
   stepHeader: {
@@ -840,16 +943,17 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   resultLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    letterSpacing: 0.3,
-    marginBottom: 4,
+    fontWeight: '600' as const,
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
   resultValue: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '800' as const,
     color: theme.colors.text,
+    letterSpacing: -0.5,
   },
   resultUnit: {
     fontSize: 10,
@@ -861,8 +965,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 8,
     marginTop: 4,
   },
@@ -888,6 +992,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.glow,
     borderWidth: 1,
     borderColor: 'rgba(232, 65, 42, 0.2)',
+  },
+  aiInsightBtnLoading: {
+    borderColor: 'rgba(232, 65, 42, 0.35)',
   },
   aiInsightBtnText: {
     fontSize: 14,

@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform } from 'react-native';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform, Animated, Easing } from 'react-native';
 import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown, ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
@@ -15,6 +15,25 @@ import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { exportCalculationAsText } from '@/utils/file-helpers';
 
+const AnimatedCalcCard = React.memo(({ children, index }: { children: React.ReactNode; index: number }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    const delay = Math.min(index * 60, 300);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 70, friction: 12, delay, useNativeDriver: true }),
+    ]).start();
+  }, [fadeAnim, slideAnim, index]);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      {children}
+    </Animated.View>
+  );
+});
+
 export default function CalculationsScreen() {
   const { savedCalculations, deleteCalculation, loadCalculation } = useLightingStore();
   const [selectedCalculation, setSelectedCalculation] = useState<SavedCalculation | null>(null);
@@ -22,6 +41,8 @@ export default function CalculationsScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterFixture, setFilterFixture] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('newest');
+  const detailFade = useRef(new Animated.Value(0)).current;
+  const detailSlide = useRef(new Animated.Value(30)).current;
 
   const fixtureModels = useMemo(() => ['', ...LightingCalculator.getFixtureModels()], []);
   const sortOptions = useMemo(() => ['newest', 'oldest', 'name', 'fixture'], []);
@@ -77,74 +98,86 @@ export default function CalculationsScreen() {
     ]);
   }, [deleteCalculation]);
 
-  const renderItem = useCallback(({ item }: { item: SavedCalculation }) => {
+  const openDetail = useCallback((item: SavedCalculation) => {
+    setSelectedCalculation(item);
+    detailFade.setValue(0);
+    detailSlide.setValue(30);
+    Animated.parallel([
+      Animated.timing(detailFade, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.spring(detailSlide, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+    ]).start();
+  }, [detailFade, detailSlide]);
+
+  const renderItem = useCallback(({ item, index }: { item: SavedCalculation; index: number }) => {
     const hasReport = 'irradiance_report' in item.result;
     return (
-      <TouchableOpacity
-        style={styles.calcCard}
-        onPress={() => setSelectedCalculation(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.calcTop}>
-          <View style={styles.calcInfo}>
-            <Text style={styles.calcName} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.calcMeta}>{item.fixture} · {formatDate(item.timestamp)}</Text>
-            {item.projectId ? <Text style={styles.projectTag}>#{item.projectId}</Text> : null}
-          </View>
-          <View style={[styles.safetyPill, { backgroundColor: getSafetyColor(item.safetyLevel) + '14' }]}>
-            <View style={[styles.safetyDot, { backgroundColor: getSafetyColor(item.safetyLevel) }]} />
-            <Text style={[styles.safetyLabel, { color: getSafetyColor(item.safetyLevel) }]}>
-              {item.safetyLevel.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-        {hasReport && (
-          <View style={styles.quickStats}>
-            <View style={styles.quickStat}>
-              <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.throw_distance_m.toFixed(1)}m</Text>
-              <Text style={styles.quickStatLabel}>throw</Text>
+      <AnimatedCalcCard index={index}>
+        <TouchableOpacity
+          style={styles.calcCard}
+          onPress={() => openDetail(item)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.calcTop}>
+            <View style={styles.calcInfo}>
+              <Text style={styles.calcName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.calcMeta}>{item.fixture} · {formatDate(item.timestamp)}</Text>
+              {item.projectId ? <Text style={styles.projectTag}>#{item.projectId}</Text> : null}
             </View>
-            <View style={styles.quickStatDivider} />
-            <View style={styles.quickStat}>
-              <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.irradiance_mWm2.toFixed(0)}</Text>
-              <Text style={styles.quickStatLabel}>mW/m²</Text>
-            </View>
-            <View style={styles.quickStatDivider} />
-            <View style={styles.quickStat}>
-              <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.beam_area_m2.toFixed(1)}m²</Text>
-              <Text style={styles.quickStatLabel}>area</Text>
+            <View style={[styles.safetyPill, { backgroundColor: getSafetyColor(item.safetyLevel) + '14' }]}>
+              <View style={[styles.safetyDot, { backgroundColor: getSafetyColor(item.safetyLevel) }]} />
+              <Text style={[styles.safetyLabel, { color: getSafetyColor(item.safetyLevel) }]}>
+                {item.safetyLevel.toUpperCase()}
+              </Text>
             </View>
           </View>
-        )}
-        <View style={styles.calcActions}>
-          <TouchableOpacity style={styles.actionChip} onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            loadCalculation(item.id);
-            Alert.alert('Loaded', 'Switch to Calculator tab to see the result.');
-          }} activeOpacity={0.7}>
-            <Zap size={13} color={theme.colors.secondary} />
-            <Text style={[styles.actionChipText, { color: theme.colors.secondary }]}>Load</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionChip} onPress={async () => {
-            if (hasReport) {
-              const result = await exportCalculationAsText(
-                item.name, item.fixture, item.inputs,
-                item.result as Record<string, any>, item.safetyLevel,
-              );
-              if (!result.success) Alert.alert('Error', result.error ?? 'Export failed');
-            }
-          }} activeOpacity={0.7}>
-            <FileDown size={13} color={theme.colors.success} />
-            <Text style={[styles.actionChipText, { color: theme.colors.success }]}>Export</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionChip} onPress={() => handleDelete(item.id, item.name)} activeOpacity={0.7}>
-            <Trash2 size={13} color={theme.colors.error} />
-            <Text style={[styles.actionChipText, { color: theme.colors.error }]}>Delete</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
+          {hasReport && (
+            <View style={styles.quickStats}>
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.throw_distance_m.toFixed(1)}m</Text>
+                <Text style={styles.quickStatLabel}>throw</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.irradiance_mWm2.toFixed(0)}</Text>
+                <Text style={styles.quickStatLabel}>mW/m²</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStat}>
+                <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.beam_area_m2.toFixed(1)}m²</Text>
+                <Text style={styles.quickStatLabel}>area</Text>
+              </View>
+            </View>
+          )}
+          <View style={styles.calcActions}>
+            <TouchableOpacity style={styles.actionChip} onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              loadCalculation(item.id);
+              Alert.alert('Loaded', 'Switch to Calculator tab to see the result.');
+            }} activeOpacity={0.7}>
+              <Zap size={13} color={theme.colors.secondary} />
+              <Text style={[styles.actionChipText, { color: theme.colors.secondary }]}>Load</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionChip} onPress={async () => {
+              if (hasReport) {
+                const result = await exportCalculationAsText(
+                  item.name, item.fixture, item.inputs,
+                  item.result as Record<string, any>, item.safetyLevel,
+                );
+                if (!result.success) Alert.alert('Error', result.error ?? 'Export failed');
+              }
+            }} activeOpacity={0.7}>
+              <FileDown size={13} color={theme.colors.success} />
+              <Text style={[styles.actionChipText, { color: theme.colors.success }]}>Export</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionChip} onPress={() => handleDelete(item.id, item.name)} activeOpacity={0.7}>
+              <Trash2 size={13} color={theme.colors.error} />
+              <Text style={[styles.actionChipText, { color: theme.colors.error }]}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </AnimatedCalcCard>
     );
-  }, [formatDate, getSafetyColor, loadCalculation, handleDelete]);
+  }, [formatDate, getSafetyColor, loadCalculation, handleDelete, openDetail]);
 
   if (selectedCalculation != null && 'irradiance_report' in selectedCalculation.result) {
     const { irradiance_report, beam_calculators } = selectedCalculation.result;
@@ -155,55 +188,57 @@ export default function CalculationsScreen() {
 
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.detailTopBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedCalculation(null)} activeOpacity={0.7}>
-            <ChevronRight size={20} color={theme.colors.text} style={{ transform: [{ rotate: '180deg' }] }} />
-            <Text style={styles.backText}>Back</Text>
-          </TouchableOpacity>
-          <Button
-            title="Export"
-            onPress={async () => {
-              const result = await exportCalculationAsText(
-                selectedCalculation.name,
-                selectedCalculation.fixture,
-                selectedCalculation.inputs,
-                selectedCalculation.result as Record<string, any>,
-                selectedCalculation.safetyLevel,
-              );
-              if (result.success) Alert.alert('Exported', 'Report exported successfully.');
-              else Alert.alert('Error', result.error ?? 'Export failed');
-            }}
-            variant="secondary"
-            size="small"
-            icon={<FileDown size={14} color={theme.colors.text} />}
-          />
-        </View>
-        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.detailHeader}>
-            <Text style={styles.detailTitle}>{selectedCalculation.name}</Text>
-            <Text style={styles.detailSubtitle}>{selectedCalculation.fixture} · {formatDate(selectedCalculation.timestamp)}</Text>
-            {selectedCalculation.description ? <Text style={styles.detailDesc}>{selectedCalculation.description}</Text> : null}
+        <Animated.View style={{ flex: 1, opacity: detailFade, transform: [{ translateY: detailSlide }] }}>
+          <View style={styles.detailTopBar}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedCalculation(null)} activeOpacity={0.7}>
+              <ChevronRight size={20} color={theme.colors.text} style={{ transform: [{ rotate: '180deg' }] }} />
+              <Text style={styles.backText}>Back</Text>
+            </TouchableOpacity>
+            <Button
+              title="Export"
+              onPress={async () => {
+                const result = await exportCalculationAsText(
+                  selectedCalculation.name,
+                  selectedCalculation.fixture,
+                  selectedCalculation.inputs,
+                  selectedCalculation.result as Record<string, any>,
+                  selectedCalculation.safetyLevel,
+                );
+                if (result.success) Alert.alert('Exported', 'Report exported successfully.');
+                else Alert.alert('Error', result.error ?? 'Export failed');
+              }}
+              variant="secondary"
+              size="small"
+              icon={<FileDown size={14} color={theme.colors.text} />}
+            />
           </View>
-          <View style={styles.summaryGrid}>
-            {([
-              ['Throw Distance', `${irradiance_report.throw_distance_m.toFixed(2)} m`],
-              ['Beam Area', `${irradiance_report.beam_area_m2.toFixed(2)} m²`],
-              ['Irradiance', `${irradiance_report.irradiance_mWm2.toFixed(2)} mW/m²`],
-              ['Safety', selectedCalculation.safetyLevel.toUpperCase()],
-            ] as const).map(([label, value]) => (
-              <View key={label} style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>{label}</Text>
-                <Text style={[styles.summaryValue, label === 'Safety' ? { color: getSafetyColor(selectedCalculation.safetyLevel) } : null]}>{value}</Text>
-              </View>
-            ))}
-          </View>
-          <ResultCard title="Irradiance Report" data={numeric(irradiance_report as unknown as Record<string, unknown>)} />
-          <ResultCard title="Beam Calculators" data={numeric(beam_calculators as unknown as Record<string, unknown>)} />
-          <View style={styles.footer}>
-            <View style={styles.footerDivider} />
-            <Text style={styles.footerText}>Powered by <Text style={styles.footerBrand}>JABVLabs</Text></Text>
-          </View>
-        </ScrollView>
+          <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailTitle}>{selectedCalculation.name}</Text>
+              <Text style={styles.detailSubtitle}>{selectedCalculation.fixture} · {formatDate(selectedCalculation.timestamp)}</Text>
+              {selectedCalculation.description ? <Text style={styles.detailDesc}>{selectedCalculation.description}</Text> : null}
+            </View>
+            <View style={styles.summaryGrid}>
+              {([
+                ['Throw Distance', `${irradiance_report.throw_distance_m.toFixed(2)} m`],
+                ['Beam Area', `${irradiance_report.beam_area_m2.toFixed(2)} m²`],
+                ['Irradiance', `${irradiance_report.irradiance_mWm2.toFixed(2)} mW/m²`],
+                ['Safety', selectedCalculation.safetyLevel.toUpperCase()],
+              ] as const).map(([label, value]) => (
+                <View key={label} style={styles.summaryItem}>
+                  <Text style={styles.summaryLabel}>{label}</Text>
+                  <Text style={[styles.summaryValue, label === 'Safety' ? { color: getSafetyColor(selectedCalculation.safetyLevel) } : null]}>{value}</Text>
+                </View>
+              ))}
+            </View>
+            <ResultCard title="Irradiance Report" data={numeric(irradiance_report as unknown as Record<string, unknown>)} />
+            <ResultCard title="Beam Calculators" data={numeric(beam_calculators as unknown as Record<string, unknown>)} />
+            <View style={styles.footer}>
+              <View style={styles.footerDivider} />
+              <Text style={styles.footerText}>Powered by <Text style={styles.footerBrand}>JABVLabs</Text></Text>
+            </View>
+          </ScrollView>
+        </Animated.View>
       </SafeAreaView>
     );
   }
@@ -215,15 +250,17 @@ export default function CalculationsScreen() {
           <View style={styles.titleIcon}>
             <History size={16} color={theme.colors.secondary} />
           </View>
-          <Text style={styles.screenTitle}>History</Text>
+          <View>
+            <Text style={styles.screenTitle}>History</Text>
+            <Text style={styles.screenSub}>{savedCalculations.length} calculation{savedCalculations.length !== 1 ? 's' : ''}</Text>
+          </View>
         </View>
-        <Text style={styles.countBadge}>{savedCalculations.length}</Text>
       </View>
 
       <View style={styles.searchSection}>
         <Input label="" value={searchQuery} onChangeText={setSearchQuery} placeholder="Search calculations..." />
         <View style={styles.filterRow}>
-          <TouchableOpacity style={[styles.filterToggle, showFilters && styles.filterToggleActive]} onPress={() => setShowFilters(!showFilters)} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.filterToggle, showFilters && styles.filterToggleActive]} onPress={() => { Haptics.selectionAsync(); setShowFilters(!showFilters); }} activeOpacity={0.7}>
             <Filter size={14} color={showFilters ? theme.colors.primary : theme.colors.textSecondary} />
             <Text style={[styles.filterToggleText, showFilters && styles.filterToggleTextActive]}>{showFilters ? 'Hide' : 'Filters'}</Text>
           </TouchableOpacity>
@@ -245,7 +282,7 @@ export default function CalculationsScreen() {
       {filteredCalculations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconWrap}>
-            <History size={36} color={theme.colors.textTertiary} />
+            <History size={32} color={theme.colors.textTertiary} />
           </View>
           <Text style={styles.emptyTitle}>
             {savedCalculations.length === 0 ? 'No Saved Calculations' : 'No Results Found'}
@@ -289,28 +326,24 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   titleIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     backgroundColor: 'rgba(245, 166, 35, 0.12)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   screenTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800' as const,
     color: theme.colors.text,
     letterSpacing: -0.3,
   },
-  countBadge: {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: theme.colors.textSecondary,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
+  screenSub: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    fontWeight: '500' as const,
+    marginTop: 1,
   },
   searchSection: { paddingHorizontal: 16, paddingTop: 12, marginBottom: 4 },
   filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 8 },

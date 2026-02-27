@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch, Animated, Easing } from 'react-native';
 import { router } from 'expo-router';
-import { User, LogOut, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb } from 'lucide-react-native';
+import { User, LogOut, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb, Flame, Award } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
@@ -13,6 +13,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { isBiometricAvailable, getBiometricType } from '@/utils/biometric-auth';
 import { exportCalculationAsCSV } from '@/utils/file-helpers';
 
+const AnimatedSection = React.memo(({ children, index }: { children: React.ReactNode; index: number }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(14)).current;
+
+  useEffect(() => {
+    const delay = index * 80;
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 350, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 12, delay, useNativeDriver: true }),
+    ]).start();
+  }, [fadeAnim, slideAnim, index]);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      {children}
+    </Animated.View>
+  );
+});
+
 export default function ProfileScreen() {
   const { user, logout, biometricEnabled, setBiometricEnabled } = useAuthStore();
   const { savedCalculations } = useLightingStore();
@@ -20,6 +39,15 @@ export default function ProfileScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState<boolean>(false);
   const [biometricType, setBiometricType] = useState<string>('Biometric');
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const avatarScale = useRef(new Animated.Value(0.8)).current;
+  const avatarOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(avatarScale, { toValue: 1, tension: 50, friction: 8, useNativeDriver: true }),
+      Animated.timing(avatarOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+    ]).start();
+  }, [avatarScale, avatarOpacity]);
 
   useEffect(() => {
     checkBiometric();
@@ -87,123 +115,135 @@ export default function ProfileScreen() {
   }, [savedCalculations]);
 
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
+  const safeCount = savedCalculations.filter(c => c.safetyLevel === 'safe').length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
-          <View style={styles.avatarOuter}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initial}</Text>
-            </View>
+        <AnimatedSection index={0}>
+          <View style={styles.profileSection}>
+            <Animated.View style={[styles.avatarOuter, { transform: [{ scale: avatarScale }], opacity: avatarOpacity }]}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initial}</Text>
+              </View>
+            </Animated.View>
+            <Text style={styles.userName}>{user?.name ?? 'User'}</Text>
+            <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
           </View>
-          <Text style={styles.userName}>{user?.name ?? 'User'}</Text>
-          <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
-        </View>
+        </AnimatedSection>
 
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: theme.colors.glow }]}>
-              <Calculator size={16} color={theme.colors.primary} />
+        <AnimatedSection index={1}>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <View style={[styles.statIcon, { backgroundColor: theme.colors.glow }]}>
+                <Calculator size={15} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.statValue}>{savedCalculations.length}</Text>
+              <Text style={styles.statLabel}>Calculations</Text>
             </View>
-            <Text style={styles.statValue}>{savedCalculations.length}</Text>
-            <Text style={styles.statLabel}>Calculations</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
-              <Lightbulb size={16} color={theme.colors.accent} />
+            <View style={styles.statCard}>
+              <View style={[styles.statIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
+                <Lightbulb size={15} color={theme.colors.accent} />
+              </View>
+              <Text style={styles.statValue}>23</Text>
+              <Text style={styles.statLabel}>Fixtures</Text>
             </View>
-            <Text style={styles.statValue}>23</Text>
-            <Text style={styles.statLabel}>Fixtures</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
-              <Shield size={16} color={theme.colors.success} />
+            <View style={styles.statCard}>
+              <View style={[styles.statIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
+                <Shield size={15} color={theme.colors.success} />
+              </View>
+              <Text style={styles.statValue}>{safeCount}</Text>
+              <Text style={styles.statLabel}>Safe</Text>
             </View>
-            <Text style={styles.statValue}>
-              {savedCalculations.filter(c => c.safetyLevel === 'safe').length}
-            </Text>
-            <Text style={styles.statLabel}>Safe</Text>
           </View>
-        </View>
+        </AnimatedSection>
 
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionLabel}>ACCOUNT</Text>
-          <View style={styles.menuCard}>
-            <InfoRow label="Name" value={user?.name ?? 'N/A'} />
-            <InfoRow label="Email" value={user?.email ?? 'N/A'} />
-            <InfoRow
-              label="Member Since"
-              value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-              isLast
-            />
+        <AnimatedSection index={2}>
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>ACCOUNT</Text>
+            <View style={styles.menuCard}>
+              <InfoRow label="Name" value={user?.name ?? 'N/A'} />
+              <InfoRow label="Email" value={user?.email ?? 'N/A'} />
+              <InfoRow
+                label="Member Since"
+                value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                isLast
+              />
+            </View>
           </View>
-        </View>
+        </AnimatedSection>
 
         {Platform.OS !== 'web' && biometricAvailable && (
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>SECURITY</Text>
-            <View style={styles.menuCard}>
-              <View style={styles.biometricRow}>
-                <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
-                  <Fingerprint size={16} color={theme.colors.accent} />
+          <AnimatedSection index={3}>
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionLabel}>SECURITY</Text>
+              <View style={styles.menuCard}>
+                <View style={styles.biometricRow}>
+                  <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
+                    <Fingerprint size={16} color={theme.colors.accent} />
+                  </View>
+                  <View style={styles.menuItemText}>
+                    <Text style={styles.menuItemTitle}>{biometricType} Login</Text>
+                    <Text style={styles.menuItemSub}>Quick sign-in</Text>
+                  </View>
+                  <Switch
+                    value={biometricEnabled}
+                    onValueChange={handleToggleBiometric}
+                    trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.primary + '80' }}
+                    thumbColor={biometricEnabled ? theme.colors.primary : theme.colors.textTertiary}
+                  />
                 </View>
-                <View style={styles.menuItemText}>
-                  <Text style={styles.menuItemTitle}>{biometricType} Login</Text>
-                  <Text style={styles.menuItemSub}>Quick sign-in</Text>
-                </View>
-                <Switch
-                  value={biometricEnabled}
-                  onValueChange={handleToggleBiometric}
-                  trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.primary + '80' }}
-                  thumbColor={biometricEnabled ? theme.colors.primary : theme.colors.textTertiary}
-                />
               </View>
             </View>
-          </View>
+          </AnimatedSection>
         )}
 
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionLabel}>ACTIONS</Text>
-          <View style={styles.menuCard}>
-            <MenuItem
-              icon={<FileDown size={16} color={theme.colors.success} />}
-              iconBg="rgba(34, 197, 94, 0.12)"
-              title="Export All Calculations"
-              subtitle={`CSV · ${savedCalculations.length} records`}
-              onPress={handleExportAll}
-              isLast
-            />
+        <AnimatedSection index={4}>
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>ACTIONS</Text>
+            <View style={styles.menuCard}>
+              <MenuItem
+                icon={<FileDown size={16} color={theme.colors.success} />}
+                iconBg="rgba(34, 197, 94, 0.12)"
+                title="Export All Calculations"
+                subtitle={`CSV · ${savedCalculations.length} records`}
+                onPress={handleExportAll}
+                isLast
+              />
+            </View>
           </View>
-        </View>
+        </AnimatedSection>
 
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionLabel}>FLAME FORMULA</Text>
-          <View style={styles.menuCard}>
-            {FLAME_ITEMS.map(({ letter, title, desc }, index) => (
-              <View key={letter} style={[styles.flameRow, index === FLAME_ITEMS.length - 1 && styles.flameRowLast]}>
-                <View style={[styles.flameBadge, { backgroundColor: FLAME_COLORS[index] }]}>
-                  <Text style={styles.flameLetter}>{letter}</Text>
+        <AnimatedSection index={5}>
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>FLAME FORMULA</Text>
+            <View style={styles.menuCard}>
+              {FLAME_ITEMS.map(({ letter, title, desc }, index) => (
+                <View key={letter} style={[styles.flameRow, index === FLAME_ITEMS.length - 1 && styles.flameRowLast]}>
+                  <View style={[styles.flameBadge, { backgroundColor: FLAME_COLORS[index] }]}>
+                    <Text style={styles.flameLetter}>{letter}</Text>
+                  </View>
+                  <View style={styles.flameContent}>
+                    <Text style={styles.flameTitle}>{title}</Text>
+                    <Text style={styles.flameDesc}>{desc}</Text>
+                  </View>
                 </View>
-                <View style={styles.flameContent}>
-                  <Text style={styles.flameTitle}>{title}</Text>
-                  <Text style={styles.flameDesc}>{desc}</Text>
-                </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
+        </AnimatedSection>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-          <LogOut size={16} color={theme.colors.error} />
-          <Text style={styles.logoutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <AnimatedSection index={6}>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
+            <LogOut size={16} color={theme.colors.error} />
+            <Text style={styles.logoutText}>Sign Out</Text>
+          </TouchableOpacity>
 
-        <View style={styles.footer}>
-          <Logo size="small" imageOnly />
-          <Text style={styles.footerVersion}>v1.0.0 · Powered by JABVLabs</Text>
-        </View>
+          <View style={styles.footer}>
+            <Logo size="small" imageOnly />
+            <Text style={styles.footerVersion}>v1.0.0 · Powered by JABVLabs</Text>
+          </View>
+        </AnimatedSection>
       </ScrollView>
     </SafeAreaView>
   );
@@ -291,13 +331,13 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: Platform.select({ ios: 30, android: 110, default: 30 }) },
   profileSection: {
     alignItems: 'center',
-    paddingTop: 24,
-    paddingBottom: 20,
+    paddingTop: 28,
+    paddingBottom: 22,
   },
   avatarOuter: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
+    width: 82,
+    height: 82,
+    borderRadius: 25,
     borderWidth: 2,
     borderColor: theme.colors.primary,
     justifyContent: 'center',
@@ -306,13 +346,13 @@ const styles = StyleSheet.create({
     shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 4,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 21,
+    width: 74,
+    height: 74,
+    borderRadius: 22,
     backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',

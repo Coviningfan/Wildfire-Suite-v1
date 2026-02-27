@@ -1,10 +1,10 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList,
-  KeyboardAvoidingView, Platform, Animated, ActivityIndicator,
+  KeyboardAvoidingView, Platform, Animated, ActivityIndicator, Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, Sparkles, User, Zap, Lightbulb, Shield, RotateCcw, Copy } from 'lucide-react-native';
+import { Send, Sparkles, User, Zap, Lightbulb, Shield, RotateCcw, Copy, MessageCircle, ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useRorkAgent, createRorkTool } from '@rork-ai/toolkit-sdk';
@@ -14,16 +14,84 @@ import { LightingCalculator } from '@/utils/lighting-calculator';
 import { getFixtureCategory, getFixtureNotes, getFixturePowerWatts, getFixtureControlType } from '@/utils/fixture-helpers';
 
 const SUGGESTIONS = [
-  { icon: Zap, label: 'Best fixture for a 5m throw?', color: theme.colors.primary },
-  { icon: Lightbulb, label: 'How to light a 10x8m stage?', color: theme.colors.secondary },
-  { icon: Shield, label: 'UV safety for a haunted house', color: theme.colors.success },
+  { icon: Zap, label: 'Best fixture for a 5m throw?', color: theme.colors.primary, tag: 'Fixture' },
+  { icon: Lightbulb, label: 'How to light a 10x8m stage?', color: theme.colors.secondary, tag: 'Design' },
+  { icon: Shield, label: 'UV safety for a haunted house', color: theme.colors.success, tag: 'Safety' },
 ];
+
+const TypingIndicator = React.memo(() => {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createDotAnim = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: 1, duration: 300, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 300, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.delay(600 - delay),
+        ])
+      );
+    const a1 = createDotAnim(dot1, 0);
+    const a2 = createDotAnim(dot2, 200);
+    const a3 = createDotAnim(dot3, 400);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={typingStyles.container}>
+      <View style={typingStyles.avatarAI}>
+        <Sparkles size={12} color={theme.colors.primary} />
+      </View>
+      <View style={typingStyles.bubble}>
+        {[dot1, dot2, dot3].map((dot, i) => (
+          <Animated.View
+            key={i}
+            style={[
+              typingStyles.dot,
+              { transform: [{ translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }], opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+});
+
+const typingStyles = StyleSheet.create({
+  container: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 16, paddingHorizontal: 4 },
+  avatarAI: { width: 28, height: 28, borderRadius: 9, backgroundColor: theme.colors.glow, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
+  bubble: { flexDirection: 'row', gap: 4, backgroundColor: theme.colors.surface, borderRadius: 16, borderBottomLeftRadius: 6, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: theme.colors.border },
+  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.textTertiary },
+});
+
+const AnimatedMessage = React.memo(({ children, index }: { children: React.ReactNode; index: number }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(12)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 280, delay: 40, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 80, friction: 12, useNativeDriver: true }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
+  return (
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      {children}
+    </Animated.View>
+  );
+});
 
 export default function AIAssistantScreen() {
   const [input, setInput] = useState<string>('');
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
-  const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  const orbitAnim = useRef(new Animated.Value(0)).current;
+  const glowPulse = useRef(new Animated.Value(0.8)).current;
 
   const calculator = useRef(new LightingCalculator()).current;
 
@@ -97,20 +165,28 @@ export default function AIAssistantScreen() {
 
   useEffect(() => {
     const loop = Animated.loop(
+      Animated.timing(orbitAnim, { toValue: 1, duration: 8000, easing: Easing.linear, useNativeDriver: true })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [orbitAnim]);
+
+  useEffect(() => {
+    const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 0.4, duration: 2000, useNativeDriver: true }),
+        Animated.timing(glowPulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(glowPulse, { toValue: 0.8, duration: 2000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     );
     loop.start();
     return () => loop.stop();
-  }, [pulseAnim]);
+  }, [glowPulse]);
 
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      }, 120);
     }
   }, [messages]);
 
@@ -140,102 +216,132 @@ export default function AIAssistantScreen() {
   const isStreaming = messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' &&
     messages[messages.length - 1]?.parts?.some((p: any) => p.type === 'tool' && (p.state === 'input-streaming' || p.state === 'input-available'));
 
-  const renderMessage = useCallback(({ item: m }: { item: any }) => {
+  const isThinking = useMemo(() => {
+    if (messages.length === 0) return false;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role !== 'assistant') return false;
+    const hasPendingTool = lastMsg?.parts?.some((p: any) => p.type === 'tool' && (p.state === 'input-streaming' || p.state === 'input-available'));
+    const hasNoText = !lastMsg?.parts?.some((p: any) => p.type === 'text' && p.text?.trim());
+    return hasPendingTool && hasNoText;
+  }, [messages]);
+
+  const renderMessage = useCallback(({ item: m, index }: { item: any; index: number }) => {
     const isUser = m.role === 'user';
 
     return (
-      <View style={[styles.msgRow, isUser && styles.msgRowUser]}>
-        {!isUser && (
-          <View style={styles.avatarAI}>
-            <Sparkles size={14} color={theme.colors.primary} />
-          </View>
-        )}
-        <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAI]}>
-          {m.parts?.map((part: any, i: number) => {
-            if (part.type === 'text' && part.text) {
-              return (
-                <View key={`${m.id}-${i}`}>
-                  <Text style={[styles.msgText, isUser && styles.msgTextUser]}>{part.text}</Text>
-                  {!isUser && (
-                    <TouchableOpacity
-                      style={styles.copyBtn}
-                      onPress={() => handleCopy(part.text)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Copy size={12} color={theme.colors.textTertiary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            }
-            if (part.type === 'tool') {
-              if (part.state === 'output-available') {
+      <AnimatedMessage index={index}>
+        <View style={[styles.msgRow, isUser && styles.msgRowUser]}>
+          {!isUser && (
+            <View style={styles.avatarAI}>
+              <Sparkles size={13} color={theme.colors.primary} />
+            </View>
+          )}
+          <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAI]}>
+            {m.parts?.map((part: any, i: number) => {
+              if (part.type === 'text' && part.text) {
                 return (
-                  <View key={`${m.id}-${i}`} style={styles.toolResult}>
-                    <View style={styles.toolHeader}>
-                      <Zap size={12} color={theme.colors.secondary} />
-                      <Text style={styles.toolName}>{part.toolName}</Text>
+                  <View key={`${m.id}-${i}`}>
+                    <Text style={[styles.msgText, isUser && styles.msgTextUser]}>{part.text}</Text>
+                    {!isUser && (
+                      <TouchableOpacity
+                        style={styles.copyBtn}
+                        onPress={() => handleCopy(part.text)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Copy size={11} color={theme.colors.textTertiary} />
+                        <Text style={styles.copyLabel}>Copy</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              }
+              if (part.type === 'tool') {
+                if (part.state === 'output-available') {
+                  return (
+                    <View key={`${m.id}-${i}`} style={styles.toolResult}>
+                      <View style={styles.toolHeader}>
+                        <View style={styles.toolIconWrap}>
+                          <Zap size={10} color={theme.colors.secondary} />
+                        </View>
+                        <Text style={styles.toolName}>{part.toolName}</Text>
+                        <View style={styles.toolDoneBadge}>
+                          <Text style={styles.toolDoneText}>Done</Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                );
+                  );
+                }
+                if (part.state === 'input-streaming' || part.state === 'input-available') {
+                  return (
+                    <View key={`${m.id}-${i}`} style={styles.toolRunning}>
+                      <ActivityIndicator size="small" color={theme.colors.primary} />
+                      <Text style={styles.toolRunningText}>Running {part.toolName}...</Text>
+                    </View>
+                  );
+                }
+                if (part.state === 'output-error') {
+                  return (
+                    <View key={`${m.id}-${i}`} style={styles.toolError}>
+                      <Text style={styles.toolErrorText}>Tool error: {part.errorText}</Text>
+                    </View>
+                  );
+                }
               }
-              if (part.state === 'input-streaming' || part.state === 'input-available') {
-                return (
-                  <View key={`${m.id}-${i}`} style={styles.toolRunning}>
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
-                    <Text style={styles.toolRunningText}>Running {part.toolName}...</Text>
-                  </View>
-                );
-              }
-              if (part.state === 'output-error') {
-                return (
-                  <View key={`${m.id}-${i}`} style={styles.toolError}>
-                    <Text style={styles.toolErrorText}>Tool error: {part.errorText}</Text>
-                  </View>
-                );
-              }
-            }
-            return null;
-          })}
-        </View>
-        {isUser && (
-          <View style={styles.avatarUser}>
-            <User size={14} color="#fff" />
+              return null;
+            })}
           </View>
-        )}
-      </View>
+          {isUser && (
+            <View style={styles.avatarUser}>
+              <User size={13} color="#fff" />
+            </View>
+          )}
+        </View>
+      </AnimatedMessage>
     );
   }, [handleCopy]);
 
   const hasMessages = messages.length > 0;
+
+  const orbitRotate = orbitAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerIcon}>
-            <Sparkles size={18} color={theme.colors.primary} />
+            <Sparkles size={17} color={theme.colors.primary} />
           </View>
           <View>
             <Text style={styles.headerTitle}>Wildfire AI</Text>
-            <Text style={styles.headerSub}>UV Lighting Expert</Text>
+            <View style={styles.statusRow}>
+              <View style={styles.statusDot} />
+              <Text style={styles.headerSub}>Online</Text>
+            </View>
           </View>
         </View>
         {hasMessages && (
           <TouchableOpacity style={styles.resetBtn} onPress={handleReset} activeOpacity={0.7}>
-            <RotateCcw size={16} color={theme.colors.textSecondary} />
+            <RotateCcw size={15} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
       {!hasMessages ? (
         <View style={styles.emptyState}>
-          <Animated.View style={[styles.emptyIcon, { opacity: pulseAnim }]}>
-            <Sparkles size={48} color={theme.colors.primary} />
-          </Animated.View>
-          <Text style={styles.emptyTitle}>Ask me anything about UV lighting</Text>
+          <View style={styles.emptyIconContainer}>
+            <Animated.View style={[styles.orbitRing, { transform: [{ rotate: orbitRotate }] }]}>
+              <View style={styles.orbitDot} />
+            </Animated.View>
+            <Animated.View style={[styles.emptyIcon, { opacity: glowPulse }]}>
+              <Sparkles size={36} color={theme.colors.primary} />
+            </Animated.View>
+          </View>
+          <Text style={styles.emptyTitle}>UV Lighting Expert</Text>
           <Text style={styles.emptyDesc}>
-            I can calculate irradiance, recommend fixtures, explain safety protocols, and help design your lighting setup.
+            Calculate irradiance, compare fixtures, design setups, and get safety guidance — all powered by AI.
           </Text>
 
           <View style={styles.suggestions}>
@@ -246,12 +352,21 @@ export default function AIAssistantScreen() {
                 onPress={() => handleSuggestion(s.label)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.suggestionIcon, { backgroundColor: s.color + '18' }]}>
+                <View style={[styles.suggestionIcon, { backgroundColor: s.color + '14' }]}>
                   <s.icon size={16} color={s.color} />
                 </View>
-                <Text style={styles.suggestionText}>{s.label}</Text>
+                <View style={styles.suggestionContent}>
+                  <Text style={styles.suggestionTag}>{s.tag}</Text>
+                  <Text style={styles.suggestionText}>{s.label}</Text>
+                </View>
+                <ArrowRight size={14} color={theme.colors.textTertiary} />
               </TouchableOpacity>
             ))}
+          </View>
+
+          <View style={styles.emptyFooter}>
+            <MessageCircle size={13} color={theme.colors.textTertiary} />
+            <Text style={styles.emptyFooterText}>Ask anything about Wildfire UV lighting</Text>
           </View>
         </View>
       ) : (
@@ -264,6 +379,7 @@ export default function AIAssistantScreen() {
           contentContainerStyle={styles.messageListContent}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          ListFooterComponent={isThinking ? <TypingIndicator /> : null}
         />
       )}
 
@@ -300,7 +416,7 @@ export default function AIAssistantScreen() {
             {isStreaming ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Send size={18} color={input.trim() ? '#fff' : theme.colors.textTertiary} />
+              <Send size={17} color={input.trim() ? '#fff' : theme.colors.textTertiary} />
             )}
           </TouchableOpacity>
         </View>
@@ -342,16 +458,27 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     letterSpacing: -0.3,
   },
-  headerSub: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 1,
   },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.success,
+  },
+  headerSub: {
+    fontSize: 12,
+    color: theme.colors.success,
+    fontWeight: '500' as const,
+  },
   resetBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -362,24 +489,48 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingBottom: 60,
+    paddingHorizontal: 28,
+    paddingBottom: 40,
   },
-  emptyIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
-    backgroundColor: theme.colors.glow,
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
+  orbitRing: {
+    position: 'absolute',
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderStyle: 'dashed',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  orbitDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.primary,
+    marginTop: -4,
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: theme.colors.glow,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700' as const,
+    fontSize: 22,
+    fontWeight: '800' as const,
     color: theme.colors.text,
     textAlign: 'center' as const,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
     marginBottom: 10,
   },
   emptyDesc: {
@@ -388,10 +539,11 @@ const styles = StyleSheet.create({
     textAlign: 'center' as const,
     lineHeight: 22,
     marginBottom: 32,
+    paddingHorizontal: 8,
   },
   suggestions: {
     width: '100%',
-    gap: 10,
+    gap: 8,
   },
   suggestionCard: {
     flexDirection: 'row',
@@ -399,21 +551,43 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: theme.colors.surface,
     borderRadius: 14,
-    padding: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   suggestionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  suggestionText: {
+  suggestionContent: {
     flex: 1,
+  },
+  suggestionTag: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: theme.colors.textTertiary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+    marginBottom: 2,
+  },
+  suggestionText: {
     fontSize: 14,
     color: theme.colors.text,
+    fontWeight: '500' as const,
+  },
+  emptyFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 28,
+    opacity: 0.5,
+  },
+  emptyFooterText: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
     fontWeight: '500' as const,
   },
   messageList: {
@@ -433,18 +607,18 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   avatarAI: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     backgroundColor: theme.colors.glow,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
   },
   avatarUser: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -474,9 +648,20 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   copyBtn: {
+    flexDirection: 'row',
     alignSelf: 'flex-end',
-    marginTop: 6,
-    padding: 4,
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: theme.colors.surfaceSecondary,
+  },
+  copyLabel: {
+    fontSize: 10,
+    color: theme.colors.textTertiary,
+    fontWeight: '600' as const,
   },
   toolResult: {
     backgroundColor: theme.colors.surfaceSecondary,
@@ -491,10 +676,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  toolIconWrap: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    backgroundColor: 'rgba(245, 166, 35, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   toolName: {
     fontSize: 12,
     color: theme.colors.secondary,
     fontWeight: '600' as const,
+    flex: 1,
+  },
+  toolDoneBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+  },
+  toolDoneText: {
+    fontSize: 9,
+    fontWeight: '700' as const,
+    color: theme.colors.success,
+    letterSpacing: 0.3,
   },
   toolRunning: {
     flexDirection: 'row',
@@ -570,5 +776,10 @@ const styles = StyleSheet.create({
   },
   sendBtnActive: {
     backgroundColor: theme.colors.primary,
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
 });
