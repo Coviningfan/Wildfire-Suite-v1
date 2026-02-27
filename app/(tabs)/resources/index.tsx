@@ -9,6 +9,7 @@ import {
   Settings2, Ruler, Award, ExternalLink, FileText,
   Archive, ChevronRight, Search, X, Clock,
   Atom, Zap, Lightbulb, Flame, Cpu, Camera, Paintbrush,
+  Globe, Download, Layers, Pen,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +30,13 @@ const FORMAT_META: Record<string, { label: string; icon: React.ComponentType<any
   zip: { label: 'ZIP', icon: Archive, color: '#3B82F6' },
   web: { label: 'WEB', icon: ExternalLink, color: '#22C55E' },
 };
+
+const SUPPORT_RESOURCES = [
+  { icon: Pen, label: 'CAD Drawings' },
+  { icon: Settings2, label: 'DMX Charts' },
+  { icon: Download, label: 'Firmware' },
+  { icon: Layers, label: 'Vectorworks Symbols' },
+];
 
 async function openUrl(url: string) {
   try {
@@ -100,6 +108,11 @@ export default function ResourcesScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/resources/${tutorial.id}` as any);
   }, [router]);
+
+  const handleOpenSupport = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    openUrl('https://wildfirelighting.com/support/');
+  }, []);
 
   const hasSearch = searchQuery.trim().length > 0;
 
@@ -205,7 +218,7 @@ export default function ResourcesScreen() {
 
         {activeTab === 'documents' && (
           <>
-            {filteredResources.length === 0 ? (
+            {filteredResources.length === 0 && !hasSearch ? null : filteredResources.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
                   <Search size={28} color={theme.colors.textTertiary} />
@@ -269,14 +282,42 @@ export default function ResourcesScreen() {
               })
             )}
 
-            <TouchableOpacity
-              style={styles.supportLink}
-              onPress={() => openUrl('https://wildfirelighting.com/support/')}
-              activeOpacity={0.7}
-            >
-              <ExternalLink size={14} color={theme.colors.primary} />
-              <Text style={styles.supportLinkText}>View all on wildfirelighting.com</Text>
-            </TouchableOpacity>
+            {!hasSearch && (
+              <View style={styles.supportCard}>
+                <View style={styles.supportCardHeader}>
+                  <View style={styles.supportGlobeWrap}>
+                    <Globe size={18} color="#fff" />
+                  </View>
+                  <View style={styles.supportCardHeaderText}>
+                    <Text style={styles.supportCardTitle}>More on wildfirelighting.com</Text>
+                    <Text style={styles.supportCardDesc}>
+                      These resources are available on our support page:
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.supportItemsGrid}>
+                  {SUPPORT_RESOURCES.map((item, idx) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <View key={idx} style={styles.supportItem}>
+                        <ItemIcon size={14} color={theme.colors.textSecondary} />
+                        <Text style={styles.supportItemText}>{item.label}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.supportBtn}
+                  onPress={handleOpenSupport}
+                  activeOpacity={0.7}
+                >
+                  <ExternalLink size={15} color="#fff" />
+                  <Text style={styles.supportBtnText}>Visit Support Page</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
         )}
 
@@ -512,23 +553,78 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 2,
   },
-  supportLink: {
+  supportCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 18,
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  supportCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  supportGlobeWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  supportCardHeaderText: {
+    flex: 1,
+  },
+  supportCardTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: theme.colors.text,
+    letterSpacing: -0.1,
+    marginBottom: 3,
+  },
+  supportCardDesc: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '500' as const,
+    lineHeight: 17,
+  },
+  supportItemsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  supportItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.surfaceSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  supportItemText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: theme.colors.textSecondary,
+  },
+  supportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
-    marginTop: 4,
-    marginBottom: 8,
+    paddingVertical: 13,
     borderRadius: 12,
-    backgroundColor: theme.colors.glow,
-    borderWidth: 1,
-    borderColor: 'rgba(232, 65, 42, 0.15)',
+    backgroundColor: theme.colors.primary,
   },
-  supportLinkText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: theme.colors.primary,
+  supportBtnText: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   emptyState: {
     alignItems: 'center',

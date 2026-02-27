@@ -193,28 +193,5 @@ export const WILDFIRE_RESOURCES: ResourceCategory[] = [
       { title: 'Wildfire Sheen Leveler', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/a3xcr8954i6ccfs1htrle', format: 'pdf' },
     ],
   },
-  {
-    id: 'dmx',
-    title: 'DMX Charts',
-    icon: 'Settings2',
-    color: '#9B6DFF',
-    items: [
-      { title: 'VioStorm LED Series Rev. 2.1', url: 'https://wildfirelighting.com/wp-content/uploads/2020/02/VioStorm-DMX-Chart-Rev-2.1.pdf', format: 'pdf' },
-      { title: 'VioStorm LED Series Rev. 2.0', url: 'https://wildfirelighting.com/wp-content/uploads/2018/08/VioStorm_VS-120_Trias_Ver._2.0_DMX_Chart.pdf', format: 'pdf' },
-      { title: 'VioStorm LED Series Rev. 1.3', url: 'https://wildfirelighting.com/wp-content/uploads/2018/09/VioStorm-VS-120-DMX-Chart-Rev-1.3.pdf', format: 'pdf' },
-    ],
-  },
-  {
-    id: 'drawings',
-    title: 'CAD Drawings',
-    icon: 'Ruler',
-    color: '#3B9FE8',
-    items: [
-      { title: 'VioStorm LED Series CAD', url: 'https://wildfirelighting.com/wp-content/uploads/2020/02/CAD-VioStorm-UV-LED-Series.zip', format: 'zip' },
-      { title: 'UltraBlade Series CAD', url: 'https://wildfirelighting.com/wp-content/uploads/2020/02/CAD-UltraBlade-LED-Series.zip', format: 'zip' },
-      { title: 'Effects Master VHO Series CAD', url: 'https://wildfirelighting.com/wp-content/uploads/2020/02/CAD-Effects-Master-VHO.zip', format: 'zip' },
-      { title: 'Effects Master Energy Series CAD', url: 'https://wildfirelighting.com/wp-content/uploads/2020/02/CAD-Effects-Master-Energy.zip', format: 'zip' },
-      { title: 'Effects Master LED Series CAD', url: 'https://wildfirelighting.com/wp-content/uploads/2020/02/CAD-Effects-Master-LED-Series.zip', format: 'zip' },
-    ],
-  },
+
 ];
