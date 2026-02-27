@@ -48,6 +48,7 @@ interface LightingState {
   setRectDepth: (depth: string) => void;
   calculate: () => Promise<void>;
   resetInputs: () => void;
+  clearResult: () => void;
   openQRScanner: () => void;
   closeQRScanner: () => void;
   handleQRScan: (data: string) => void;
@@ -60,14 +61,14 @@ interface LightingState {
 export const useLightingStore = create<LightingState>()(
   persist(
     (set, get) => ({
-      selectedFixture: 'VSP-120F',
-      verticalHeight: '0',
-      horizontalDistance: '5.0',
-      beamWidth: '12.0',
-      beamHeight: '12.0',
-      rectHeight: '3.0',
-      rectWidth: '3.0',
-      rectDepth: '3.0',
+      selectedFixture: '',
+      verticalHeight: '',
+      horizontalDistance: '',
+      beamWidth: '',
+      beamHeight: '',
+      rectHeight: '',
+      rectWidth: '',
+      rectDepth: '',
       isCalculating: false,
       showingPreview: false,
       lastCalculation: null,
@@ -110,17 +111,18 @@ export const useLightingStore = create<LightingState>()(
       },
 
       resetInputs: () => set({
-        selectedFixture: 'VSP-120F',
-        verticalHeight: '0',
-        horizontalDistance: '5.0',
-        beamWidth: '12.0',
-        beamHeight: '12.0',
-        rectHeight: '3.0',
-        rectWidth: '3.0',
-        rectDepth: '3.0',
+        selectedFixture: '',
+        verticalHeight: '',
+        horizontalDistance: '',
+        beamWidth: '',
+        beamHeight: '',
+        rectHeight: '',
+        rectWidth: '',
+        rectDepth: '',
         lastCalculation: null,
       }),
 
+      clearResult: () => set({ lastCalculation: null, showingPreview: false }),
       openQRScanner: () => set({ isQRScannerOpen: true }),
       closeQRScanner: () => set({ isQRScannerOpen: false }),
 

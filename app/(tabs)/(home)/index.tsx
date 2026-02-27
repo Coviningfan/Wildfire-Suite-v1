@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity, Animated, Dimensions } from 'react-native';
-import { Calculator, QrCode, HelpCircle, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2 } from 'lucide-react-native';
+import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore } from '@/stores/lighting-store';
 import { LightingCalculator } from '@/utils/lighting-calculator';
@@ -88,11 +88,10 @@ export default function CalculatorScreen() {
     isCalculating, lastCalculation,
     setSelectedFixture, setVerticalHeight, setHorizontalDistance,
     setBeamWidth, setBeamHeight, setRectHeight, setRectWidth, setRectDepth,
-    calculate, resetInputs, openQRScanner, saveCalculation, getSafetyLevel,
+    calculate, resetInputs, openQRScanner, saveCalculation, getSafetyLevel, clearResult,
   } = useLightingStore();
 
   const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
-  const [showHelp, setShowHelp] = useState<boolean>(false);
   const [isFirstLaunch, markSeen] = useFirstLaunch();
   const [showVolume, setShowVolume] = useState<boolean>(false);
   const [material, setMaterial] = useState<string>('');
@@ -199,7 +198,6 @@ Give a quick practical insight about this setup - is the throw distance optimal,
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <OnboardingModal visible={isFirstLaunch} onDismiss={markSeen} />
-      <OnboardingModal visible={showHelp} onDismiss={() => setShowHelp(false)} />
 
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
@@ -215,9 +213,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           <TouchableOpacity onPress={handleReset} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <RotateCcw size={18} color={theme.colors.textTertiary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowHelp(true)} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <HelpCircle size={18} color={theme.colors.textTertiary} />
-          </TouchableOpacity>
+
         </View>
       </View>
 
@@ -414,7 +410,22 @@ Give a quick practical insight about this setup - is the throw distance optimal,
 
         {hasResult && (
           <View style={styles.resultSection}>
-            <Text style={styles.resultSectionTitle}>Results</Text>
+            <View style={styles.resultHeader}>
+              <Text style={styles.resultSectionTitle}>Results</Text>
+              <TouchableOpacity
+                style={styles.dismissBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  clearResult();
+                  setAiInsight(null);
+                  insightAnim.setValue(0);
+                }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={16} color={theme.colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
             <View style={styles.resultGrid}>
               {(() => {
                 const r = (lastCalculation as any).irradiance_report;
@@ -791,11 +802,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 16,
   },
+  resultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  dismissBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: theme.colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
   resultSectionTitle: {
     fontSize: 16,
     fontWeight: '700' as const,
     color: theme.colors.text,
-    marginBottom: 10,
     letterSpacing: -0.2,
   },
   resultGrid: {

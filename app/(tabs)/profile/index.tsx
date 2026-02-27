@@ -1,11 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch } from 'react-native';
 import { router } from 'expo-router';
-import { User, LogOut, BookOpen, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb } from 'lucide-react-native';
+import { User, LogOut, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
-import { OnboardingModal } from '@/components/ui/OnboardingModal';
+
 import { useAuthStore } from '@/stores/auth-store';
 import { useLightingStore } from '@/stores/lighting-store';
 import { theme } from '@/constants/theme';
@@ -16,7 +16,7 @@ import { exportCalculationAsCSV } from '@/utils/file-helpers';
 export default function ProfileScreen() {
   const { user, logout, biometricEnabled, setBiometricEnabled } = useAuthStore();
   const { savedCalculations } = useLightingStore();
-  const [showTutorial, setShowTutorial] = useState<boolean>(false);
+
   const [biometricAvailable, setBiometricAvailable] = useState<boolean>(false);
   const [biometricType, setBiometricType] = useState<string>('Biometric');
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -90,7 +90,6 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <OnboardingModal visible={showTutorial} onDismiss={() => setShowTutorial(false)} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.profileSection}>
@@ -174,13 +173,6 @@ export default function ProfileScreen() {
               title="Export All Calculations"
               subtitle={`CSV · ${savedCalculations.length} records`}
               onPress={handleExportAll}
-            />
-            <MenuItem
-              icon={<BookOpen size={16} color={theme.colors.primary} />}
-              iconBg={theme.colors.glow}
-              title="App Tutorial"
-              subtitle="Learn all features"
-              onPress={() => setShowTutorial(true)}
               isLast
             />
           </View>
