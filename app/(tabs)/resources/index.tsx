@@ -8,7 +8,7 @@ import {
   BookOpen, GraduationCap, ShieldAlert, FileBarChart,
   Settings2, Ruler, Award, ExternalLink, FileText,
   Archive, ChevronRight, Search, X, Clock,
-  Atom, Zap, Lightbulb, Flame, Cpu, Camera,
+  Atom, Zap, Lightbulb, Flame, Cpu, Camera, Paintbrush,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +17,7 @@ import { WILDFIRE_RESOURCES, ResourceCategory, ResourceItem } from '@/constants/
 import { TUTORIALS, Tutorial } from '@/constants/tutorials';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
-  Award, GraduationCap, ShieldAlert, FileBarChart, BookOpen, Settings2, Ruler,
+  Award, GraduationCap, ShieldAlert, FileBarChart, BookOpen, Settings2, Ruler, Paintbrush,
 };
 
 const TUTORIAL_ICON_MAP: Record<string, React.ComponentType<any>> = {
