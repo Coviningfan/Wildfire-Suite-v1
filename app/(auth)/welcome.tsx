@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Logo } from '@/components/ui/Logo';
@@ -28,6 +29,7 @@ export default function WelcomeScreen() {
   const buttonSlide = useRef(new Animated.Value(30)).current;
   const [appleAvailable, setAppleAvailable] = useState<boolean>(false);
   const { loginWithApple, isLoading } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     Animated.sequence([
@@ -77,7 +79,7 @@ export default function WelcomeScreen() {
       <View style={styles.bgLine1} />
       <View style={styles.bgLine2} />
 
-      <View style={styles.safeTop} />
+      <View style={{ height: insets.top + 10 }} />
 
       <View style={styles.topSection}>
         <Animated.View style={[styles.logoArea, { opacity: fadeAnim, transform: [{ translateY: logoSlide }] }]}>
@@ -127,7 +129,7 @@ export default function WelcomeScreen() {
         })}
       </View>
 
-      <Animated.View style={[styles.bottomSection, { opacity: buttonFade, transform: [{ translateY: buttonSlide }] }]}>
+      <Animated.View style={[styles.bottomSection, { opacity: buttonFade, transform: [{ translateY: buttonSlide }], paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={styles.primaryBtn}
           onPress={() => {
@@ -175,9 +177,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0A0D',
   },
-  safeTop: {
-    height: Platform.select({ ios: 54, android: 40, default: 20 }),
-  },
+
   bgAccent1: {
     position: 'absolute',
     top: height * 0.08,
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingHorizontal: 28,
-    paddingBottom: Platform.select({ ios: 40, android: 28, default: 28 }),
+    paddingBottom: 16,
   },
   primaryBtn: {
     flexDirection: 'row',
