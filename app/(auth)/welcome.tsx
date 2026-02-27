@@ -2,29 +2,54 @@ import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
-import { PoweredBy } from '@/components/ui/PoweredBy';
 import { theme } from '@/constants/theme';
-import { Ruler, Lightbulb, ShieldCheck, ScanLine, Apple } from 'lucide-react-native';
+import { Zap, Shield, ScanLine, BarChart3, ChevronRight, Apple } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { isAppleAuthAvailable } from '@/utils/apple-auth';
+import * as Haptics from 'expo-haptics';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+const FEATURES = [
+  { icon: Zap, color: '#E8412A', label: 'Instant Calculations', desc: 'Beam coverage & irradiance' },
+  { icon: BarChart3, color: '#F5A623', label: '23+ Fixtures', desc: 'Professional UV database' },
+  { icon: Shield, color: '#22C55E', label: 'Safety Levels', desc: 'Real-time assessments' },
+  { icon: ScanLine, color: '#7C6BF0', label: 'QR Scanning', desc: 'Instant fixture lookup' },
+];
 
 export default function WelcomeScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const logoSlide = useRef(new Animated.Value(-20)).current;
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const contentSlide = useRef(new Animated.Value(40)).current;
+  const featureAnims = useRef(FEATURES.map(() => new Animated.Value(0))).current;
+  const buttonFade = useRef(new Animated.Value(0)).current;
+  const buttonSlide = useRef(new Animated.Value(30)).current;
   const [appleAvailable, setAppleAvailable] = useState<boolean>(false);
   const { loginWithApple, isLoading } = useAuthStore();
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(logoSlide, { toValue: 0, duration: 500, useNativeDriver: true }),
+      ]),
+      Animated.parallel([
+        Animated.timing(contentFade, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(contentSlide, { toValue: 0, duration: 400, useNativeDriver: true }),
+      ]),
+      Animated.stagger(80, featureAnims.map(anim =>
+        Animated.spring(anim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true })
+      )),
+      Animated.parallel([
+        Animated.timing(buttonFade, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(buttonSlide, { toValue: 0, duration: 350, useNativeDriver: true }),
+      ]),
     ]).start();
+
     checkApple();
-  }, [fadeAnim, slideAnim]);
+  }, []);
 
   const checkApple = async () => {
     const available = await isAppleAuthAvailable();
@@ -32,6 +57,7 @@ export default function WelcomeScreen() {
   };
 
   const handleAppleSignIn = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const success = await loginWithApple();
     if (success) {
       router.replace('/(tabs)/(home)' as any);
@@ -39,52 +65,90 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={['#0D0D10', '#12121A', '#0D0D10']}
-      locations={[0, 0.5, 1]}
-      style={styles.container}
-    >
-      <View style={styles.glowBg} />
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0A0A0D', '#0F0F14', '#0A0A0D']}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        <View style={styles.header}>
-          <View style={styles.heroGlow}>
-            <View style={styles.glowRing}>
-              <View style={styles.glowInner}>
-                <Logo size="large" showTagline />
-              </View>
-            </View>
-          </View>
+      <View style={styles.bgAccent1} />
+      <View style={styles.bgAccent2} />
+      <View style={styles.bgLine1} />
+      <View style={styles.bgLine2} />
 
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>PROFESSIONAL UV TOOL</Text>
+      <View style={styles.safeTop} />
+
+      <View style={styles.topSection}>
+        <Animated.View style={[styles.logoArea, { opacity: fadeAnim, transform: [{ translateY: logoSlide }] }]}>
+          <Logo size="large" showTagline />
+        </Animated.View>
+
+        <Animated.View style={[styles.headingArea, { opacity: contentFade, transform: [{ translateY: contentSlide }] }]}>
+          <View style={styles.versionBadge}>
+            <View style={styles.versionDot} />
+            <Text style={styles.versionText}>PRO UV TOOL</Text>
           </View>
-          <Text style={styles.title}>Radiometric Data{'\n'}Calculator</Text>
-          <Text style={styles.subtitle}>
-            Calculate beam coverage, irradiance, and safety levels for Wildfire Lighting UV fixtures.
+          <Text style={styles.heading}>Radiometric{'\n'}Calculator</Text>
+          <Text style={styles.subheading}>
+            Precision beam coverage, irradiance, and safety data for Wildfire UV fixtures.
           </Text>
-        </View>
+        </Animated.View>
+      </View>
 
-        <View style={styles.features}>
-          <FeatureItem icon={<Ruler size={18} color={theme.colors.primary} />} text="Instant beam & irradiance calculations" />
-          <FeatureItem icon={<Lightbulb size={18} color={theme.colors.secondary} />} text="23+ professional fixture database" />
-          <FeatureItem icon={<ShieldCheck size={18} color={theme.colors.success} />} text="Safety level assessments" />
-          <FeatureItem icon={<ScanLine size={18} color={theme.colors.accent} />} text="QR code & barcode fixture scanning" />
-        </View>
+      <View style={styles.featuresSection}>
+        {FEATURES.map((feat, i) => {
+          const Icon = feat.icon;
+          return (
+            <Animated.View
+              key={feat.label}
+              style={[
+                styles.featureCard,
+                {
+                  opacity: featureAnims[i],
+                  transform: [{
+                    translateX: featureAnims[i].interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-30, 0],
+                    }),
+                  }],
+                },
+              ]}
+            >
+              <View style={[styles.featureIcon, { backgroundColor: feat.color + '14' }]}>
+                <Icon size={17} color={feat.color} strokeWidth={2.2} />
+              </View>
+              <View style={styles.featureTextWrap}>
+                <Text style={styles.featureLabel}>{feat.label}</Text>
+                <Text style={styles.featureDesc}>{feat.desc}</Text>
+              </View>
+            </Animated.View>
+          );
+        })}
+      </View>
 
-        <View style={styles.buttonContainer}>
-          <Button
-            title="Sign In"
-            onPress={() => router.push('/(auth)/login' as any)}
-            variant="primary"
-            size="large"
-          />
-          <Button
-            title="Create Account"
+      <Animated.View style={[styles.bottomSection, { opacity: buttonFade, transform: [{ translateY: buttonSlide }] }]}>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/(auth)/login' as any);
+          }}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.primaryBtnText}>Get Started</Text>
+          <ChevronRight size={18} color="#fff" strokeWidth={2.5} />
+        </TouchableOpacity>
+
+        <View style={styles.secondaryRow}>
+          <TouchableOpacity
+            style={styles.secondaryBtn}
             onPress={() => router.push('/(auth)/register' as any)}
-            variant="outline"
-            size="large"
-          />
+            activeOpacity={0.7}
+          >
+            <Text style={styles.secondaryBtnText}>Create Account</Text>
+          </TouchableOpacity>
+
           {appleAvailable && (
             <TouchableOpacity
               style={styles.appleBtn}
@@ -92,128 +156,218 @@ export default function WelcomeScreen() {
               activeOpacity={0.7}
               disabled={isLoading}
             >
-              <Apple size={18} color="#fff" />
-              <Text style={styles.appleBtnText}>Sign in with Apple</Text>
+              <Apple size={16} color="#fff" />
+              <Text style={styles.appleBtnText}>Apple</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <PoweredBy />
+        <Text style={styles.footerText}>
+          Powered by <Text style={styles.footerBrand}>JABVLabs</Text>
+        </Text>
       </Animated.View>
-    </LinearGradient>
-  );
-}
-
-function FeatureItem({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <View style={styles.featureRow}>
-      <View style={styles.featureIconWrap}>{icon}</View>
-      <Text style={styles.featureText}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  glowBg: {
-    position: 'absolute',
-    top: height * 0.05,
-    left: '50%',
-    marginLeft: -120,
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: 'rgba(232, 65, 42, 0.06)',
-  },
-  content: {
+  container: {
     flex: 1,
-    justifyContent: 'space-between',
-    padding: 24,
-    paddingTop: height * 0.08,
+    backgroundColor: '#0A0A0D',
   },
-  header: {
+  safeTop: {
+    height: Platform.select({ ios: 54, android: 40, default: 20 }),
+  },
+  bgAccent1: {
+    position: 'absolute',
+    top: height * 0.08,
+    right: -60,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(232, 65, 42, 0.04)',
+  },
+  bgAccent2: {
+    position: 'absolute',
+    bottom: height * 0.25,
+    left: -80,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(124, 107, 240, 0.03)',
+  },
+  bgLine1: {
+    position: 'absolute',
+    top: height * 0.18,
+    left: 24,
+    right: 24,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  bgLine2: {
+    position: 'absolute',
+    top: height * 0.55,
+    left: 24,
+    right: 24,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  topSection: {
+    paddingHorizontal: 28,
+    paddingTop: 8,
+  },
+  logoArea: {
+    alignItems: 'flex-start',
+    marginBottom: 28,
+  },
+  headingArea: {
+    marginBottom: 8,
+  },
+  versionBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  heroGlow: {
-    marginBottom: 24,
-  },
-  glowRing: {
-    padding: 3,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(232, 65, 42, 0.08)',
-  },
-  glowInner: {
-    padding: 16,
-  },
-  badge: {
+    alignSelf: 'flex-start',
+    gap: 7,
     backgroundColor: 'rgba(232, 65, 42, 0.08)',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
     marginBottom: 16,
   },
-  badgeText: {
+  versionDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E8412A',
+  },
+  versionText: {
     fontSize: 10,
     fontWeight: '700' as const,
-    color: theme.colors.primary,
-    letterSpacing: 2,
+    color: '#E8412A',
+    letterSpacing: 1.8,
   },
-  title: {
-    fontSize: 28,
+  heading: {
+    fontSize: 34,
     fontWeight: '800' as const,
-    color: theme.colors.text,
-    textAlign: 'center' as const,
-    letterSpacing: -0.5,
-    lineHeight: 34,
+    color: '#F4F4F5',
+    letterSpacing: -1,
+    lineHeight: 40,
   },
-  subtitle: {
+  subheading: {
     fontSize: 15,
-    color: theme.colors.textSecondary,
-    textAlign: 'center' as const,
+    color: '#A1A1AA',
     lineHeight: 22,
     marginTop: 12,
-    paddingHorizontal: 4,
+    maxWidth: width * 0.85,
   },
-  features: {
-    gap: 10,
+  featuresSection: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    gap: 8,
   },
-  featureRow: {
+  featureCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: 'rgba(22, 22, 26, 0.9)',
-    padding: 14,
+    backgroundColor: 'rgba(22, 22, 28, 0.8)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(255,255,255,0.04)',
   },
-  featureIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surfaceSecondary,
+  featureIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  featureText: { fontSize: 14, color: theme.colors.text, flex: 1, fontWeight: '500' as const },
-  buttonContainer: {
+  featureTextWrap: {
+    flex: 1,
+  },
+  featureLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#F4F4F5',
+    letterSpacing: -0.1,
+  },
+  featureDesc: {
+    fontSize: 12,
+    color: '#71717A',
+    marginTop: 2,
+  },
+  bottomSection: {
+    paddingHorizontal: 28,
+    paddingBottom: Platform.select({ ios: 40, android: 28, default: 28 }),
+  },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#E8412A',
+    shadowColor: '#E8412A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  primaryBtnText: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: '#fff',
+    letterSpacing: 0.1,
+  },
+  secondaryRow: {
+    flexDirection: 'row',
     gap: 10,
+    marginTop: 10,
+  },
+  secondaryBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(22, 22, 28, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryBtnText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#F4F4F5',
   },
   appleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 15,
+    gap: 8,
+    height: 50,
+    paddingHorizontal: 24,
     borderRadius: 14,
     backgroundColor: '#000',
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   appleBtnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600' as const,
     color: '#fff',
+  },
+  footerText: {
+    fontSize: 11,
+    color: '#52525B',
+    textAlign: 'center' as const,
+    marginTop: 18,
+    letterSpacing: 0.3,
+  },
+  footerBrand: {
+    color: '#E8412A',
+    fontWeight: '600' as const,
   },
 });
