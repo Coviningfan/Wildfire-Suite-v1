@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
-import { Calculator, History, Lightbulb, User, Sparkles } from 'lucide-react-native';
+import { Calculator, History, Lightbulb, User, Sparkles, BookOpen } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { theme } from '@/constants/theme';
 import { Platform } from 'react-native';
@@ -71,6 +71,13 @@ export default function TabLayout() {
         options={{
           title: 'History',
           tabBarIcon: ({ color, size }) => <History size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="resources"
+        options={{
+          title: 'Resources',
+          tabBarIcon: ({ color, size }) => <BookOpen size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
         }}
       />
       <Tabs.Screen
