@@ -22,6 +22,7 @@ export interface SavedCalculation {
   result: CalculationResponse;
   projectId?: string;
   safetyLevel: 'safe' | 'caution' | 'warning' | 'danger';
+  aiInsight?: string;
 }
 
 interface LightingState {
@@ -52,7 +53,7 @@ interface LightingState {
   openQRScanner: () => void;
   closeQRScanner: () => void;
   handleQRScan: (data: string) => void;
-  saveCalculation: (name: string, description?: string, projectId?: string) => boolean;
+  saveCalculation: (name: string, description?: string, projectId?: string, aiInsight?: string) => boolean;
   deleteCalculation: (id: string) => void;
   loadCalculation: (id: string) => void;
   getSafetyLevel: (result: CalculationResponse) => 'safe' | 'caution' | 'warning' | 'danger';
@@ -139,7 +140,7 @@ export const useLightingStore = create<LightingState>()(
         }
       },
 
-      saveCalculation: (name: string, description?: string, projectId?: string) => {
+      saveCalculation: (name: string, description?: string, projectId?: string, aiInsight?: string) => {
         const state = get();
         if (!state.lastCalculation || 'error' in state.lastCalculation) {
           console.log('saveCalculation skipped: missing or invalid lastCalculation');
@@ -164,6 +165,7 @@ export const useLightingStore = create<LightingState>()(
           result: state.lastCalculation,
           projectId,
           safetyLevel: state.getSafetyLevel(state.lastCalculation),
+          aiInsight: aiInsight || undefined,
         };
         set(s => ({ savedCalculations: [calculation, ...s.savedCalculations] }));
         console.log('saveCalculation success:', calculation.id, calculation.name);

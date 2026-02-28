@@ -203,7 +203,7 @@ export default function CalculatorScreen() {
   }, [selectedFixture, calculate, calcBtnScale, resultFadeAnim, resultSlideAnim]);
 
   const handleSaveCalculation = useCallback((name: string, description?: string, projectId?: string) => {
-    const didSave = saveCalculation(name, description, projectId);
+    const didSave = saveCalculation(name, description, projectId, aiInsight ?? undefined);
     if (didSave) {
       setShowSaveModal(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -211,7 +211,7 @@ export default function CalculatorScreen() {
     } else {
       Alert.alert('Unable to Save', 'Run a calculation first, then try saving again.');
     }
-  }, [saveCalculation]);
+  }, [saveCalculation, aiInsight]);
 
   const handleAIInsight = useCallback(async () => {
     if (!lastCalculation || 'error' in lastCalculation) return;

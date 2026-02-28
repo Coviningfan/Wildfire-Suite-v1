@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform, Animated, Easing } from 'react-native';
-import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown, ChevronRight, Share2 } from 'lucide-react-native';
+import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown, ChevronRight, Share2, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
 import { ResultCard } from '@/components/ResultCard';
@@ -152,6 +152,12 @@ export default function CalculationsScreen() {
               </View>
             </View>
           )}
+          {item.aiInsight ? (
+            <View style={styles.aiPreview}>
+              <Sparkles size={11} color={theme.colors.primary} />
+              <Text style={styles.aiPreviewText} numberOfLines={2}>{item.aiInsight}</Text>
+            </View>
+          ) : null}
           <View style={styles.calcActions}>
             <TouchableOpacity style={styles.actionChip} onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -257,6 +263,15 @@ export default function CalculationsScreen() {
                 </View>
               ))}
             </View>
+            {selectedCalculation.aiInsight ? (
+              <View style={styles.aiInsightCard}>
+                <View style={styles.aiInsightHeader}>
+                  <Sparkles size={14} color={theme.colors.primary} />
+                  <Text style={styles.aiInsightTitle}>AI Insight</Text>
+                </View>
+                <Text style={styles.aiInsightText}>{selectedCalculation.aiInsight}</Text>
+              </View>
+            ) : null}
             <ResultCard title="Irradiance Report" data={numeric(irradiance_report as unknown as Record<string, unknown>)} />
             <ResultCard title="Beam Calculators" data={numeric(beam_calculators as unknown as Record<string, unknown>)} />
             <View style={styles.footer}>
@@ -468,4 +483,46 @@ const styles = StyleSheet.create({
   footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: theme.colors.border, marginBottom: 14 },
   footerText: { fontSize: 11, color: theme.colors.textTertiary },
   footerBrand: { color: theme.colors.primary, fontWeight: '700' as const },
+  aiInsightCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 65, 42, 0.15)',
+  },
+  aiInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  aiInsightTitle: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: theme.colors.primary,
+    letterSpacing: 0.2,
+  },
+  aiInsightText: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    lineHeight: 22,
+  },
+  aiPreview: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: theme.colors.glow,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  aiPreviewText: {
+    flex: 1,
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    lineHeight: 16,
+  },
 });
