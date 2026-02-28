@@ -1,11 +1,13 @@
 {
-  "name": "expo-app",
+  "name": "wildfire-suite",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "bunx rork start -p p4s45kmin2nm1tadvw7qo --tunnel",
-    "start-web": "bunx rork start -p p4s45kmin2nm1tadvw7qo --web --tunnel",
-    "start-web-dev": "DEBUG=expo* bunx rork start -p p4s45kmin2nm1tadvw7qo --web --tunnel",
+    "start": "expo start --tunnel",
+    "start-web": "expo start --web",
+    "start-web-dev": "DEBUG=expo* expo start --web",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
     "lint": "expo lint"
   },
   "dependencies": {
