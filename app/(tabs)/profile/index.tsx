@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch, Animated, Easing, Linking } from 'react-native';
 import { router } from 'expo-router';
-import { User, LogOut, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb, Flame, Award } from 'lucide-react-native';
+import { User, LogOut, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb, Flame, Award, Mail, Phone, Globe, MapPin, Ruler, Moon, Sun } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
@@ -12,6 +12,7 @@ import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isBiometricAvailable, getBiometricType } from '@/utils/biometric-auth';
 import { exportCalculationAsCSV } from '@/utils/file-helpers';
+import { useSettingsStore } from '@/stores/settings-store';
 
 const AnimatedSection = React.memo(({ children, index }: { children: React.ReactNode; index: number }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -35,6 +36,7 @@ const AnimatedSection = React.memo(({ children, index }: { children: React.React
 export default function ProfileScreen() {
   const { user, logout, biometricEnabled, setBiometricEnabled } = useAuthStore();
   const { savedCalculations } = useLightingStore();
+  const { unitSystem, toggleUnitSystem, themeMode, toggleThemeMode } = useSettingsStore();
 
   const [biometricAvailable, setBiometricAvailable] = useState<boolean>(false);
   const [biometricType, setBiometricType] = useState<string>('Biometric');
@@ -113,6 +115,20 @@ export default function ProfileScreen() {
       setIsExporting(false);
     }
   }, [savedCalculations]);
+
+  const handleOpenUrl = useCallback(async (url: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      if (Platform.OS === 'web') {
+        window.open(url, '_blank');
+      } else {
+        const WB = await import('expo-web-browser');
+        await WB.openBrowserAsync(url);
+      }
+    } catch {
+      Linking.openURL(url);
+    }
+  }, []);
 
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
   const safeCount = savedCalculations.filter(c => c.safetyLevel === 'safe').length;
@@ -200,6 +216,46 @@ export default function ProfileScreen() {
 
         <AnimatedSection index={4}>
           <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>PREFERENCES</Text>
+            <View style={styles.menuCard}>
+              <View style={styles.biometricRow}>
+                <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(59, 130, 246, 0.12)' }]}>
+                  <Ruler size={16} color={theme.colors.focus} />
+                </View>
+                <View style={styles.menuItemText}>
+                  <Text style={styles.menuItemTitle}>Unit System</Text>
+                  <Text style={styles.menuItemSub}>{unitSystem === 'metric' ? 'Metric (m, m²)' : 'Imperial (ft, ft²)'}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.unitToggle}
+                  onPress={() => { Haptics.selectionAsync(); toggleUnitSystem(); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.unitToggleText}>{unitSystem === 'metric' ? 'M' : 'FT'}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={[styles.biometricRow, { marginTop: 14, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border }]}>
+                <View style={[styles.menuItemIcon, { backgroundColor: themeMode === 'dark' ? 'rgba(124, 107, 240, 0.12)' : 'rgba(245, 166, 35, 0.12)' }]}>
+                  {themeMode === 'dark' ? <Moon size={16} color={theme.colors.accent} /> : <Sun size={16} color={theme.colors.secondary} />}
+                </View>
+                <View style={styles.menuItemText}>
+                  <Text style={styles.menuItemTitle}>Appearance</Text>
+                  <Text style={styles.menuItemSub}>{themeMode === 'dark' ? 'Dark mode' : 'Light mode'}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.unitToggle}
+                  onPress={() => { Haptics.selectionAsync(); toggleThemeMode(); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.unitToggleText}>{themeMode === 'dark' ? '🌙' : '☀️'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </AnimatedSection>
+
+        <AnimatedSection index={5}>
+          <View style={styles.sectionContainer}>
             <Text style={styles.sectionLabel}>ACTIONS</Text>
             <View style={styles.menuCard}>
               <MenuItem
@@ -214,7 +270,44 @@ export default function ProfileScreen() {
           </View>
         </AnimatedSection>
 
-        <AnimatedSection index={5}>
+        <AnimatedSection index={6}>
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>CONTACT & SUPPORT</Text>
+            <View style={styles.menuCard}>
+              <MenuItem
+                icon={<Mail size={16} color={theme.colors.primary} />}
+                iconBg={theme.colors.glow}
+                title="Email Support"
+                subtitle="info@wildfirefx.com"
+                onPress={() => Linking.openURL('mailto:info@wildfirefx.com')}
+              />
+              <MenuItem
+                icon={<Phone size={16} color={theme.colors.success} />}
+                iconBg="rgba(34, 197, 94, 0.12)"
+                title="Call Us"
+                subtitle="+1 (818) 846-1650"
+                onPress={() => Linking.openURL('tel:+18188461650')}
+              />
+              <MenuItem
+                icon={<Globe size={16} color={theme.colors.focus} />}
+                iconBg="rgba(59, 130, 246, 0.12)"
+                title="Website"
+                subtitle="wildfirelighting.com"
+                onPress={() => handleOpenUrl('https://wildfirelighting.com')}
+              />
+              <MenuItem
+                icon={<MapPin size={16} color={theme.colors.secondary} />}
+                iconBg="rgba(245, 166, 35, 0.12)"
+                title="Location"
+                subtitle="Burbank, CA, USA"
+                onPress={() => {}}
+                isLast
+              />
+            </View>
+          </View>
+        </AnimatedSection>
+
+        <AnimatedSection index={7}>
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionLabel}>FLAME FORMULA</Text>
             <View style={styles.menuCard}>
@@ -233,7 +326,7 @@ export default function ProfileScreen() {
           </View>
         </AnimatedSection>
 
-        <AnimatedSection index={6}>
+        <AnimatedSection index={8}>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
             <LogOut size={16} color={theme.colors.error} />
             <Text style={styles.logoutText}>Sign Out</Text>
@@ -442,6 +535,20 @@ const styles = StyleSheet.create({
   menuItemText: { flex: 1 },
   menuItemTitle: { fontSize: 15, fontWeight: '600' as const, color: theme.colors.text },
   menuItemSub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 1 },
+  unitToggle: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: theme.colors.glow,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 65, 42, 0.25)',
+  },
+  unitToggleText: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    color: theme.colors.primary,
+    letterSpacing: 0.5,
+  },
   flameRow: {
     flexDirection: 'row',
     gap: 12,

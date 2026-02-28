@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "@/stores/auth-store";
+import { useSettingsStore } from "@/stores/settings-store";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +28,7 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const { initializeAuth } = useAuthStore();
+  const themeMode = useSettingsStore(s => s.themeMode);
 
   useEffect(() => {
     initializeAuth();
@@ -37,7 +39,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <StatusBar style="light" />
+          <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
           <RootLayoutNav />
         </GestureHandlerRootView>
       </SafeAreaProvider>

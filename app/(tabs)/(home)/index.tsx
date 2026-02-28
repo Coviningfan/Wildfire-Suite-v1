@@ -16,6 +16,7 @@ import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFirstLaunch } from '@/hooks/useFirstLaunch';
 import { generateText } from '@rork-ai/toolkit-sdk';
+import { useSettingsStore, convertDistance, convertArea, distanceUnit, areaUnit } from '@/stores/settings-store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -90,6 +91,10 @@ export default function CalculatorScreen() {
     setBeamWidth, setBeamHeight, setRectHeight, setRectWidth, setRectDepth,
     calculate, resetInputs, openQRScanner, saveCalculation, getSafetyLevel, clearResult,
   } = useLightingStore();
+
+  const { unitSystem } = useSettingsStore();
+  const dUnit = distanceUnit(unitSystem);
+  const aUnit = areaUnit(unitSystem);
 
   const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
   const [isFirstLaunch, markSeen] = useFirstLaunch();
@@ -532,8 +537,8 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                   <>
                     <View style={styles.resultItem}>
                       <Text style={styles.resultLabel}>THROW</Text>
-                      <Text style={styles.resultValue}>{r.throw_distance_m.toFixed(1)}</Text>
-                      <Text style={styles.resultUnit}>metres</Text>
+                      <Text style={styles.resultValue}>{convertDistance(r.throw_distance_m, unitSystem).toFixed(1)}</Text>
+                      <Text style={styles.resultUnit}>{dUnit}</Text>
                     </View>
                     <View style={styles.resultItem}>
                       <Text style={styles.resultLabel}>IRRADIANCE</Text>
@@ -542,8 +547,8 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                     </View>
                     <View style={styles.resultItem}>
                       <Text style={styles.resultLabel}>BEAM AREA</Text>
-                      <Text style={styles.resultValue}>{r.beam_area_m2.toFixed(1)}</Text>
-                      <Text style={styles.resultUnit}>m²</Text>
+                      <Text style={styles.resultValue}>{convertArea(r.beam_area_m2, unitSystem).toFixed(1)}</Text>
+                      <Text style={styles.resultUnit}>{aUnit}</Text>
                     </View>
                     <View style={[styles.resultItem, { borderColor: safetyColors[safety] + '30' }]}>
                       <Text style={styles.resultLabel}>SAFETY</Text>

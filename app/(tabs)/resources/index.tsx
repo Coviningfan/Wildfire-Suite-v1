@@ -9,13 +9,14 @@ import {
   Settings2, Ruler, Award, ExternalLink, FileText,
   Archive, ChevronRight, Search, X, Clock,
   Atom, Zap, Lightbulb, Flame, Cpu, Camera, Paintbrush,
-  Globe, Download, Layers, Pen,
+  Globe, Download, Layers, Pen, Heart, ShoppingCart,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '@/constants/theme';
 import { WILDFIRE_RESOURCES, ResourceCategory, ResourceItem } from '@/constants/resources';
 import { TUTORIALS, Tutorial } from '@/constants/tutorials';
+import { useFavoritesStore } from '@/stores/favorites-store';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Award, GraduationCap, ShieldAlert, FileBarChart, BookOpen, Settings2, Ruler, Paintbrush,
@@ -55,13 +56,19 @@ async function openUrl(url: string) {
   }
 }
 
-type TabKey = 'tutorials' | 'documents';
+type TabKey = 'tutorials' | 'documents' | 'favorites';
 
 export default function ResourcesScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>('tutorials');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const {
+    favoriteResources, favoriteTutorials,
+    toggleResourceFavorite, toggleTutorialFavorite,
+    isResourceFavorite, isTutorialFavorite,
+  } = useFavoritesStore();
 
   const docCategories = useMemo(() =>
     WILDFIRE_RESOURCES.filter(c => c.id !== 'tutorials'),
@@ -72,6 +79,8 @@ export default function ResourcesScreen() {
     docCategories.reduce((sum, cat) => sum + cat.items.length, 0),
     [docCategories]
   );
+
+  const favCount = favoriteResources.length + favoriteTutorials.length;
 
   const filteredTutorials = useMemo(() => {
     if (!searchQuery.trim()) return TUTORIALS;
@@ -94,6 +103,23 @@ export default function ResourcesScreen() {
     })).filter(cat => cat.items.length > 0);
   }, [searchQuery, docCategories]);
 
+  const favoriteTutorialsList = useMemo(() =>
+    TUTORIALS.filter(t => favoriteTutorials.includes(t.id)),
+    [favoriteTutorials]
+  );
+
+  const favoriteResourcesList = useMemo(() => {
+    const items: Array<ResourceItem & { categoryTitle: string }> = [];
+    docCategories.forEach(cat => {
+      cat.items.forEach(item => {
+        if (favoriteResources.includes(item.title)) {
+          items.push({ ...item, categoryTitle: cat.title });
+        }
+      });
+    });
+    return items;
+  }, [favoriteResources, docCategories]);
+
   const handleToggleCategory = useCallback((id: string) => {
     Haptics.selectionAsync();
     setExpandedCategory(prev => prev === id ? null : id);
@@ -113,6 +139,21 @@ export default function ResourcesScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     openUrl('https://wildfirelighting.com/support/');
   }, []);
+
+  const handleOpenShop = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    openUrl('https://store.wildfirelighting.com/');
+  }, []);
+
+  const handleToggleResourceFav = useCallback((title: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleResourceFavorite(title);
+  }, [toggleResourceFavorite]);
+
+  const handleToggleTutorialFav = useCallback((id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleTutorialFavorite(id);
+  }, [toggleTutorialFavorite]);
 
   const hasSearch = searchQuery.trim().length > 0;
 
@@ -138,7 +179,7 @@ export default function ResourcesScreen() {
           onPress={() => { Haptics.selectionAsync(); setActiveTab('tutorials'); }}
           activeOpacity={0.7}
         >
-          <GraduationCap size={15} color={activeTab === 'tutorials' ? theme.colors.primary : theme.colors.textTertiary} />
+          <GraduationCap size={14} color={activeTab === 'tutorials' ? theme.colors.primary : theme.colors.textTertiary} />
           <Text style={[styles.tabText, activeTab === 'tutorials' && styles.tabTextActive]}>Tutorials</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -146,28 +187,43 @@ export default function ResourcesScreen() {
           onPress={() => { Haptics.selectionAsync(); setActiveTab('documents'); }}
           activeOpacity={0.7}
         >
-          <FileText size={15} color={activeTab === 'documents' ? theme.colors.primary : theme.colors.textTertiary} />
-          <Text style={[styles.tabText, activeTab === 'documents' && styles.tabTextActive]}>Documents</Text>
+          <FileText size={14} color={activeTab === 'documents' ? theme.colors.primary : theme.colors.textTertiary} />
+          <Text style={[styles.tabText, activeTab === 'documents' && styles.tabTextActive]}>Docs</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'favorites' && styles.tabActive]}
+          onPress={() => { Haptics.selectionAsync(); setActiveTab('favorites'); }}
+          activeOpacity={0.7}
+        >
+          <Heart size={14} color={activeTab === 'favorites' ? theme.colors.primary : theme.colors.textTertiary} fill={activeTab === 'favorites' ? theme.colors.primary : 'none'} />
+          <Text style={[styles.tabText, activeTab === 'favorites' && styles.tabTextActive]}>Saved</Text>
+          {favCount > 0 && (
+            <View style={styles.favBadge}>
+              <Text style={styles.favBadgeText}>{favCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
-      <View style={styles.searchWrap}>
-        <View style={styles.searchBar}>
-          <Search size={16} color={theme.colors.textTertiary} />
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={activeTab === 'tutorials' ? 'Search tutorials...' : 'Search documents...'}
-            placeholderTextColor={theme.colors.placeholder}
-          />
-          {hasSearch && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <X size={16} color={theme.colors.textTertiary} />
-            </TouchableOpacity>
-          )}
+      {activeTab !== 'favorites' && (
+        <View style={styles.searchWrap}>
+          <View style={styles.searchBar}>
+            <Search size={16} color={theme.colors.textTertiary} />
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={activeTab === 'tutorials' ? 'Search tutorials...' : 'Search documents...'}
+              placeholderTextColor={theme.colors.placeholder}
+            />
+            {hasSearch && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={16} color={theme.colors.textTertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       <ScrollView
         style={styles.scrollContainer}
@@ -188,6 +244,7 @@ export default function ResourcesScreen() {
             ) : (
               filteredTutorials.map((tutorial) => {
                 const TutIcon = TUTORIAL_ICON_MAP[tutorial.icon] ?? BookOpen;
+                const isFav = isTutorialFavorite(tutorial.id);
                 return (
                   <TouchableOpacity
                     key={tutorial.id}
@@ -208,7 +265,13 @@ export default function ResourcesScreen() {
                         <Text style={styles.tutorialMetaText}>{tutorial.sections.length} sections</Text>
                       </View>
                     </View>
-                    <ChevronRight size={16} color={theme.colors.textTertiary} />
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); handleToggleTutorialFav(tutorial.id); }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={styles.favBtn}
+                    >
+                      <Heart size={16} color={isFav ? '#EF4444' : theme.colors.textTertiary} fill={isFav ? '#EF4444' : 'none'} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 );
               })
@@ -257,6 +320,7 @@ export default function ResourcesScreen() {
                           const fmt = FORMAT_META[item.format];
                           const FormatIcon = fmt.icon;
                           const isLast = idx === category.items.length - 1;
+                          const isFav = isResourceFavorite(item.title);
                           return (
                             <TouchableOpacity
                               key={item.title + idx}
@@ -271,6 +335,13 @@ export default function ResourcesScreen() {
                                 <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
                                 <Text style={[styles.itemFormat, { color: fmt.color }]}>{fmt.label}</Text>
                               </View>
+                              <TouchableOpacity
+                                onPress={(e) => { e.stopPropagation(); handleToggleResourceFav(item.title); }}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                style={styles.itemFavBtn}
+                              >
+                                <Heart size={13} color={isFav ? '#EF4444' : theme.colors.textTertiary} fill={isFav ? '#EF4444' : 'none'} />
+                              </TouchableOpacity>
                               <ExternalLink size={14} color={theme.colors.textTertiary} />
                             </TouchableOpacity>
                           );
@@ -283,40 +354,138 @@ export default function ResourcesScreen() {
             )}
 
             {!hasSearch && (
-              <View style={styles.supportCard}>
-                <View style={styles.supportCardHeader}>
-                  <View style={styles.supportGlobeWrap}>
-                    <Globe size={18} color="#fff" />
-                  </View>
-                  <View style={styles.supportCardHeaderText}>
-                    <Text style={styles.supportCardTitle}>More on wildfirelighting.com</Text>
-                    <Text style={styles.supportCardDesc}>
-                      These resources are available on our support page:
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.supportItemsGrid}>
-                  {SUPPORT_RESOURCES.map((item, idx) => {
-                    const ItemIcon = item.icon;
-                    return (
-                      <View key={idx} style={styles.supportItem}>
-                        <ItemIcon size={14} color={theme.colors.textSecondary} />
-                        <Text style={styles.supportItemText}>{item.label}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-
+              <>
                 <TouchableOpacity
-                  style={styles.supportBtn}
-                  onPress={handleOpenSupport}
+                  style={styles.shopCard}
+                  onPress={handleOpenShop}
                   activeOpacity={0.7}
                 >
-                  <ExternalLink size={15} color="#fff" />
-                  <Text style={styles.supportBtnText}>Visit Support Page</Text>
+                  <View style={styles.shopIconWrap}>
+                    <ShoppingCart size={18} color="#fff" />
+                  </View>
+                  <View style={styles.shopTextWrap}>
+                    <Text style={styles.shopTitle}>Shop Wildfire Products</Text>
+                    <Text style={styles.shopDesc}>Browse fixtures, paints, and accessories</Text>
+                  </View>
+                  <ExternalLink size={16} color={theme.colors.secondary} />
                 </TouchableOpacity>
+
+                <View style={styles.supportCard}>
+                  <View style={styles.supportCardHeader}>
+                    <View style={styles.supportGlobeWrap}>
+                      <Globe size={18} color="#fff" />
+                    </View>
+                    <View style={styles.supportCardHeaderText}>
+                      <Text style={styles.supportCardTitle}>More on wildfirelighting.com</Text>
+                      <Text style={styles.supportCardDesc}>
+                        These resources are available on our support page:
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.supportItemsGrid}>
+                    {SUPPORT_RESOURCES.map((item, idx) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <View key={idx} style={styles.supportItem}>
+                          <ItemIcon size={14} color={theme.colors.textSecondary} />
+                          <Text style={styles.supportItemText}>{item.label}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.supportBtn}
+                    onPress={handleOpenSupport}
+                    activeOpacity={0.7}
+                  >
+                    <ExternalLink size={15} color="#fff" />
+                    <Text style={styles.supportBtnText}>Visit Support Page</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === 'favorites' && (
+          <>
+            {favCount === 0 ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIcon}>
+                  <Heart size={28} color={theme.colors.textTertiary} />
+                </View>
+                <Text style={styles.emptyTitle}>No Bookmarks Yet</Text>
+                <Text style={styles.emptySub}>Tap the heart icon on any tutorial or document to save it here.</Text>
               </View>
+            ) : (
+              <>
+                {favoriteTutorialsList.length > 0 && (
+                  <View style={styles.favSection}>
+                    <Text style={styles.favSectionLabel}>TUTORIALS</Text>
+                    {favoriteTutorialsList.map((tutorial) => {
+                      const TutIcon = TUTORIAL_ICON_MAP[tutorial.icon] ?? BookOpen;
+                      return (
+                        <TouchableOpacity
+                          key={tutorial.id}
+                          style={styles.tutorialCard}
+                          onPress={() => handleOpenTutorial(tutorial)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.tutorialIconWrap, { backgroundColor: tutorial.color + '18' }]}>
+                            <TutIcon size={20} color={tutorial.color} />
+                          </View>
+                          <View style={styles.tutorialInfo}>
+                            <Text style={styles.tutorialTitle}>{tutorial.title}</Text>
+                            <Text style={styles.tutorialSubtitle} numberOfLines={1}>{tutorial.subtitle}</Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => handleToggleTutorialFav(tutorial.id)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={styles.favBtn}
+                          >
+                            <Heart size={16} color="#EF4444" fill="#EF4444" />
+                          </TouchableOpacity>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {favoriteResourcesList.length > 0 && (
+                  <View style={styles.favSection}>
+                    <Text style={styles.favSectionLabel}>DOCUMENTS</Text>
+                    {favoriteResourcesList.map((item, idx) => {
+                      const fmt = FORMAT_META[item.format];
+                      const FormatIcon = fmt.icon;
+                      return (
+                        <TouchableOpacity
+                          key={item.title + idx}
+                          style={styles.favResourceCard}
+                          onPress={() => handleOpenResource(item)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.formatBadge, { backgroundColor: fmt.color + '14' }]}>
+                            <FormatIcon size={13} color={fmt.color} />
+                          </View>
+                          <View style={styles.itemTextWrap}>
+                            <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
+                            <Text style={styles.favResourceCat}>{item.categoryTitle}</Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => handleToggleResourceFav(item.title)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            style={styles.itemFavBtn}
+                          >
+                            <Heart size={13} color="#EF4444" fill="#EF4444" />
+                          </TouchableOpacity>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </>
             )}
           </>
         )}
@@ -367,7 +536,7 @@ const styles = StyleSheet.create({
   tabRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 6,
     marginBottom: 12,
   },
   tab: {
@@ -375,7 +544,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 5,
     paddingVertical: 10,
     borderRadius: 10,
     backgroundColor: theme.colors.surface,
@@ -387,12 +556,27 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(232, 65, 42, 0.25)',
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600' as const,
     color: theme.colors.textTertiary,
   },
   tabTextActive: {
     color: theme.colors.primary,
+  },
+  favBadge: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 8,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    marginLeft: -1,
+  },
+  favBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    color: '#fff',
   },
   searchWrap: {
     paddingHorizontal: 16,
@@ -472,6 +656,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.textTertiary,
     marginHorizontal: 3,
   },
+  favBtn: {
+    padding: 4,
+  },
   categoryCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: 16,
@@ -525,7 +712,7 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
@@ -553,13 +740,48 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginTop: 2,
   },
+  itemFavBtn: {
+    padding: 4,
+  },
+  shopCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 6,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 166, 35, 0.25)',
+  },
+  shopIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shopTextWrap: { flex: 1 },
+  shopTitle: {
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: theme.colors.text,
+    letterSpacing: -0.1,
+    marginBottom: 2,
+  },
+  shopDesc: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '500' as const,
+  },
   supportCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: theme.colors.border,
     padding: 18,
-    marginTop: 6,
     marginBottom: 8,
   },
   supportCardHeader: {
@@ -626,6 +848,34 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#fff',
   },
+  favSection: {
+    marginBottom: 16,
+  },
+  favSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: theme.colors.textTertiary,
+    letterSpacing: 1,
+    marginBottom: 10,
+    paddingLeft: 2,
+  },
+  favResourceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  favResourceCat: {
+    fontSize: 10,
+    color: theme.colors.textTertiary,
+    fontWeight: '500' as const,
+    marginTop: 2,
+  },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 48,
@@ -650,6 +900,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textSecondary,
     marginTop: 4,
+    textAlign: 'center' as const,
+    paddingHorizontal: 24,
   },
   footer: {
     alignItems: 'center',

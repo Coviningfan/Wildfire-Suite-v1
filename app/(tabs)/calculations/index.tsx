@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform, Animated, Easing } from 'react-native';
-import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown, ChevronRight } from 'lucide-react-native';
+import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown, ChevronRight, Share2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
 import { ResultCard } from '@/components/ResultCard';
@@ -14,6 +14,7 @@ import { LightingCalculator } from '@/utils/lighting-calculator';
 import { theme } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { exportCalculationAsText } from '@/utils/file-helpers';
+import { useSettingsStore, convertDistance, convertArea, distanceUnit, areaUnit } from '@/stores/settings-store';
 
 const AnimatedCalcCard = React.memo(({ children, index }: { children: React.ReactNode; index: number }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -36,6 +37,9 @@ const AnimatedCalcCard = React.memo(({ children, index }: { children: React.Reac
 
 export default function CalculationsScreen() {
   const { savedCalculations, deleteCalculation, loadCalculation } = useLightingStore();
+  const { unitSystem } = useSettingsStore();
+  const dUnit = distanceUnit(unitSystem);
+  const aUnit = areaUnit(unitSystem);
   const [selectedCalculation, setSelectedCalculation] = useState<SavedCalculation | null>(null);
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -133,7 +137,7 @@ export default function CalculationsScreen() {
           {hasReport && (
             <View style={styles.quickStats}>
               <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.throw_distance_m.toFixed(1)}m</Text>
+                <Text style={styles.quickStatValue}>{convertDistance((item.result as any).irradiance_report.throw_distance_m, unitSystem).toFixed(1)}{dUnit}</Text>
                 <Text style={styles.quickStatLabel}>throw</Text>
               </View>
               <View style={styles.quickStatDivider} />
@@ -143,7 +147,7 @@ export default function CalculationsScreen() {
               </View>
               <View style={styles.quickStatDivider} />
               <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.beam_area_m2.toFixed(1)}m²</Text>
+                <Text style={styles.quickStatValue}>{convertArea((item.result as any).irradiance_report.beam_area_m2, unitSystem).toFixed(1)}{aUnit}</Text>
                 <Text style={styles.quickStatLabel}>area</Text>
               </View>
             </View>
@@ -168,6 +172,28 @@ export default function CalculationsScreen() {
             }} activeOpacity={0.7}>
               <FileDown size={13} color={theme.colors.success} />
               <Text style={[styles.actionChipText, { color: theme.colors.success }]}>Export</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionChip} onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              const shareText = `${item.name}\nFixture: ${item.fixture}\nSafety: ${item.safetyLevel}${hasReport ? `\nThrow: ${(item.result as any).irradiance_report.throw_distance_m.toFixed(1)}m\nIrradiance: ${(item.result as any).irradiance_report.irradiance_mWm2.toFixed(0)} mW/m²` : ''}`;
+              if (Platform.OS === 'web') {
+                try { await navigator.clipboard.writeText(shareText); Alert.alert('Copied', 'Calculation details copied to clipboard.'); } catch { Alert.alert('Share', shareText); }
+              } else {
+                try {
+                  const Sharing = await import('expo-sharing');
+                  const available = await Sharing.isAvailableAsync();
+                  if (available) {
+                    const { File, Paths } = await import('expo-file-system');
+                    const file = new File(Paths.cache, `${item.name.replace(/\s+/g, '_')}.txt`);
+                    file.create({ overwrite: true });
+                    file.write(shareText);
+                    await Sharing.shareAsync(file.uri, { mimeType: 'text/plain' });
+                  }
+                } catch { Alert.alert('Share', shareText); }
+              }
+            }} activeOpacity={0.7}>
+              <Share2 size={13} color={theme.colors.accent} />
+              <Text style={[styles.actionChipText, { color: theme.colors.accent }]}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionChip} onPress={() => handleDelete(item.id, item.name)} activeOpacity={0.7}>
               <Trash2 size={13} color={theme.colors.error} />
