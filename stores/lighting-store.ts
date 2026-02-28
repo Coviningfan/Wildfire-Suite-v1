@@ -50,6 +50,7 @@ interface LightingState {
   calculate: () => Promise<void>;
   resetInputs: () => void;
   clearResult: () => void;
+  dismissPreview: () => void;
   openQRScanner: () => void;
   closeQRScanner: () => void;
   handleQRScan: (data: string) => void;
@@ -101,7 +102,6 @@ export const useLightingStore = create<LightingState>()(
             parseFloat(state.rectDepth) || 3.0
           );
           set({ lastCalculation: result, isCalculating: false, showingPreview: true });
-          setTimeout(() => { set({ showingPreview: false }); }, 4000);
         } catch {
           set({
             lastCalculation: { error: 'Calculation failed. Please check your inputs.' },
@@ -124,6 +124,7 @@ export const useLightingStore = create<LightingState>()(
       }),
 
       clearResult: () => set({ lastCalculation: null, showingPreview: false }),
+      dismissPreview: () => set({ showingPreview: false }),
       openQRScanner: () => set({ isQRScannerOpen: true }),
       closeQRScanner: () => set({ isQRScannerOpen: false }),
 

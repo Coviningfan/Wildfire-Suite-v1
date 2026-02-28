@@ -268,6 +268,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
 
   const canSave = lastCalculation != null && !('error' in lastCalculation);
   const hasResult = lastCalculation != null && !('error' in lastCalculation);
+  const canCalculate = !!selectedFixture && !!beamWidth && !!beamHeight;
 
   const animatedProgressWidth = progressAnim.interpolate({
     inputRange: [0, 100],
@@ -482,9 +483,9 @@ Give a quick practical insight about this setup - is the throw distance optimal,
         <View style={styles.actionRow}>
           <Animated.View style={{ flex: 1, transform: [{ scale: calcBtnScale }] }}>
             <TouchableOpacity
-              style={[styles.calcButton, isCalculating && styles.calcButtonDisabled]}
+              style={[styles.calcButton, (!canCalculate || isCalculating) && styles.calcButtonDisabled]}
               onPress={handleCalculate}
-              disabled={isCalculating}
+              disabled={!canCalculate || isCalculating}
               activeOpacity={0.85}
             >
               <Calculator size={18} color="#fff" />
@@ -497,6 +498,16 @@ Give a quick practical insight about this setup - is the throw distance optimal,
             </TouchableOpacity>
           )}
         </View>
+
+        {!canCalculate && selectedFixture ? (
+          <View style={styles.calcNote}>
+            <Text style={styles.calcNoteText}>Fill in the <Text style={styles.calcNoteBold}>Angle</Text> section to enable calculation. Adding <Text style={styles.calcNoteBold}>Material</Text> and <Text style={styles.calcNoteBold}>Effect</Text> may give better results.</Text>
+          </View>
+        ) : canCalculate && (!material || !effect) ? (
+          <View style={styles.calcNoteOptional}>
+            <Text style={styles.calcNoteOptionalText}>Filling <Text style={styles.calcNoteBold}>Material</Text> and <Text style={styles.calcNoteBold}>Effect</Text> sections may give better AI analysis results.</Text>
+          </View>
+        ) : null}
 
         {lastCalculation && 'error' in lastCalculation && (
           <View style={styles.errorCard}>
@@ -1030,5 +1041,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.textSecondary,
     lineHeight: 22,
+  },
+  calcNote: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 166, 35, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 166, 35, 0.18)',
+  },
+  calcNoteText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 19,
+    textAlign: 'center' as const,
+  },
+  calcNoteBold: {
+    fontWeight: '700' as const,
+    color: theme.colors.text,
+  },
+  calcNoteOptional: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: theme.colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  calcNoteOptionalText: {
+    fontSize: 12,
+    color: theme.colors.textTertiary,
+    lineHeight: 18,
+    textAlign: 'center' as const,
   },
 });

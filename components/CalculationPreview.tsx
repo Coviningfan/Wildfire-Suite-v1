@@ -1,12 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, Animated } from 'react-native';
-import { CheckCircle, AlertTriangle, XCircle, Calculator } from 'lucide-react-native';
+import { View, Text, StyleSheet, Modal, Animated, TouchableOpacity } from 'react-native';
+import { CheckCircle, AlertTriangle, XCircle, Calculator, X } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useLightingStore } from '@/stores/lighting-store';
 import { Card } from '@/components/ui/Card';
 import { theme } from '@/constants/theme';
 
 export function CalculationPreview() {
-  const { showingPreview, lastCalculation, getSafetyLevel } = useLightingStore();
+  const { showingPreview, lastCalculation, getSafetyLevel, dismissPreview } = useLightingStore();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
@@ -40,11 +41,24 @@ export function CalculationPreview() {
 
   const config = safetyConfig[safetyLevel];
 
+  const handleDismiss = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    dismissPreview();
+  };
+
   return (
     <Modal visible={showingPreview} transparent animationType="none">
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
           <Card style={styles.previewCard}>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={handleDismiss}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <X size={18} color={theme.colors.textTertiary} />
+            </TouchableOpacity>
             <View style={styles.header}>
               <View style={styles.calcIcon}>
                 <Calculator size={20} color={theme.colors.primary} />
@@ -76,13 +90,14 @@ export function CalculationPreview() {
               </View>
             </View>
 
-            <Text style={styles.hint}>Auto-dismissing in a few seconds...</Text>
+            <Text style={styles.hint}>Tap X or outside to dismiss</Text>
           </Card>
         </Animated.View>
       </Animated.View>
     </Modal>
   );
 }
+
 
 const styles = StyleSheet.create({
   overlay: {
@@ -92,14 +107,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 28,
   },
-  container: { width: '100%', maxWidth: 380 },
+  container: { width: '100%', maxWidth: 380, position: 'relative' as const },
   previewCard: {
     borderWidth: 1,
     borderColor: theme.colors.primary,
     marginHorizontal: 0,
     ...theme.shadows.glow,
   },
-  header: { alignItems: 'center', marginBottom: 20 },
+  closeBtn: {
+    position: 'absolute' as const,
+    top: -8,
+    right: -8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surfaceSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    zIndex: 10,
+  },
+  header: { alignItems: 'center', marginBottom: 20, marginTop: 4 },
   calcIcon: {
     width: 48,
     height: 48,
