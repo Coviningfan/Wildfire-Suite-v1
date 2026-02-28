@@ -13,6 +13,7 @@ import {
   getFixtureSeries,
   getFixtureDMXChannels,
   getFixturePowerWatts,
+  getFixtureRadiantPower,
   getFixtureNotes,
 } from '@/utils/fixture-helpers';
 import {
@@ -58,6 +59,7 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
   const isDMX = controlType.includes('DMX');
   const dmxChannels = getFixtureDMXChannels(model);
   const powerWatts = getFixturePowerWatts(model);
+  const radiantPower = getFixtureRadiantPower(model);
   const notes = getFixtureNotes(model);
   const storeUrl = getFixtureStoreUrl(model);
   const specPageUrl = getFixtureSpecPageUrl(model);
@@ -71,10 +73,11 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
       `Series: ${getFixtureSeries(model)}`,
       `Control: ${controlType}`,
     ];
-    if (powerWatts) lines.push(`Power: ${powerWatts}W`);
+    if (powerWatts) lines.push(`Power Consumption: ${powerWatts}W`);
+    if (radiantPower) lines.push(`Radiant Output: ${radiantPower.value.toLocaleString()} ${radiantPower.unit}`);
     if (data) {
       lines.push(`Beam Angle: ${data.beam_h_deg}° × ${data.beam_v_deg}°`);
-      lines.push(`Peak Irradiance: ${data.peak_irradiance_mWm2.toLocaleString()} mW/m²`);
+      lines.push(`Peak Irradiance @ 1m: ${data.peak_irradiance_mWm2.toLocaleString()} mW/m²`);
     }
     if (storeUrl) lines.push(`\nStore: ${storeUrl}`);
     const text = lines.join('\n');
@@ -144,7 +147,17 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
                 {data.field_h_deg != null && <SpecRow label="Field Angle (H)" value={`${data.field_h_deg}°`} />}
                 {data.field_v_deg != null && <SpecRow label="Field Angle (V)" value={`${data.field_v_deg}°`} />}
                 <SpecRow label="Peak Irradiance @ 1m" value={`${data.peak_irradiance_mWm2.toLocaleString()} mW/m²`} highlight />
-                <SpecRow label="Peak Power Density" value={`${(data.peak_irradiance_mWm2 / 1000).toFixed(3)} W/m²`} isLast />
+                <SpecRow label="Peak Power Density" value={`${(data.peak_irradiance_mWm2 / 1000).toFixed(3)} W/m²`} />
+                {radiantPower != null && (
+                  <SpecRow
+                    label="Radiant Output"
+                    value={`${radiantPower.value.toLocaleString()} ${radiantPower.unit}`}
+                    isLast
+                  />
+                )}
+                {radiantPower == null && (
+                  <SpecRow label="Peak Power Density" value={`${(data.peak_irradiance_mWm2 / 1000).toFixed(3)} W/m²`} isLast />
+                )}
               </View>
             )}
 
