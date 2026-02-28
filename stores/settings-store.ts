@@ -50,6 +50,10 @@ export const FT_TO_M = 1 / M_TO_FT;
 export const M2_TO_FT2 = 10.7639;
 export const M3_TO_FT3 = 35.3147;
 
+export function convertToMetric(value: number, from: UnitSystem): number {
+  return from === 'imperial' ? value * FT_TO_M : value;
+}
+
 export function convertDistance(value: number, to: UnitSystem): number {
   return to === 'imperial' ? value * M_TO_FT : value;
 }

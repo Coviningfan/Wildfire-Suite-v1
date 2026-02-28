@@ -1,17 +1,15 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform, Animated, Easing } from 'react-native';
-import { History, Search, Filter, Trash2, Eye, X, FileText, Zap, FileDown, ChevronRight, Share2, Sparkles } from 'lucide-react-native';
+import { History, Filter, Trash2, X, Zap, FileDown, ChevronRight, Share2, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
 import { ResultCard } from '@/components/ResultCard';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Picker } from '@/components/ui/Picker';
-import { Logo } from '@/components/ui/Logo';
-import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { LightingCalculator } from '@/utils/lighting-calculator';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { exportCalculationAsText } from '@/utils/file-helpers';
 import { useSettingsStore, convertDistance, convertArea, distanceUnit, areaUnit } from '@/stores/settings-store';
@@ -36,6 +34,9 @@ const AnimatedCalcCard = React.memo(({ children, index }: { children: React.Reac
 });
 
 export default function CalculationsScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { savedCalculations, deleteCalculation, loadCalculation } = useLightingStore();
   const { unitSystem } = useSettingsStore();
   const dUnit = distanceUnit(unitSystem);
@@ -53,13 +54,13 @@ export default function CalculationsScreen() {
 
   const getSafetyColor = useCallback((level: string) => {
     switch (level) {
-      case 'safe': return theme.colors.success;
-      case 'caution': return theme.colors.warning;
-      case 'warning': return theme.colors.safetyOrange;
-      case 'danger': return theme.colors.error;
-      default: return theme.colors.textSecondary;
+      case 'safe': return colors.success;
+      case 'caution': return colors.warning;
+      case 'warning': return colors.safetyOrange;
+      case 'danger': return colors.error;
+      default: return colors.textSecondary;
     }
-  }, []);
+  }, [colors]);
 
   const formatDate = useCallback((ts: number) =>
     new Date(ts).toLocaleDateString('en-US', {
@@ -154,7 +155,7 @@ export default function CalculationsScreen() {
           )}
           {item.aiInsight ? (
             <View style={styles.aiPreview}>
-              <Sparkles size={11} color={theme.colors.primary} />
+              <Sparkles size={11} color={colors.primary} />
               <Text style={styles.aiPreviewText} numberOfLines={2}>{item.aiInsight}</Text>
             </View>
           ) : null}
@@ -164,8 +165,8 @@ export default function CalculationsScreen() {
               loadCalculation(item.id);
               Alert.alert('Loaded', 'Switch to Calculator tab to see the result.');
             }} activeOpacity={0.7}>
-              <Zap size={13} color={theme.colors.secondary} />
-              <Text style={[styles.actionChipText, { color: theme.colors.secondary }]}>Load</Text>
+              <Zap size={13} color={colors.secondary} />
+              <Text style={[styles.actionChipText, { color: colors.secondary }]}>Load</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionChip} onPress={async () => {
               if (hasReport) {
@@ -176,8 +177,8 @@ export default function CalculationsScreen() {
                 if (!result.success) Alert.alert('Error', result.error ?? 'Export failed');
               }
             }} activeOpacity={0.7}>
-              <FileDown size={13} color={theme.colors.success} />
-              <Text style={[styles.actionChipText, { color: theme.colors.success }]}>Export</Text>
+              <FileDown size={13} color={colors.success} />
+              <Text style={[styles.actionChipText, { color: colors.success }]}>Export</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionChip} onPress={async () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -198,18 +199,18 @@ export default function CalculationsScreen() {
                 } catch { Alert.alert('Share', shareText); }
               }
             }} activeOpacity={0.7}>
-              <Share2 size={13} color={theme.colors.accent} />
-              <Text style={[styles.actionChipText, { color: theme.colors.accent }]}>Share</Text>
+              <Share2 size={13} color={colors.accent} />
+              <Text style={[styles.actionChipText, { color: colors.accent }]}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionChip} onPress={() => handleDelete(item.id, item.name)} activeOpacity={0.7}>
-              <Trash2 size={13} color={theme.colors.error} />
-              <Text style={[styles.actionChipText, { color: theme.colors.error }]}>Delete</Text>
+              <Trash2 size={13} color={colors.error} />
+              <Text style={[styles.actionChipText, { color: colors.error }]}>Delete</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </AnimatedCalcCard>
     );
-  }, [formatDate, getSafetyColor, loadCalculation, handleDelete, openDetail]);
+  }, [formatDate, getSafetyColor, loadCalculation, handleDelete, openDetail, styles, colors, unitSystem, dUnit, aUnit]);
 
   if (selectedCalculation != null && 'irradiance_report' in selectedCalculation.result) {
     const { irradiance_report, beam_calculators } = selectedCalculation.result;
@@ -223,7 +224,7 @@ export default function CalculationsScreen() {
         <Animated.View style={{ flex: 1, opacity: detailFade, transform: [{ translateY: detailSlide }] }}>
           <View style={styles.detailTopBar}>
             <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedCalculation(null)} activeOpacity={0.7}>
-              <ChevronRight size={20} color={theme.colors.text} style={{ transform: [{ rotate: '180deg' }] }} />
+              <ChevronRight size={20} color={colors.text} style={{ transform: [{ rotate: '180deg' }] }} />
               <Text style={styles.backText}>Back</Text>
             </TouchableOpacity>
             <Button
@@ -241,7 +242,7 @@ export default function CalculationsScreen() {
               }}
               variant="secondary"
               size="small"
-              icon={<FileDown size={14} color={theme.colors.text} />}
+              icon={<FileDown size={14} color={colors.text} />}
             />
           </View>
           <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -252,8 +253,8 @@ export default function CalculationsScreen() {
             </View>
             <View style={styles.summaryGrid}>
               {([
-                ['Throw Distance', `${irradiance_report.throw_distance_m.toFixed(2)} m`],
-                ['Beam Area', `${irradiance_report.beam_area_m2.toFixed(2)} m²`],
+                ['Throw Distance', `${convertDistance(irradiance_report.throw_distance_m, unitSystem).toFixed(2)} ${dUnit}`],
+                ['Beam Area', `${convertArea(irradiance_report.beam_area_m2, unitSystem).toFixed(2)} ${aUnit}`],
                 ['Irradiance', `${irradiance_report.irradiance_mWm2.toFixed(2)} mW/m²`],
                 ['Safety', selectedCalculation.safetyLevel.toUpperCase()],
               ] as const).map(([label, value]) => (
@@ -266,7 +267,7 @@ export default function CalculationsScreen() {
             {selectedCalculation.aiInsight ? (
               <View style={styles.aiInsightCard}>
                 <View style={styles.aiInsightHeader}>
-                  <Sparkles size={14} color={theme.colors.primary} />
+                  <Sparkles size={14} color={colors.primary} />
                   <Text style={styles.aiInsightTitle}>AI Insight</Text>
                 </View>
                 <Text style={styles.aiInsightText}>{selectedCalculation.aiInsight}</Text>
@@ -289,7 +290,7 @@ export default function CalculationsScreen() {
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.titleIcon}>
-            <History size={16} color={theme.colors.secondary} />
+            <History size={16} color={colors.secondary} />
           </View>
           <View>
             <Text style={styles.screenTitle}>History</Text>
@@ -302,12 +303,12 @@ export default function CalculationsScreen() {
         <Input label="" value={searchQuery} onChangeText={setSearchQuery} placeholder="Search calculations..." />
         <View style={styles.filterRow}>
           <TouchableOpacity style={[styles.filterToggle, showFilters && styles.filterToggleActive]} onPress={() => { Haptics.selectionAsync(); setShowFilters(!showFilters); }} activeOpacity={0.7}>
-            <Filter size={14} color={showFilters ? theme.colors.primary : theme.colors.textSecondary} />
+            <Filter size={14} color={showFilters ? colors.primary : colors.textSecondary} />
             <Text style={[styles.filterToggleText, showFilters && styles.filterToggleTextActive]}>{showFilters ? 'Hide' : 'Filters'}</Text>
           </TouchableOpacity>
           {(searchQuery || filterFixture) ? (
             <TouchableOpacity style={styles.clearButton} onPress={clearFilters} activeOpacity={0.7}>
-              <X size={13} color={theme.colors.error} />
+              <X size={13} color={colors.error} />
               <Text style={styles.clearButtonText}>Clear</Text>
             </TouchableOpacity>
           ) : null}
@@ -323,7 +324,7 @@ export default function CalculationsScreen() {
       {filteredCalculations.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconWrap}>
-            <History size={32} color={theme.colors.textTertiary} />
+            <History size={32} color={colors.textTertiary} />
           </View>
           <Text style={styles.emptyTitle}>
             {savedCalculations.length === 0 ? 'No Saved Calculations' : 'No Results Found'}
@@ -348,181 +349,67 @@ export default function CalculationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  scrollContainer: { flex: 1 },
-  scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  titleIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: 'rgba(245, 166, 35, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  screenTitle: {
-    fontSize: 18,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
-  screenSub: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    marginTop: 1,
-  },
-  searchSection: { paddingHorizontal: 16, paddingTop: 12, marginBottom: 4 },
-  filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 8 },
-  filterToggle: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 7, paddingHorizontal: 12,
-    borderRadius: 10, borderWidth: 1, borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  filterToggleActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.glow },
-  filterToggleText: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '600' as const },
-  filterToggleTextActive: { color: theme.colors.primary },
-  clearButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 7, paddingHorizontal: 12 },
-  clearButtonText: { fontSize: 12, color: theme.colors.error, fontWeight: '600' as const },
-  filtersCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  calcList: { flex: 1, paddingHorizontal: 16 },
-  calcCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  calcTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  calcInfo: { flex: 1, marginRight: 12 },
-  calcName: { fontSize: 16, fontWeight: '700' as const, color: theme.colors.text, marginBottom: 3, letterSpacing: -0.2 },
-  calcMeta: { fontSize: 12, color: theme.colors.textSecondary },
-  projectTag: { fontSize: 11, color: theme.colors.accent, marginTop: 3, fontWeight: '600' as const },
-  safetyPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
-  },
-  safetyDot: { width: 6, height: 6, borderRadius: 3 },
-  safetyLabel: { fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.5 },
-  quickStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  quickStat: { flex: 1, alignItems: 'center' },
-  quickStatValue: { fontSize: 15, fontWeight: '700' as const, color: theme.colors.text },
-  quickStatLabel: { fontSize: 10, color: theme.colors.textTertiary, marginTop: 2 },
-  quickStatDivider: { width: 1, height: 24, backgroundColor: theme.colors.border },
-  calcActions: { flexDirection: 'row', gap: 8 },
-  actionChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 6, paddingHorizontal: 10,
-    borderRadius: 8, backgroundColor: theme.colors.surfaceSecondary,
-  },
-  actionChipText: { fontSize: 11, fontWeight: '600' as const },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  emptyIconWrap: {
-    width: 72, height: 72, borderRadius: 22,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: theme.colors.border,
-    marginBottom: 18,
-  },
-  emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: theme.colors.text, textAlign: 'center' as const },
-  emptySubtitle: { fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center' as const, marginTop: 8, lineHeight: 20 },
-  detailTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  backText: { fontSize: 15, color: theme.colors.text, fontWeight: '600' as const },
-  detailHeader: { alignItems: 'center', padding: 20 },
-  detailTitle: { fontSize: 22, fontWeight: '800' as const, color: theme.colors.text, textAlign: 'center' as const, letterSpacing: -0.3 },
-  detailSubtitle: { fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center' as const, marginTop: 4 },
-  detailDesc: { fontSize: 14, color: theme.colors.text, textAlign: 'center' as const, marginTop: 8, fontStyle: 'italic' as const },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 16 },
-  summaryItem: {
-    flex: 1, minWidth: '45%',
-    backgroundColor: theme.colors.surface, padding: 14, borderRadius: 14,
-    borderWidth: 1, borderColor: theme.colors.border,
-  },
-  summaryLabel: { fontSize: 11, color: theme.colors.textTertiary, marginBottom: 4, fontWeight: '500' as const, letterSpacing: 0.3 },
-  summaryValue: { fontSize: 15, color: theme.colors.text, fontWeight: '700' as const },
-  footer: { alignItems: 'center', paddingVertical: 28 },
-  footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: theme.colors.border, marginBottom: 14 },
-  footerText: { fontSize: 11, color: theme.colors.textTertiary },
-  footerBrand: { color: theme.colors.primary, fontWeight: '700' as const },
-  aiInsightCard: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(232, 65, 42, 0.15)',
-  },
-  aiInsightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  aiInsightTitle: {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: theme.colors.primary,
-    letterSpacing: 0.2,
-  },
-  aiInsightText: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    lineHeight: 22,
-  },
-  aiPreview: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: theme.colors.glow,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  aiPreviewText: {
-    flex: 1,
-    fontSize: 11,
-    color: theme.colors.textSecondary,
-    lineHeight: 16,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scrollContainer: { flex: 1 },
+    scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
+    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    titleIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(245, 166, 35, 0.12)', justifyContent: 'center', alignItems: 'center' },
+    screenTitle: { fontSize: 18, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3 },
+    screenSub: { fontSize: 12, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 1 },
+    searchSection: { paddingHorizontal: 16, paddingTop: 12, marginBottom: 4 },
+    filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, marginBottom: 8 },
+    filterToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    filterToggleActive: { borderColor: colors.primary, backgroundColor: colors.glow },
+    filterToggleText: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' as const },
+    filterToggleTextActive: { color: colors.primary },
+    clearButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 7, paddingHorizontal: 12 },
+    clearButtonText: { fontSize: 12, color: colors.error, fontWeight: '600' as const },
+    filtersCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.border },
+    calcList: { flex: 1, paddingHorizontal: 16 },
+    calcCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+    calcTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+    calcInfo: { flex: 1, marginRight: 12 },
+    calcName: { fontSize: 16, fontWeight: '700' as const, color: colors.text, marginBottom: 3, letterSpacing: -0.2 },
+    calcMeta: { fontSize: 12, color: colors.textSecondary },
+    projectTag: { fontSize: 11, color: colors.accent, marginTop: 3, fontWeight: '600' as const },
+    safetyPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    safetyDot: { width: 6, height: 6, borderRadius: 3 },
+    safetyLabel: { fontSize: 9, fontWeight: '800' as const, letterSpacing: 0.5 },
+    quickStats: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSecondary, borderRadius: 12, padding: 12, marginBottom: 12 },
+    quickStat: { flex: 1, alignItems: 'center' },
+    quickStatValue: { fontSize: 15, fontWeight: '700' as const, color: colors.text },
+    quickStatLabel: { fontSize: 10, color: colors.textTertiary, marginTop: 2 },
+    quickStatDivider: { width: 1, height: 24, backgroundColor: colors.border },
+    calcActions: { flexDirection: 'row', gap: 8 },
+    actionChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: colors.surfaceSecondary },
+    actionChipText: { fontSize: 11, fontWeight: '600' as const },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+    emptyIconWrap: { width: 72, height: 72, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, marginBottom: 18 },
+    emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: colors.text, textAlign: 'center' as const },
+    emptySubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' as const, marginTop: 8, lineHeight: 20 },
+    detailTopBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    backText: { fontSize: 15, color: colors.text, fontWeight: '600' as const },
+    detailHeader: { alignItems: 'center', padding: 20 },
+    detailTitle: { fontSize: 22, fontWeight: '800' as const, color: colors.text, textAlign: 'center' as const, letterSpacing: -0.3 },
+    detailSubtitle: { fontSize: 13, color: colors.textSecondary, textAlign: 'center' as const, marginTop: 4 },
+    detailDesc: { fontSize: 14, color: colors.text, textAlign: 'center' as const, marginTop: 8, fontStyle: 'italic' as const },
+    summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, marginBottom: 16 },
+    summaryItem: { flex: 1, minWidth: '45%', backgroundColor: colors.surface, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
+    summaryLabel: { fontSize: 11, color: colors.textTertiary, marginBottom: 4, fontWeight: '500' as const, letterSpacing: 0.3 },
+    summaryValue: { fontSize: 15, color: colors.text, fontWeight: '700' as const },
+    footer: { alignItems: 'center', paddingVertical: 28 },
+    footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: colors.border, marginBottom: 14 },
+    footerText: { fontSize: 11, color: colors.textTertiary },
+    footerBrand: { color: colors.primary, fontWeight: '700' as const },
+    aiInsightCard: { marginHorizontal: 16, marginBottom: 16, padding: 16, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(232, 65, 42, 0.15)' },
+    aiInsightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    aiInsightTitle: { fontSize: 13, fontWeight: '700' as const, color: colors.primary, letterSpacing: 0.2 },
+    aiInsightText: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
+    aiPreview: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingVertical: 8, paddingHorizontal: 10, backgroundColor: colors.glow, borderRadius: 10, marginBottom: 10 },
+    aiPreviewText: { flex: 1, fontSize: 11, color: colors.textSecondary, lineHeight: 16 },
+  });
+}

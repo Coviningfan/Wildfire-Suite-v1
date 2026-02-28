@@ -2,11 +2,12 @@ import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
 import { Calculator, History, Lightbulb, User, Sparkles, BookOpen } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
 import { Platform, View } from 'react-native';
 
 export default function TabLayout() {
   const { isAuthenticated } = useAuthStore();
+  const colors = useThemeColors();
 
   if (!isAuthenticated) {
     return <Redirect href={'/(auth)/welcome' as any} />;
@@ -15,11 +16,11 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textTertiary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 0.5,
           ...Platform.select({
             ios: {
@@ -49,14 +50,14 @@ export default function TabLayout() {
         name="(home)"
         options={{
           title: 'Calculator',
-          tabBarIcon: ({ color, size }) => <Calculator size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+          tabBarIcon: ({ color, size }) => <Calculator size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />
       <Tabs.Screen
         name="fixtures"
         options={{
           title: 'Fixtures',
-          tabBarIcon: ({ color, size }) => <Lightbulb size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+          tabBarIcon: ({ color, size }) => <Lightbulb size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />
       <Tabs.Screen
@@ -64,8 +65,8 @@ export default function TabLayout() {
         options={{
           title: 'AI',
           tabBarIcon: ({ color, size, focused }) => (
-            <View style={focused ? { shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6 } : undefined}>
-              <Sparkles size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />
+            <View style={focused ? { shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6 } : undefined}>
+              <Sparkles size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />
             </View>
           ),
         }}
@@ -74,21 +75,21 @@ export default function TabLayout() {
         name="calculations"
         options={{
           title: 'History',
-          tabBarIcon: ({ color, size }) => <History size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+          tabBarIcon: ({ color, size }) => <History size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />
       <Tabs.Screen
         name="resources"
         options={{
           title: 'Resources',
-          tabBarIcon: ({ color, size }) => <BookOpen size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+          tabBarIcon: ({ color, size }) => <BookOpen size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User size={size - 2} color={color} strokeWidth={color === theme.colors.primary ? 2.5 : 1.8} />,
+          tabBarIcon: ({ color, size }) => <User size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />
     </Tabs>

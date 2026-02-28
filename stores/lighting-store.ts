@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { CalculationResponse } from '@/types/lighting';
+import { FT_TO_M } from '@/stores/settings-store';
 
 export interface SavedCalculation {
   id: string;
@@ -47,7 +48,7 @@ interface LightingState {
   setRectHeight: (height: string) => void;
   setRectWidth: (width: string) => void;
   setRectDepth: (depth: string) => void;
-  calculate: () => Promise<void>;
+  calculate: (unitSystem?: 'metric' | 'imperial') => Promise<void>;
   resetInputs: () => void;
   clearResult: () => void;
   dismissPreview: () => void;
@@ -86,20 +87,21 @@ export const useLightingStore = create<LightingState>()(
       setRectWidth: (width) => set({ rectWidth: width }),
       setRectDepth: (depth) => set({ rectDepth: depth }),
 
-      calculate: async () => {
+      calculate: async (unitSystem: 'metric' | 'imperial' = 'metric') => {
         const state = get();
         set({ isCalculating: true, showingPreview: false });
         try {
+          const conv = unitSystem === 'imperial' ? FT_TO_M : 1;
           const calculator = new LightingCalculator();
           const result = calculator.calculateRadiometricData(
             state.selectedFixture,
-            parseFloat(state.verticalHeight) || 0,
-            parseFloat(state.horizontalDistance) || 0,
-            parseFloat(state.beamWidth) || 12.0,
-            parseFloat(state.beamHeight) || 12.0,
-            parseFloat(state.rectHeight) || 3.0,
-            parseFloat(state.rectWidth) || 3.0,
-            parseFloat(state.rectDepth) || 3.0
+            (parseFloat(state.verticalHeight) || 0) * conv,
+            (parseFloat(state.horizontalDistance) || 0) * conv,
+            (parseFloat(state.beamWidth) || 12.0) * conv,
+            (parseFloat(state.beamHeight) || 12.0) * conv,
+            (parseFloat(state.rectHeight) || 3.0) * conv,
+            (parseFloat(state.rectWidth) || 3.0) * conv,
+            (parseFloat(state.rectDepth) || 3.0) * conv
           );
           set({ lastCalculation: result, isCalculating: false, showingPreview: true });
         } catch {

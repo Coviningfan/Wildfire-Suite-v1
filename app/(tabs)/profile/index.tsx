@@ -1,14 +1,14 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch, Animated, Easing, Linking } from 'react-native';
 import { router } from 'expo-router';
-import { User, LogOut, ChevronRight, Fingerprint, FileDown, Shield, Sparkles, Calculator, Lightbulb, Flame, Award, Mail, Phone, Globe, MapPin, Ruler, Moon, Sun } from 'lucide-react-native';
+import { LogOut, ChevronRight, Fingerprint, FileDown, Shield, Calculator, Lightbulb, Mail, Phone, Globe, MapPin, Ruler, Moon, Sun } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { Button } from '@/components/ui/Button';
 import { Logo } from '@/components/ui/Logo';
 
 import { useAuthStore } from '@/stores/auth-store';
 import { useLightingStore } from '@/stores/lighting-store';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isBiometricAvailable, getBiometricType } from '@/utils/biometric-auth';
 import { exportCalculationAsCSV } from '@/utils/file-helpers';
@@ -34,6 +34,9 @@ const AnimatedSection = React.memo(({ children, index }: { children: React.React
 });
 
 export default function ProfileScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { user, logout, biometricEnabled, setBiometricEnabled } = useAuthStore();
   const { savedCalculations } = useLightingStore();
   const { unitSystem, toggleUnitSystem, themeMode, toggleThemeMode } = useSettingsStore();
@@ -151,22 +154,22 @@ export default function ProfileScreen() {
         <AnimatedSection index={1}>
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: theme.colors.glow }]}>
-                <Calculator size={15} color={theme.colors.primary} />
+              <View style={[styles.statIcon, { backgroundColor: colors.glow }]}>
+                <Calculator size={15} color={colors.primary} />
               </View>
               <Text style={styles.statValue}>{savedCalculations.length}</Text>
               <Text style={styles.statLabel}>Calculations</Text>
             </View>
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
-                <Lightbulb size={15} color={theme.colors.accent} />
+                <Lightbulb size={15} color={colors.accent} />
               </View>
               <Text style={styles.statValue}>23</Text>
               <Text style={styles.statLabel}>Fixtures</Text>
             </View>
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
-                <Shield size={15} color={theme.colors.success} />
+                <Shield size={15} color={colors.success} />
               </View>
               <Text style={styles.statValue}>{safeCount}</Text>
               <Text style={styles.statLabel}>Safe</Text>
@@ -178,12 +181,13 @@ export default function ProfileScreen() {
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionLabel}>ACCOUNT</Text>
             <View style={styles.menuCard}>
-              <InfoRow label="Name" value={user?.name ?? 'N/A'} />
-              <InfoRow label="Email" value={user?.email ?? 'N/A'} />
+              <InfoRow label="Name" value={user?.name ?? 'N/A'} colors={colors} />
+              <InfoRow label="Email" value={user?.email ?? 'N/A'} colors={colors} />
               <InfoRow
                 label="Member Since"
                 value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                 isLast
+                colors={colors}
               />
             </View>
           </View>
@@ -196,7 +200,7 @@ export default function ProfileScreen() {
               <View style={styles.menuCard}>
                 <View style={styles.biometricRow}>
                   <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
-                    <Fingerprint size={16} color={theme.colors.accent} />
+                    <Fingerprint size={16} color={colors.accent} />
                   </View>
                   <View style={styles.menuItemText}>
                     <Text style={styles.menuItemTitle}>{biometricType} Login</Text>
@@ -205,8 +209,8 @@ export default function ProfileScreen() {
                   <Switch
                     value={biometricEnabled}
                     onValueChange={handleToggleBiometric}
-                    trackColor={{ false: theme.colors.surfaceElevated, true: theme.colors.primary + '80' }}
-                    thumbColor={biometricEnabled ? theme.colors.primary : theme.colors.textTertiary}
+                    trackColor={{ false: colors.surfaceElevated, true: colors.primary + '80' }}
+                    thumbColor={biometricEnabled ? colors.primary : colors.textTertiary}
                   />
                 </View>
               </View>
@@ -220,7 +224,7 @@ export default function ProfileScreen() {
             <View style={styles.menuCard}>
               <View style={styles.biometricRow}>
                 <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(59, 130, 246, 0.12)' }]}>
-                  <Ruler size={16} color={theme.colors.focus} />
+                  <Ruler size={16} color={colors.focus} />
                 </View>
                 <View style={styles.menuItemText}>
                   <Text style={styles.menuItemTitle}>Unit System</Text>
@@ -234,9 +238,9 @@ export default function ProfileScreen() {
                   <Text style={styles.unitToggleText}>{unitSystem === 'metric' ? 'M' : 'FT'}</Text>
                 </TouchableOpacity>
               </View>
-              <View style={[styles.biometricRow, { marginTop: 14, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border }]}>
+              <View style={[styles.biometricRow, { marginTop: 14, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
                 <View style={[styles.menuItemIcon, { backgroundColor: themeMode === 'dark' ? 'rgba(124, 107, 240, 0.12)' : 'rgba(245, 166, 35, 0.12)' }]}>
-                  {themeMode === 'dark' ? <Moon size={16} color={theme.colors.accent} /> : <Sun size={16} color={theme.colors.secondary} />}
+                  {themeMode === 'dark' ? <Moon size={16} color={colors.accent} /> : <Sun size={16} color={colors.secondary} />}
                 </View>
                 <View style={styles.menuItemText}>
                   <Text style={styles.menuItemTitle}>Appearance</Text>
@@ -259,12 +263,13 @@ export default function ProfileScreen() {
             <Text style={styles.sectionLabel}>ACTIONS</Text>
             <View style={styles.menuCard}>
               <MenuItem
-                icon={<FileDown size={16} color={theme.colors.success} />}
+                icon={<FileDown size={16} color={colors.success} />}
                 iconBg="rgba(34, 197, 94, 0.12)"
                 title="Export All Calculations"
                 subtitle={`CSV · ${savedCalculations.length} records`}
                 onPress={handleExportAll}
                 isLast
+                colors={colors}
               />
             </View>
           </View>
@@ -275,33 +280,37 @@ export default function ProfileScreen() {
             <Text style={styles.sectionLabel}>CONTACT & SUPPORT</Text>
             <View style={styles.menuCard}>
               <MenuItem
-                icon={<Mail size={16} color={theme.colors.primary} />}
-                iconBg={theme.colors.glow}
+                icon={<Mail size={16} color={colors.primary} />}
+                iconBg={colors.glow}
                 title="Email Support"
                 subtitle="info@wildfirefx.com"
                 onPress={() => Linking.openURL('mailto:info@wildfirefx.com')}
+                colors={colors}
               />
               <MenuItem
-                icon={<Phone size={16} color={theme.colors.success} />}
+                icon={<Phone size={16} color={colors.success} />}
                 iconBg="rgba(34, 197, 94, 0.12)"
                 title="Call Us"
                 subtitle="+1 (818) 846-1650"
                 onPress={() => Linking.openURL('tel:+18188461650')}
+                colors={colors}
               />
               <MenuItem
-                icon={<Globe size={16} color={theme.colors.focus} />}
+                icon={<Globe size={16} color={colors.focus} />}
                 iconBg="rgba(59, 130, 246, 0.12)"
                 title="Website"
                 subtitle="wildfirelighting.com"
                 onPress={() => handleOpenUrl('https://wildfirelighting.com')}
+                colors={colors}
               />
               <MenuItem
-                icon={<MapPin size={16} color={theme.colors.secondary} />}
+                icon={<MapPin size={16} color={colors.secondary} />}
                 iconBg="rgba(245, 166, 35, 0.12)"
                 title="Location"
                 subtitle="Burbank, CA, USA"
                 onPress={() => {}}
                 isLast
+                colors={colors}
               />
             </View>
           </View>
@@ -328,7 +337,7 @@ export default function ProfileScreen() {
 
         <AnimatedSection index={8}>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-            <LogOut size={16} color={theme.colors.error} />
+            <LogOut size={16} color={colors.error} />
             <Text style={styles.logoutText}>Sign Out</Text>
           </TouchableOpacity>
 
@@ -342,33 +351,33 @@ export default function ProfileScreen() {
   );
 }
 
-function InfoRow({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
+function InfoRow({ label, value, isLast, colors }: { label: string; value: string; isLast?: boolean; colors: ThemeColors }) {
   return (
-    <View style={[infoStyles.row, isLast === true && infoStyles.rowLast]}>
-      <Text style={infoStyles.label}>{label}</Text>
-      <Text style={infoStyles.value}>{value}</Text>
+    <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 13, borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
+      <Text style={{ fontSize: 14, color: colors.textSecondary }}>{label}</Text>
+      <Text style={{ fontSize: 14, color: colors.text, fontWeight: '500' as const }}>{value}</Text>
     </View>
   );
 }
 
-function MenuItem({ icon, iconBg, title, subtitle, onPress, isLast }: {
+function MenuItem({ icon, iconBg, title, subtitle, onPress, isLast, colors }: {
   icon: React.ReactNode; iconBg: string; title: string; subtitle: string;
-  onPress: () => void; isLast?: boolean;
+  onPress: () => void; isLast?: boolean; colors: ThemeColors;
 }) {
   return (
     <TouchableOpacity
-      style={[menuStyles.item, isLast === true && menuStyles.itemLast]}
+      style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={[menuStyles.iconWrap, { backgroundColor: iconBg }]}>
+      <View style={{ width: 34, height: 34, borderRadius: 9, justifyContent: 'center', alignItems: 'center', backgroundColor: iconBg }}>
         {icon}
       </View>
-      <View style={menuStyles.text}>
-        <Text style={menuStyles.title}>{title}</Text>
-        <Text style={menuStyles.sub}>{subtitle}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: '600' as const, color: colors.text }}>{title}</Text>
+        <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>{subtitle}</Text>
       </View>
-      <ChevronRight size={16} color={theme.colors.textTertiary} />
+      <ChevronRight size={16} color={colors.textTertiary} />
     </TouchableOpacity>
   );
 }
@@ -382,218 +391,50 @@ const FLAME_ITEMS = [
   { letter: 'E', title: 'Effect', desc: 'Verify irradiance requirement' },
 ];
 
-const infoStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  rowLast: { borderBottomWidth: 0 },
-  label: { fontSize: 14, color: theme.colors.textSecondary },
-  value: { fontSize: 14, color: theme.colors.text, fontWeight: '500' as const },
-});
-
-const menuStyles = StyleSheet.create({
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  itemLast: { borderBottomWidth: 0 },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '600' as const, color: theme.colors.text },
-  sub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 1 },
-});
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  content: { flex: 1 },
-  scrollContent: { paddingBottom: Platform.select({ ios: 30, android: 110, default: 30 }) },
-  profileSection: {
-    alignItems: 'center',
-    paddingTop: 28,
-    paddingBottom: 22,
-  },
-  avatarOuter: {
-    width: 82,
-    height: 82,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  avatar: {
-    width: 74,
-    height: 74,
-    borderRadius: 22,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: '800' as const,
-    color: theme.colors.primary,
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginTop: 3,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    marginTop: 2,
-    letterSpacing: 0.3,
-  },
-  sectionContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: theme.colors.textTertiary,
-    letterSpacing: 1,
-    marginBottom: 8,
-    paddingLeft: 4,
-  },
-  menuCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  biometricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  menuItemIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  menuItemText: { flex: 1 },
-  menuItemTitle: { fontSize: 15, fontWeight: '600' as const, color: theme.colors.text },
-  menuItemSub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 1 },
-  unitToggle: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: theme.colors.glow,
-    borderWidth: 1,
-    borderColor: 'rgba(232, 65, 42, 0.25)',
-  },
-  unitToggleText: {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: theme.colors.primary,
-    letterSpacing: 0.5,
-  },
-  flameRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingBottom: 12,
-    marginBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  flameRowLast: { borderBottomWidth: 0, marginBottom: 0, paddingBottom: 0 },
-  flameBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  flameLetter: { fontSize: 13, fontWeight: '800' as const, color: '#fff' },
-  flameContent: { flex: 1 },
-  flameTitle: { fontSize: 14, fontWeight: '700' as const, color: theme.colors.text },
-  flameDesc: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-    backgroundColor: 'rgba(239, 68, 68, 0.06)',
-  },
-  logoutText: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    color: theme.colors.error,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingBottom: 16,
-    gap: 8,
-  },
-  footerVersion: {
-    fontSize: 11,
-    color: theme.colors.textTertiary,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    content: { flex: 1 },
+    scrollContent: { paddingBottom: Platform.select({ ios: 30, android: 110, default: 30 }) },
+    profileSection: { alignItems: 'center', paddingTop: 28, paddingBottom: 22 },
+    avatarOuter: {
+      width: 82, height: 82, borderRadius: 25, borderWidth: 2, borderColor: colors.primary,
+      justifyContent: 'center', alignItems: 'center', marginBottom: 14,
+      shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 14, elevation: 4,
+    },
+    avatar: { width: 74, height: 74, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center' },
+    avatarText: { fontSize: 28, fontWeight: '800' as const, color: colors.primary },
+    userName: { fontSize: 22, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.3 },
+    userEmail: { fontSize: 14, color: colors.textSecondary, marginTop: 3 },
+    statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 24 },
+    statCard: { flex: 1, alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border },
+    statIcon: { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+    statValue: { fontSize: 20, fontWeight: '800' as const, color: colors.text },
+    statLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 2, letterSpacing: 0.3 },
+    sectionContainer: { paddingHorizontal: 16, marginBottom: 20 },
+    sectionLabel: { fontSize: 11, fontWeight: '700' as const, color: colors.textTertiary, letterSpacing: 1, marginBottom: 8, paddingLeft: 4 },
+    menuCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border },
+    biometricRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    menuItemIcon: { width: 34, height: 34, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    menuItemText: { flex: 1 },
+    menuItemTitle: { fontSize: 15, fontWeight: '600' as const, color: colors.text },
+    menuItemSub: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
+    unitToggle: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.glow, borderWidth: 1, borderColor: 'rgba(232, 65, 42, 0.25)' },
+    unitToggleText: { fontSize: 13, fontWeight: '700' as const, color: colors.primary, letterSpacing: 0.5 },
+    flameRow: { flexDirection: 'row', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    flameRowLast: { borderBottomWidth: 0, marginBottom: 0, paddingBottom: 0 },
+    flameBadge: { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    flameLetter: { fontSize: 13, fontWeight: '800' as const, color: '#fff' },
+    flameContent: { flex: 1 },
+    flameTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.text },
+    flameDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+    logoutBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      marginHorizontal: 16, marginBottom: 24, paddingVertical: 14, borderRadius: 14,
+      borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', backgroundColor: 'rgba(239, 68, 68, 0.06)',
+    },
+    logoutText: { fontSize: 15, fontWeight: '600' as const, color: colors.error },
+    footer: { alignItems: 'center', paddingBottom: 16, gap: 8 },
+    footerVersion: { fontSize: 11, color: colors.textTertiary },
+  });
+}

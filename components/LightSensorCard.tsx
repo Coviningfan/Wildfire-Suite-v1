@@ -1,10 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { Sun, SunDim, Moon, Eye, EyeOff } from 'lucide-react-native';
 import { useLightSensor } from '@/hooks/useLightSensor';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 
 export function LightSensorCard() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { illuminance, isAvailable, isActive, start, stop, getLuxCategory, getLuxRecommendation } = useLightSensor();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const barAnim = useRef(new Animated.Value(0)).current;
@@ -40,12 +43,12 @@ export function LightSensorCard() {
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.iconWrap}>
-            <Sun size={16} color={theme.colors.secondary} />
+            <Sun size={16} color={colors.secondary} />
           </View>
           <Text style={styles.title}>Ambient Light Sensor</Text>
         </View>
         <View style={styles.unavailableBox}>
-          <Eye size={18} color={theme.colors.textTertiary} />
+          <Eye size={18} color={colors.textTertiary} />
           <Text style={styles.unavailableText}>
             {Platform.OS === 'ios'
               ? 'Light sensor data is only available on Android devices.'
@@ -61,12 +64,12 @@ export function LightSensorCard() {
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.iconWrap}>
-            <Sun size={16} color={theme.colors.secondary} />
+            <Sun size={16} color={colors.secondary} />
           </View>
           <Text style={styles.title}>Ambient Light Sensor</Text>
         </View>
         <View style={styles.unavailableBox}>
-          <EyeOff size={18} color={theme.colors.textTertiary} />
+          <EyeOff size={18} color={colors.textTertiary} />
           <Text style={styles.unavailableText}>
             Light sensor not available on this device.
           </Text>
@@ -143,7 +146,7 @@ export function LightSensorCard() {
       ) : (
         <View style={styles.inactiveBox}>
           <Text style={styles.inactiveText}>
-            Tap "Measure" to read ambient light levels. This helps determine if the environment is suitable for UV effects.
+            Tap Measure to read ambient light levels. This helps determine if the environment is suitable for UV effects.
           </Text>
         </View>
       )}
@@ -152,7 +155,7 @@ export function LightSensorCard() {
 }
 
 function getLuxColor(lux: number | null): string {
-  if (lux === null) return theme.colors.textSecondary;
+  if (lux === null) return '#8E8E93';
   if (lux <= 1) return '#6366F1';
   if (lux <= 50) return '#22C55E';
   if (lux <= 200) return '#84CC16';
@@ -168,161 +171,163 @@ function getLuxIcon(lux: number | null): typeof Sun {
   return Sun;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: 'rgba(245, 166, 35, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.1,
-  },
-  toggleBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceSecondary,
-  },
-  toggleBtnActive: {
-    borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.glow,
-  },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-    color: theme.colors.textSecondary,
-  },
-  toggleTextActive: {
-    color: theme.colors.primary,
-  },
-  readingSection: {
-    gap: 12,
-  },
-  readingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  luxIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  readingText: {
-    flex: 1,
-  },
-  luxValue: {
-    fontSize: 28,
-    fontWeight: '800' as const,
-    letterSpacing: -0.5,
-  },
-  luxUnit: {
-    fontSize: 14,
-    fontWeight: '500' as const,
-  },
-  luxCategory: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    fontWeight: '500' as const,
-    marginTop: 1,
-  },
-  barContainer: {
-    marginTop: 4,
-  },
-  bar: {
-    height: 6,
-    borderRadius: 3,
-  },
-  barLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  barLabel: {
-    fontSize: 10,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-  },
-  recBox: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  recTitle: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: theme.colors.textTertiary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase' as const,
-    marginBottom: 4,
-  },
-  recText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    lineHeight: 19,
-  },
-  unavailableBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  unavailableText: {
-    flex: 1,
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    lineHeight: 19,
-  },
-  inactiveBox: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  inactiveText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    lineHeight: 19,
-  },
-  waitingBox: {
-    padding: 14,
-    alignItems: 'center',
-  },
-  waitingText: {
-    fontSize: 13,
-    color: theme.colors.textTertiary,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginHorizontal: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 12,
+    },
+    iconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: 'rgba(245, 166, 35, 0.12)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    title: {
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '700' as const,
+      color: colors.text,
+      letterSpacing: -0.1,
+    },
+    toggleBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    toggleBtnActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.glow,
+    },
+    toggleText: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: colors.textSecondary,
+    },
+    toggleTextActive: {
+      color: colors.primary,
+    },
+    readingSection: {
+      gap: 12,
+    },
+    readingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    luxIconWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    readingText: {
+      flex: 1,
+    },
+    luxValue: {
+      fontSize: 28,
+      fontWeight: '800' as const,
+      letterSpacing: -0.5,
+    },
+    luxUnit: {
+      fontSize: 14,
+      fontWeight: '500' as const,
+    },
+    luxCategory: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontWeight: '500' as const,
+      marginTop: 1,
+    },
+    barContainer: {
+      marginTop: 4,
+    },
+    bar: {
+      height: 6,
+      borderRadius: 3,
+    },
+    barLabels: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 4,
+    },
+    barLabel: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      fontWeight: '500' as const,
+    },
+    recBox: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    recTitle: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: colors.textTertiary,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase' as const,
+      marginBottom: 4,
+    },
+    recText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 19,
+    },
+    unavailableBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 12,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    unavailableText: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 19,
+    },
+    inactiveBox: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 12,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    inactiveText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 19,
+    },
+    waitingBox: {
+      padding: 14,
+      alignItems: 'center',
+    },
+    waitingText: {
+      fontSize: 13,
+      color: colors.textTertiary,
+    },
+  });
+}

@@ -13,7 +13,8 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 import { WILDFIRE_RESOURCES, ResourceCategory, ResourceItem } from '@/constants/resources';
 import { TUTORIALS, Tutorial } from '@/constants/tutorials';
 import { useFavoritesStore } from '@/stores/favorites-store';
@@ -59,6 +60,8 @@ async function openUrl(url: string) {
 type TabKey = 'tutorials' | 'documents' | 'favorites';
 
 export default function ResourcesScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>('tutorials');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -162,7 +165,7 @@ export default function ResourcesScreen() {
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.titleIcon}>
-            <BookOpen size={16} color={theme.colors.primary} />
+            <BookOpen size={16} color={colors.primary} />
           </View>
           <View>
             <Text style={styles.screenTitle}>Resources</Text>
@@ -179,7 +182,7 @@ export default function ResourcesScreen() {
           onPress={() => { Haptics.selectionAsync(); setActiveTab('tutorials'); }}
           activeOpacity={0.7}
         >
-          <GraduationCap size={14} color={activeTab === 'tutorials' ? theme.colors.primary : theme.colors.textTertiary} />
+          <GraduationCap size={14} color={activeTab === 'tutorials' ? colors.primary : colors.textTertiary} />
           <Text style={[styles.tabText, activeTab === 'tutorials' && styles.tabTextActive]}>Tutorials</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -187,7 +190,7 @@ export default function ResourcesScreen() {
           onPress={() => { Haptics.selectionAsync(); setActiveTab('documents'); }}
           activeOpacity={0.7}
         >
-          <FileText size={14} color={activeTab === 'documents' ? theme.colors.primary : theme.colors.textTertiary} />
+          <FileText size={14} color={activeTab === 'documents' ? colors.primary : colors.textTertiary} />
           <Text style={[styles.tabText, activeTab === 'documents' && styles.tabTextActive]}>Docs</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -195,7 +198,7 @@ export default function ResourcesScreen() {
           onPress={() => { Haptics.selectionAsync(); setActiveTab('favorites'); }}
           activeOpacity={0.7}
         >
-          <Heart size={14} color={activeTab === 'favorites' ? theme.colors.primary : theme.colors.textTertiary} fill={activeTab === 'favorites' ? theme.colors.primary : 'none'} />
+          <Heart size={14} color={activeTab === 'favorites' ? colors.primary : colors.textTertiary} fill={activeTab === 'favorites' ? colors.primary : 'none'} />
           <Text style={[styles.tabText, activeTab === 'favorites' && styles.tabTextActive]}>Saved</Text>
           {favCount > 0 && (
             <View style={styles.favBadge}>
@@ -208,17 +211,17 @@ export default function ResourcesScreen() {
       {activeTab !== 'favorites' && (
         <View style={styles.searchWrap}>
           <View style={styles.searchBar}>
-            <Search size={16} color={theme.colors.textTertiary} />
+            <Search size={16} color={colors.textTertiary} />
             <TextInput
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder={activeTab === 'tutorials' ? 'Search tutorials...' : 'Search documents...'}
-              placeholderTextColor={theme.colors.placeholder}
+              placeholderTextColor={colors.placeholder}
             />
             {hasSearch && (
               <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <X size={16} color={theme.colors.textTertiary} />
+                <X size={16} color={colors.textTertiary} />
               </TouchableOpacity>
             )}
           </View>
@@ -236,7 +239,7 @@ export default function ResourcesScreen() {
             {filteredTutorials.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
-                  <Search size={28} color={theme.colors.textTertiary} />
+                  <Search size={28} color={colors.textTertiary} />
                 </View>
                 <Text style={styles.emptyTitle}>No Results</Text>
                 <Text style={styles.emptySub}>Try a different search term.</Text>
@@ -259,7 +262,7 @@ export default function ResourcesScreen() {
                       <Text style={styles.tutorialTitle}>{tutorial.title}</Text>
                       <Text style={styles.tutorialSubtitle} numberOfLines={1}>{tutorial.subtitle}</Text>
                       <View style={styles.tutorialMeta}>
-                        <Clock size={11} color={theme.colors.textTertiary} />
+                        <Clock size={11} color={colors.textTertiary} />
                         <Text style={styles.tutorialMetaText}>{tutorial.readTime}</Text>
                         <View style={styles.tutorialDot} />
                         <Text style={styles.tutorialMetaText}>{tutorial.sections.length} sections</Text>
@@ -270,7 +273,7 @@ export default function ResourcesScreen() {
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={styles.favBtn}
                     >
-                      <Heart size={16} color={isFav ? '#EF4444' : theme.colors.textTertiary} fill={isFav ? '#EF4444' : 'none'} />
+                      <Heart size={16} color={isFav ? '#EF4444' : colors.textTertiary} fill={isFav ? '#EF4444' : 'none'} />
                     </TouchableOpacity>
                   </TouchableOpacity>
                 );
@@ -284,7 +287,7 @@ export default function ResourcesScreen() {
             {filteredResources.length === 0 && !hasSearch ? null : filteredResources.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
-                  <Search size={28} color={theme.colors.textTertiary} />
+                  <Search size={28} color={colors.textTertiary} />
                 </View>
                 <Text style={styles.emptyTitle}>No Results</Text>
                 <Text style={styles.emptySub}>Try a different search term.</Text>
@@ -310,7 +313,7 @@ export default function ResourcesScreen() {
                         </Text>
                       </View>
                       <View style={[styles.chevronWrap, isExpanded && styles.chevronExpanded]}>
-                        <ChevronRight size={16} color={theme.colors.textTertiary} />
+                        <ChevronRight size={16} color={colors.textTertiary} />
                       </View>
                     </TouchableOpacity>
 
@@ -340,9 +343,9 @@ export default function ResourcesScreen() {
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 style={styles.itemFavBtn}
                               >
-                                <Heart size={13} color={isFav ? '#EF4444' : theme.colors.textTertiary} fill={isFav ? '#EF4444' : 'none'} />
+                                <Heart size={13} color={isFav ? '#EF4444' : colors.textTertiary} fill={isFav ? '#EF4444' : 'none'} />
                               </TouchableOpacity>
-                              <ExternalLink size={14} color={theme.colors.textTertiary} />
+                              <ExternalLink size={14} color={colors.textTertiary} />
                             </TouchableOpacity>
                           );
                         })}
@@ -367,7 +370,7 @@ export default function ResourcesScreen() {
                     <Text style={styles.shopTitle}>Shop Wildfire Products</Text>
                     <Text style={styles.shopDesc}>Browse fixtures, paints, and accessories</Text>
                   </View>
-                  <ExternalLink size={16} color={theme.colors.secondary} />
+                  <ExternalLink size={16} color={colors.secondary} />
                 </TouchableOpacity>
 
                 <View style={styles.supportCard}>
@@ -388,7 +391,7 @@ export default function ResourcesScreen() {
                       const ItemIcon = item.icon;
                       return (
                         <View key={idx} style={styles.supportItem}>
-                          <ItemIcon size={14} color={theme.colors.textSecondary} />
+                          <ItemIcon size={14} color={colors.textSecondary} />
                           <Text style={styles.supportItemText}>{item.label}</Text>
                         </View>
                       );
@@ -414,7 +417,7 @@ export default function ResourcesScreen() {
             {favCount === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
-                  <Heart size={28} color={theme.colors.textTertiary} />
+                  <Heart size={28} color={colors.textTertiary} />
                 </View>
                 <Text style={styles.emptyTitle}>No Bookmarks Yet</Text>
                 <Text style={styles.emptySub}>Tap the heart icon on any tutorial or document to save it here.</Text>
@@ -499,427 +502,78 @@ export default function ResourcesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  titleIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: theme.colors.glow,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  screenTitle: {
-    fontSize: 18,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
-  screenSub: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    marginTop: 1,
-  },
-  tabRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 6,
-    marginBottom: 12,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  tabActive: {
-    backgroundColor: theme.colors.glow,
-    borderColor: 'rgba(232, 65, 42, 0.25)',
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: theme.colors.textTertiary,
-  },
-  tabTextActive: {
-    color: theme.colors.primary,
-  },
-  favBadge: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 8,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-    marginLeft: -1,
-  },
-  favBadgeText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  searchWrap: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: theme.colors.text,
-    padding: 0,
-    margin: 0,
-  },
-  scrollContainer: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }),
-  },
-  tutorialCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  tutorialIconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tutorialInfo: {
-    flex: 1,
-  },
-  tutorialTitle: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.1,
-    marginBottom: 2,
-  },
-  tutorialSubtitle: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '500' as const,
-    marginBottom: 6,
-  },
-  tutorialMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  tutorialMetaText: {
-    fontSize: 11,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-  },
-  tutorialDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: theme.colors.textTertiary,
-    marginHorizontal: 3,
-  },
-  favBtn: {
-    padding: 4,
-  },
-  categoryCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: 10,
-    overflow: 'hidden',
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-  },
-  categoryIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  categoryTextWrap: { flex: 1 },
-  categoryTitle: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.1,
-  },
-  categoryCount: {
-    fontSize: 11,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    marginTop: 2,
-  },
-  chevronWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: theme.colors.surfaceSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chevronExpanded: {
-    transform: [{ rotate: '90deg' }],
-  },
-  itemsList: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-    paddingHorizontal: 16,
-  },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 13,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  itemRowLast: {
-    borderBottomWidth: 0,
-  },
-  formatBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  itemTextWrap: { flex: 1 },
-  itemTitle: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: theme.colors.text,
-    lineHeight: 18,
-  },
-  itemFormat: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  itemFavBtn: {
-    padding: 4,
-  },
-  shopCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 6,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(245, 166, 35, 0.25)',
-  },
-  shopIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.colors.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  shopTextWrap: { flex: 1 },
-  shopTitle: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.1,
-    marginBottom: 2,
-  },
-  shopDesc: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '500' as const,
-  },
-  supportCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    padding: 18,
-    marginBottom: 8,
-  },
-  supportCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 16,
-  },
-  supportGlobeWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  supportCardHeaderText: {
-    flex: 1,
-  },
-  supportCardTitle: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.1,
-    marginBottom: 3,
-  },
-  supportCardDesc: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '500' as const,
-    lineHeight: 17,
-  },
-  supportItemsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  supportItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: theme.colors.surfaceSecondary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  supportItemText: {
-    fontSize: 12,
-    fontWeight: '600' as const,
-    color: theme.colors.textSecondary,
-  },
-  supportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
-  },
-  supportBtnText: {
-    fontSize: 14,
-    fontWeight: '700' as const,
-    color: '#fff',
-  },
-  favSection: {
-    marginBottom: 16,
-  },
-  favSectionLabel: {
-    fontSize: 11,
-    fontWeight: '700' as const,
-    color: theme.colors.textTertiary,
-    letterSpacing: 1,
-    marginBottom: 10,
-    paddingLeft: 2,
-  },
-  favResourceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  favResourceCat: {
-    fontSize: 10,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    marginTop: 2,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-  },
-  emptySub: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    marginTop: 4,
-    textAlign: 'center' as const,
-    paddingHorizontal: 24,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 28,
-  },
-  footerDivider: {
-    width: 32,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: theme.colors.border,
-    marginBottom: 14,
-  },
-  footerText: {
-    fontSize: 11,
-    color: theme.colors.textTertiary,
-  },
-  footerBrand: {
-    color: theme.colors.primary,
-    fontWeight: '700' as const,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+    topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    titleIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: colors.glow, justifyContent: 'center', alignItems: 'center' },
+    screenTitle: { fontSize: 18, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3 },
+    screenSub: { fontSize: 12, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 1 },
+    tabRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 6, marginBottom: 12 },
+    tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    tabActive: { backgroundColor: colors.glow, borderColor: 'rgba(232, 65, 42, 0.25)' },
+    tabText: { fontSize: 12, fontWeight: '600' as const, color: colors.textTertiary },
+    tabTextActive: { color: colors.primary },
+    favBadge: { backgroundColor: colors.primary, borderRadius: 8, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5, marginLeft: -1 },
+    favBadgeText: { fontSize: 10, fontWeight: '700' as const, color: '#fff' },
+    searchWrap: { paddingHorizontal: 16, paddingBottom: 12 },
+    searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: colors.border },
+    searchInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0, margin: 0 },
+    scrollContainer: { flex: 1 },
+    scrollContent: { paddingHorizontal: 16, paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }) },
+    tutorialCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+    tutorialIconWrap: { width: 46, height: 46, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+    tutorialInfo: { flex: 1 },
+    tutorialTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.1, marginBottom: 2 },
+    tutorialSubtitle: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' as const, marginBottom: 6 },
+    tutorialMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    tutorialMetaText: { fontSize: 11, color: colors.textTertiary, fontWeight: '500' as const },
+    tutorialDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.textTertiary, marginHorizontal: 3 },
+    favBtn: { padding: 4 },
+    categoryCard: { backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 10, overflow: 'hidden' },
+    categoryHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
+    categoryIconWrap: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    categoryTextWrap: { flex: 1 },
+    categoryTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.1 },
+    categoryCount: { fontSize: 11, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 2 },
+    chevronWrap: { width: 28, height: 28, borderRadius: 8, backgroundColor: colors.surfaceSecondary, justifyContent: 'center', alignItems: 'center' },
+    chevronExpanded: { transform: [{ rotate: '90deg' }] },
+    itemsList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingHorizontal: 16 },
+    itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    itemRowLast: { borderBottomWidth: 0 },
+    formatBadge: { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    itemTextWrap: { flex: 1 },
+    itemTitle: { fontSize: 13, fontWeight: '600' as const, color: colors.text, lineHeight: 18 },
+    itemFormat: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.5, marginTop: 2 },
+    itemFavBtn: { padding: 4 },
+    shopCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginTop: 6, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(245, 166, 35, 0.25)' },
+    shopIconWrap: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center' },
+    shopTextWrap: { flex: 1 },
+    shopTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.1, marginBottom: 2 },
+    shopDesc: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' as const },
+    supportCard: { backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 18, marginBottom: 8 },
+    supportCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 16 },
+    supportGlobeWrap: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+    supportCardHeaderText: { flex: 1 },
+    supportCardTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.1, marginBottom: 3 },
+    supportCardDesc: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' as const, lineHeight: 17 },
+    supportItemsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    supportItem: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surfaceSecondary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+    supportItemText: { fontSize: 12, fontWeight: '600' as const, color: colors.textSecondary },
+    supportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: 12, backgroundColor: colors.primary },
+    supportBtnText: { fontSize: 14, fontWeight: '700' as const, color: '#fff' },
+    favSection: { marginBottom: 16 },
+    favSectionLabel: { fontSize: 11, fontWeight: '700' as const, color: colors.textTertiary, letterSpacing: 1, marginBottom: 10, paddingLeft: 2 },
+    favResourceCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.border },
+    favResourceCat: { fontSize: 10, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 2 },
+    emptyState: { alignItems: 'center', paddingVertical: 48 },
+    emptyIcon: { width: 64, height: 64, borderRadius: 20, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, marginBottom: 16 },
+    emptyTitle: { fontSize: 17, fontWeight: '700' as const, color: colors.text },
+    emptySub: { fontSize: 13, color: colors.textSecondary, marginTop: 4, textAlign: 'center' as const, paddingHorizontal: 24 },
+    footer: { alignItems: 'center', paddingVertical: 28 },
+    footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: colors.border, marginBottom: 14 },
+    footerText: { fontSize: 11, color: colors.textTertiary },
+    footerBrand: { color: colors.primary, fontWeight: '700' as const },
+  });
+}

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity, Animated, Dimensions, Easing } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity, Animated, Easing } from 'react-native';
 import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore } from '@/stores/lighting-store';
@@ -12,51 +12,14 @@ import { CalculationPreview } from '@/components/CalculationPreview';
 import { QRScanner } from '@/components/QRScanner';
 import { SaveCalculationModal } from '@/components/SaveCalculationModal';
 import { LightSensorCard } from '@/components/LightSensorCard';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFirstLaunch } from '@/hooks/useFirstLaunch';
 import { generateText } from '@rork-ai/toolkit-sdk';
 import { useSettingsStore, convertDistance, convertArea, distanceUnit, areaUnit } from '@/stores/settings-store';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const FLAME_STEPS = [
-  {
-    letter: 'F',
-    title: 'Fixture',
-    icon: Target,
-    color: theme.colors.primary,
-    desc: 'Select your UV light source. Power output, beam angle, and control type vary by model.',
-  },
-  {
-    letter: 'L',
-    title: 'Location',
-    icon: MapPin,
-    color: theme.colors.secondary,
-    desc: 'Mounting height + horizontal offset determine throw distance via Pythagorean theorem.',
-  },
-  {
-    letter: 'A',
-    title: 'Angle',
-    icon: Move,
-    color: theme.colors.accent,
-    desc: 'Target coverage dimensions. Verifies beam angle covers your desired area at throw distance.',
-  },
-  {
-    letter: 'M',
-    title: 'Material',
-    icon: Palette,
-    color: theme.colors.success,
-    desc: 'Surface being lit — paint, fabric, ink each respond differently to UV wavelengths.',
-  },
-  {
-    letter: 'E',
-    title: 'Effect',
-    icon: Wand2,
-    color: '#3B82F6',
-    desc: 'Desired visual outcome. Helps optimize fixture selection, intensity, and placement.',
-  },
-] as const;
 
 const MATERIAL_OPTIONS = [
   'Fluorescent Paint',
@@ -83,6 +46,9 @@ const EFFECT_OPTIONS = [
 type FlameLetter = 'F' | 'L' | 'A' | 'M' | 'E';
 
 export default function CalculatorScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const {
     selectedFixture, verticalHeight, horizontalDistance,
     beamWidth, beamHeight, rectHeight, rectWidth, rectDepth,
@@ -116,6 +82,14 @@ export default function CalculatorScreen() {
   const aiPulse = useRef(new Animated.Value(0.6)).current;
 
   const fixtureModels = LightingCalculator.getFixtureModels();
+
+  const FLAME_STEPS = useMemo(() => [
+    { letter: 'F' as const, title: 'Fixture', icon: Target, color: colors.primary, desc: 'Select your UV light source. Power output, beam angle, and control type vary by model.' },
+    { letter: 'L' as const, title: 'Location', icon: MapPin, color: colors.secondary, desc: 'Mounting height + horizontal offset determine throw distance via Pythagorean theorem.' },
+    { letter: 'A' as const, title: 'Angle', icon: Move, color: colors.accent, desc: 'Target coverage dimensions. Verifies beam angle covers your desired area at throw distance.' },
+    { letter: 'M' as const, title: 'Material', icon: Palette, color: colors.success, desc: 'Surface being lit — paint, fabric, ink each respond differently to UV wavelengths.' },
+    { letter: 'E' as const, title: 'Effect', icon: Wand2, color: '#3B82F6', desc: 'Desired visual outcome. Helps optimize fixture selection, intensity, and placement.' },
+  ], [colors]);
 
   const flameProgress = useMemo<Record<FlameLetter, boolean>>(() => ({
     F: !!selectedFixture,
@@ -194,13 +168,13 @@ export default function CalculatorScreen() {
     resultFadeAnim.setValue(0);
     resultSlideAnim.setValue(20);
 
-    await calculate();
+    await calculate(unitSystem);
 
     Animated.parallel([
       Animated.timing(resultFadeAnim, { toValue: 1, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.spring(resultSlideAnim, { toValue: 0, tension: 60, friction: 10, useNativeDriver: true }),
     ]).start();
-  }, [selectedFixture, calculate, calcBtnScale, resultFadeAnim, resultSlideAnim]);
+  }, [selectedFixture, calculate, calcBtnScale, resultFadeAnim, resultSlideAnim, unitSystem]);
 
   const handleSaveCalculation = useCallback((name: string, description?: string, projectId?: string) => {
     const didSave = saveCalculation(name, description, projectId, aiInsight ?? undefined);
@@ -275,11 +249,6 @@ Give a quick practical insight about this setup - is the throw distance optimal,
     outputRange: ['0%', '100%'],
   });
 
-  const calcBtnShadowOpacity = calcBtnGlow.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.35, 0.6],
-  });
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <OnboardingModal visible={isFirstLaunch} onDismiss={markSeen} />
@@ -287,7 +256,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.flameIconWrap}>
-            <Flame size={18} color={theme.colors.primary} />
+            <Flame size={18} color={colors.primary} />
           </View>
           <View>
             <Text style={styles.topTitle}>FLAME Calculator</Text>
@@ -299,7 +268,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
         <View style={styles.topBarRight}>
           {(filledCount > 0 || hasResult) && (
             <TouchableOpacity onPress={handleReset} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
-              <RotateCcw size={17} color={theme.colors.textTertiary} />
+              <RotateCcw size={17} color={colors.textTertiary} />
             </TouchableOpacity>
           )}
         </View>
@@ -336,12 +305,12 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               ) : (
                 <Text style={[
                   styles.stepTabLetter,
-                  { color: isActive ? step.color : theme.colors.textTertiary },
+                  { color: isActive ? step.color : colors.textTertiary },
                 ]}>{step.letter}</Text>
               )}
               <Text style={[
                 styles.stepTabTitle,
-                { color: isActive ? step.color : filled ? theme.colors.textSecondary : theme.colors.textTertiary },
+                { color: isActive ? step.color : filled ? colors.textSecondary : colors.textTertiary },
               ]}>{step.title}</Text>
             </TouchableOpacity>
           );
@@ -374,18 +343,18 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 <Picker label="Fixture Model" value={selectedFixture} options={fixtureModels} onValueChange={setSelectedFixture} />
                 <TouchableOpacity style={styles.qrRow} onPress={openQRScanner} activeOpacity={0.7}>
                   <View style={styles.qrIconWrap}>
-                    <QrCode size={16} color={theme.colors.accent} />
+                    <QrCode size={16} color={colors.accent} />
                   </View>
                   <View style={styles.qrTextWrap}>
                     <Text style={styles.qrTitle}>Scan QR Code</Text>
                     <Text style={styles.qrSub}>Scan fixture label to auto-select</Text>
                   </View>
-                  <ChevronDown size={16} color={theme.colors.textTertiary} style={{ transform: [{ rotate: '-90deg' }] }} />
+                  <ChevronDown size={16} color={colors.textTertiary} style={{ transform: [{ rotate: '-90deg' }] }} />
                 </TouchableOpacity>
               </View>
               {selectedFixture ? (
                 <View style={styles.selectedInfo}>
-                  <View style={[styles.selectedDot, { backgroundColor: theme.colors.success }]} />
+                  <View style={[styles.selectedDot, { backgroundColor: colors.success }]} />
                   <Text style={styles.selectedText}>{selectedFixture} selected</Text>
                 </View>
               ) : null}
@@ -397,15 +366,15 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               <View style={styles.card}>
                 <View style={styles.inputRow}>
                   <View style={styles.inputHalf}>
-                    <Input label="Vertical Height" value={verticalHeight} onChangeText={setVerticalHeight} keyboardType="decimal-pad" unit="m" placeholder="0.0" />
+                    <Input label="Vertical Height" value={verticalHeight} onChangeText={setVerticalHeight} keyboardType="decimal-pad" unit={dUnit} placeholder="0.0" />
                   </View>
                   <View style={styles.inputHalf}>
-                    <Input label="Horizontal Dist." value={horizontalDistance} onChangeText={setHorizontalDistance} keyboardType="decimal-pad" unit="m" placeholder="5.0" />
+                    <Input label="Horizontal Dist." value={horizontalDistance} onChangeText={setHorizontalDistance} keyboardType="decimal-pad" unit={dUnit} placeholder="5.0" />
                   </View>
                 </View>
                 <InfoTooltip
                   title="Throw Distance"
-                  body="Vertical Height: mounting height above target (metres).\nHorizontal Distance: horizontal offset from directly below.\nThe app calculates true throw distance using Pythagorean theorem."
+                  body={`Vertical Height: mounting height above target (${dUnit}).\nHorizontal Distance: horizontal offset from directly below.\nThe app calculates true throw distance using Pythagorean theorem.`}
                 />
               </View>
             </View>
@@ -416,10 +385,10 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               <View style={styles.card}>
                 <View style={styles.inputRow}>
                   <View style={styles.inputHalf}>
-                    <Input label="Width" value={beamWidth} onChangeText={setBeamWidth} keyboardType="decimal-pad" unit="m" placeholder="6.0" />
+                    <Input label="Width" value={beamWidth} onChangeText={setBeamWidth} keyboardType="decimal-pad" unit={dUnit} placeholder="6.0" />
                   </View>
                   <View style={styles.inputHalf}>
-                    <Input label="Height" value={beamHeight} onChangeText={setBeamHeight} keyboardType="decimal-pad" unit="m" placeholder="3.0" />
+                    <Input label="Height" value={beamHeight} onChangeText={setBeamHeight} keyboardType="decimal-pad" unit={dUnit} placeholder="3.0" />
                   </View>
                 </View>
                 <InfoTooltip
@@ -461,20 +430,20 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           activeOpacity={0.7}
         >
           <Text style={styles.volumeToggleText}>Volume (Optional)</Text>
-          <ChevronDown size={16} color={theme.colors.textTertiary} style={showVolume ? { transform: [{ rotate: '180deg' }] } : undefined} />
+          <ChevronDown size={16} color={colors.textTertiary} style={showVolume ? { transform: [{ rotate: '180deg' }] } : undefined} />
         </TouchableOpacity>
 
         {showVolume && (
           <View style={[styles.card, { marginHorizontal: 16 }]}>
             <View style={styles.inputRow}>
               <View style={styles.inputThird}>
-                <Input label="H" value={rectHeight} onChangeText={setRectHeight} keyboardType="decimal-pad" unit="m" placeholder="3.0" />
+                <Input label="H" value={rectHeight} onChangeText={setRectHeight} keyboardType="decimal-pad" unit={dUnit} placeholder="3.0" />
               </View>
               <View style={styles.inputThird}>
-                <Input label="W" value={rectWidth} onChangeText={setRectWidth} keyboardType="decimal-pad" unit="m" placeholder="6.0" />
+                <Input label="W" value={rectWidth} onChangeText={setRectWidth} keyboardType="decimal-pad" unit={dUnit} placeholder="6.0" />
               </View>
               <View style={styles.inputThird}>
-                <Input label="D" value={rectDepth} onChangeText={setRectDepth} keyboardType="decimal-pad" unit="m" placeholder="6.0" />
+                <Input label="D" value={rectDepth} onChangeText={setRectDepth} keyboardType="decimal-pad" unit={dUnit} placeholder="6.0" />
               </View>
             </View>
           </View>
@@ -494,7 +463,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           </Animated.View>
           {canSave && (
             <TouchableOpacity style={styles.saveAction} onPress={() => setShowSaveModal(true)} activeOpacity={0.7}>
-              <Save size={18} color={theme.colors.success} />
+              <Save size={18} color={colors.success} />
             </TouchableOpacity>
           )}
         </View>
@@ -531,7 +500,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <X size={16} color={theme.colors.textTertiary} />
+                <X size={16} color={colors.textTertiary} />
               </TouchableOpacity>
             </View>
             <View style={styles.resultGrid}>
@@ -539,10 +508,10 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 const r = (lastCalculation as any).irradiance_report;
                 const safety = getSafetyLevel(lastCalculation);
                 const safetyColors: Record<string, string> = {
-                  safe: theme.colors.success,
-                  caution: theme.colors.warning,
-                  warning: theme.colors.safetyOrange,
-                  danger: theme.colors.error,
+                  safe: colors.success,
+                  caution: colors.warning,
+                  warning: colors.safetyOrange,
+                  danger: colors.error,
                 };
                 return (
                   <>
@@ -580,7 +549,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               activeOpacity={0.7}
             >
               <Animated.View style={aiLoading ? { opacity: aiPulse } : undefined}>
-                <Sparkles size={16} color={theme.colors.primary} />
+                <Sparkles size={16} color={colors.primary} />
               </Animated.View>
               <Text style={styles.aiInsightBtnText}>
                 {aiLoading ? 'Analyzing...' : 'AI Analysis'}
@@ -590,7 +559,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
             {aiInsight && (
               <Animated.View style={[styles.aiInsightCard, { opacity: insightAnim, transform: [{ scale: insightAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
                 <View style={styles.aiInsightHeader}>
-                  <Sparkles size={14} color={theme.colors.primary} />
+                  <Sparkles size={14} color={colors.primary} />
                   <Text style={styles.aiInsightTitle}>AI Insight</Text>
                 </View>
                 <Text style={styles.aiInsightText}>{aiInsight}</Text>
@@ -615,465 +584,82 @@ Give a quick practical insight about this setup - is the throw distance optimal,
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  flameIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: theme.colors.glow,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topTitle: {
-    fontSize: 17,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
-  topSubtitle: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    marginTop: 1,
-  },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  topBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  progressBarWrap: {
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  progressBarBg: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: theme.colors.border,
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: theme.colors.primary,
-  },
-  stepsNav: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    gap: 4,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  stepTab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 2,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surface,
-    gap: 3,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  stepTabActive: {
-    backgroundColor: theme.colors.surfaceElevated,
-  },
-  stepTabFilled: {
-    backgroundColor: theme.colors.surface,
-  },
-  stepCheckWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepTabLetter: {
-    fontSize: 14,
-    fontWeight: '800' as const,
-  },
-  stepTabTitle: {
-    fontSize: 9,
-    fontWeight: '600' as const,
-    letterSpacing: 0.2,
-  },
-  stepAnimWrap: {},
-  scrollContainer: { flex: 1 },
-  scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
-  stepHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-  },
-  stepIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepHeaderText: {
-    flex: 1,
-    paddingTop: 2,
-  },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  stepDesc: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    lineHeight: 18,
-  },
-  stepContent: {
-    paddingHorizontal: 16,
-  },
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  inputHalf: {
-    flex: 1,
-  },
-  inputThird: {
-    flex: 1,
-  },
-  qrRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginTop: 4,
-  },
-  qrIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(124, 107, 240, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  qrTextWrap: {
-    flex: 1,
-  },
-  qrTitle: {
-    fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: '600' as const,
-  },
-  qrSub: {
-    fontSize: 11,
-    color: theme.colors.textTertiary,
-    marginTop: 1,
-  },
-  selectedInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(34, 197, 94, 0.08)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.15)',
-    marginBottom: 12,
-  },
-  selectedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  selectedText: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    color: theme.colors.success,
-  },
-  tipCard: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: 12,
-  },
-  tipTitle: {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: theme.colors.textSecondary,
-    marginBottom: 4,
-  },
-  tipText: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    lineHeight: 18,
-  },
-  volumeToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 4,
-  },
-  volumeToggleText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: theme.colors.textSecondary,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: 10,
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  calcButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  calcButtonDisabled: {
-    opacity: 0.6,
-  },
-  calcButtonText: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: '#fff',
-    letterSpacing: 0.2,
-  },
-  saveAction: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-  },
-  errorCard: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    textAlign: 'center' as const,
-    fontWeight: '500' as const,
-  },
-  resultSection: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  dismissBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  resultSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.2,
-  },
-  resultGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  resultItem: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: theme.colors.surface,
-    padding: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  resultLabel: {
-    fontSize: 10,
-    color: theme.colors.textTertiary,
-    fontWeight: '600' as const,
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  resultValue: {
-    fontSize: 24,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.5,
-  },
-  resultUnit: {
-    fontSize: 10,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    marginTop: 2,
-  },
-  safetyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  safetyDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  safetyText: {
-    fontSize: 10,
-    fontWeight: '800' as const,
-    letterSpacing: 0.5,
-  },
-  aiInsightBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: theme.colors.glow,
-    borderWidth: 1,
-    borderColor: 'rgba(232, 65, 42, 0.2)',
-  },
-  aiInsightBtnLoading: {
-    borderColor: 'rgba(232, 65, 42, 0.35)',
-  },
-  aiInsightBtnText: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: theme.colors.primary,
-  },
-  aiInsightCard: {
-    marginTop: 12,
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  aiInsightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  aiInsightTitle: {
-    fontSize: 13,
-    fontWeight: '700' as const,
-    color: theme.colors.primary,
-    letterSpacing: 0.2,
-  },
-  aiInsightText: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    lineHeight: 22,
-  },
-  calcNote: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(245, 166, 35, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 166, 35, 0.18)',
-  },
-  calcNoteText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    lineHeight: 19,
-    textAlign: 'center' as const,
-  },
-  calcNoteBold: {
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-  },
-  calcNoteOptional: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  calcNoteOptionalText: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    lineHeight: 18,
-    textAlign: 'center' as const,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+    topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    flameIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.glow, justifyContent: 'center', alignItems: 'center' },
+    topTitle: { fontSize: 17, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3 },
+    topSubtitle: { fontSize: 12, color: colors.textTertiary, marginTop: 1 },
+    topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    topBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+    progressBarWrap: { paddingHorizontal: 16, paddingBottom: 10 },
+    progressBarBg: { height: 3, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
+    progressBarFill: { height: '100%', borderRadius: 2, backgroundColor: colors.primary },
+    stepsNav: { flexDirection: 'row', paddingHorizontal: 12, gap: 4, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+    stepTab: { flex: 1, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 2, borderRadius: 10, backgroundColor: colors.surface, gap: 3, borderWidth: 1, borderColor: 'transparent' },
+    stepTabActive: { backgroundColor: colors.surfaceElevated },
+    stepTabFilled: { backgroundColor: colors.surface },
+    stepCheckWrap: { width: 20, height: 20, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+    stepTabLetter: { fontSize: 14, fontWeight: '800' as const },
+    stepTabTitle: { fontSize: 9, fontWeight: '600' as const, letterSpacing: 0.2 },
+    stepAnimWrap: {},
+    scrollContainer: { flex: 1 },
+    scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
+    stepHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
+    stepIconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+    stepHeaderText: { flex: 1, paddingTop: 2 },
+    stepTitle: { fontSize: 20, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3, marginBottom: 4 },
+    stepDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
+    stepContent: { paddingHorizontal: 16 },
+    card: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
+    inputRow: { flexDirection: 'row', gap: 10 },
+    inputHalf: { flex: 1 },
+    inputThird: { flex: 1 },
+    qrRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 14, backgroundColor: colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginTop: 4 },
+    qrIconWrap: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(124, 107, 240, 0.1)', justifyContent: 'center', alignItems: 'center' },
+    qrTextWrap: { flex: 1 },
+    qrTitle: { fontSize: 14, color: colors.text, fontWeight: '600' as const },
+    qrSub: { fontSize: 11, color: colors.textTertiary, marginTop: 1 },
+    selectedInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: 'rgba(34, 197, 94, 0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.15)', marginBottom: 12 },
+    selectedDot: { width: 6, height: 6, borderRadius: 3 },
+    selectedText: { fontSize: 13, fontWeight: '600' as const, color: colors.success },
+    tipCard: { backgroundColor: colors.surfaceSecondary, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border, marginBottom: 12 },
+    tipTitle: { fontSize: 13, fontWeight: '700' as const, color: colors.textSecondary, marginBottom: 4 },
+    tipText: { fontSize: 12, color: colors.textTertiary, lineHeight: 18 },
+    volumeToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 4 },
+    volumeToggleText: { fontSize: 14, fontWeight: '600' as const, color: colors.textSecondary },
+    actionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10, marginTop: 8, marginBottom: 16 },
+    calcButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, height: 52, borderRadius: 14, backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
+    calcButtonDisabled: { opacity: 0.6 },
+    calcButtonText: { fontSize: 16, fontWeight: '700' as const, color: '#fff', letterSpacing: 0.2 },
+    saveAction: { width: 52, height: 52, borderRadius: 14, backgroundColor: 'rgba(34, 197, 94, 0.1)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(34, 197, 94, 0.2)' },
+    errorCard: { marginHorizontal: 16, marginBottom: 12, padding: 14, borderRadius: 12, backgroundColor: 'rgba(239, 68, 68, 0.08)', borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)' },
+    errorText: { color: colors.error, fontSize: 14, textAlign: 'center' as const, fontWeight: '500' as const },
+    resultSection: { paddingHorizontal: 16, marginBottom: 16 },
+    resultHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+    dismissBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+    resultSectionTitle: { fontSize: 16, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.2 },
+    resultGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    resultItem: { flex: 1, minWidth: '45%', backgroundColor: colors.surface, padding: 14, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+    resultLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' as const, letterSpacing: 0.8, marginBottom: 6 },
+    resultValue: { fontSize: 24, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.5 },
+    resultUnit: { fontSize: 10, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 2 },
+    safetyBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginTop: 4 },
+    safetyDot: { width: 6, height: 6, borderRadius: 3 },
+    safetyText: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.5 },
+    aiInsightBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, backgroundColor: colors.glow, borderWidth: 1, borderColor: 'rgba(232, 65, 42, 0.2)' },
+    aiInsightBtnLoading: { borderColor: 'rgba(232, 65, 42, 0.35)' },
+    aiInsightBtnText: { fontSize: 14, fontWeight: '600' as const, color: colors.primary },
+    aiInsightCard: { marginTop: 12, padding: 16, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    aiInsightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    aiInsightTitle: { fontSize: 13, fontWeight: '700' as const, color: colors.primary, letterSpacing: 0.2 },
+    aiInsightText: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
+    calcNote: { marginHorizontal: 16, marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(245, 166, 35, 0.08)', borderWidth: 1, borderColor: 'rgba(245, 166, 35, 0.18)' },
+    calcNoteText: { fontSize: 13, color: colors.textSecondary, lineHeight: 19, textAlign: 'center' as const },
+    calcNoteBold: { fontWeight: '700' as const, color: colors.text },
+    calcNoteOptional: { marginHorizontal: 16, marginBottom: 12, padding: 10, borderRadius: 10, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+    calcNoteOptionalText: { fontSize: 12, color: colors.textTertiary, lineHeight: 18, textAlign: 'center' as const },
+  });
+}

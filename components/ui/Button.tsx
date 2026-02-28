@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useMemo } from 'react';
 import {
   TouchableOpacity,
   Text,
@@ -10,7 +10,7 @@ import {
   Animated,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
 
 interface ButtonProps {
   title: string;
@@ -39,6 +39,7 @@ export function Button({
   textStyle,
   testID,
 }: ButtonProps) {
+  const colors = useThemeColors();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const isDisabled = disabled || loading;
 
@@ -65,8 +66,58 @@ export function Button({
     onPress();
   }, [onPress]);
 
-  const variantStyle = variantStyles[variant];
-  const textVariantStyle = textVariantStyles[variant];
+  const variantStyle = useMemo((): ViewStyle => {
+    switch (variant) {
+      case 'primary':
+        return {
+          backgroundColor: colors.primary,
+          borderColor: colors.primary,
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 4,
+        };
+      case 'secondary':
+        return { backgroundColor: colors.surfaceElevated, borderColor: colors.border };
+      case 'outline':
+        return { backgroundColor: 'transparent', borderColor: colors.border };
+      case 'danger':
+        return {
+          backgroundColor: colors.error,
+          borderColor: colors.error,
+          shadowColor: colors.error,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          elevation: 4,
+        };
+      case 'success':
+        return {
+          backgroundColor: colors.success,
+          borderColor: colors.success,
+          shadowColor: colors.success,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          elevation: 4,
+        };
+      default:
+        return {};
+    }
+  }, [variant, colors]);
+
+  const textVariantColor = useMemo((): string => {
+    switch (variant) {
+      case 'primary': return '#FFFFFF';
+      case 'secondary': return colors.text;
+      case 'outline': return colors.text;
+      case 'danger': return '#FFFFFF';
+      case 'success': return '#FFFFFF';
+      default: return colors.text;
+    }
+  }, [variant, colors]);
+
   const sizeStyle = sizeStyles[size];
   const textSizeStyle = textSizeStyles[size];
 
@@ -88,11 +139,11 @@ export function Button({
         testID={testID}
       >
         {loading ? (
-          <ActivityIndicator size="small" color={variant === 'outline' ? theme.colors.text : '#FFFFFF'} />
+          <ActivityIndicator size="small" color={variant === 'outline' ? colors.text : '#FFFFFF'} />
         ) : (
           <View style={styles.content}>
             {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-            <Text style={[styles.text, textVariantStyle, textSizeStyle, isDisabled && styles.disabledText, textStyle]} numberOfLines={1}>
+            <Text style={[styles.text, { color: textVariantColor }, textSizeStyle, isDisabled && { color: colors.textTertiary }, textStyle]} numberOfLines={1}>
               {title}
             </Text>
             {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
@@ -102,46 +153,6 @@ export function Button({
     </Animated.View>
   );
 }
-
-const variantStyles: Record<string, ViewStyle> = {
-  primary: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  secondary: { backgroundColor: theme.colors.surfaceElevated, borderColor: theme.colors.border },
-  outline: { backgroundColor: 'transparent', borderColor: theme.colors.border },
-  danger: {
-    backgroundColor: theme.colors.error,
-    borderColor: theme.colors.error,
-    shadowColor: theme.colors.error,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  success: {
-    backgroundColor: theme.colors.success,
-    borderColor: theme.colors.success,
-    shadowColor: theme.colors.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-};
-
-const textVariantStyles: Record<string, TextStyle> = {
-  primary: { color: '#FFFFFF' },
-  secondary: { color: theme.colors.text },
-  outline: { color: theme.colors.text },
-  danger: { color: '#FFFFFF' },
-  success: { color: '#FFFFFF' },
-};
 
 const sizeStyles: Record<string, ViewStyle> = {
   small: { paddingHorizontal: 16, paddingVertical: 10, minHeight: 40 },
@@ -176,5 +187,4 @@ const styles = StyleSheet.create({
   iconLeft: { marginRight: 8 },
   iconRight: { marginLeft: 8 },
   disabled: { opacity: 0.45 },
-  disabledText: { color: theme.colors.textTertiary },
 });

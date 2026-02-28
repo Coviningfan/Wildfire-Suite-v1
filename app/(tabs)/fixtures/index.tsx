@@ -7,7 +7,8 @@ import { useLightingStore } from '@/stores/lighting-store';
 import { Input } from '@/components/ui/Input';
 import { FixtureCard } from '@/components/fixtures/FixtureCard';
 import { FixtureDetailModal } from '@/components/fixtures/FixtureDetailModal';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getFixtureCategory, FIXTURE_SERIES_LABELS, getFixtureControlType } from '@/utils/fixture-helpers';
 
@@ -23,7 +24,7 @@ const SERIES_COLORS: Record<string, string> = {
 };
 
 function getSeriesColor(key: string) {
-  return SERIES_COLORS[key] ?? theme.colors.textSecondary;
+  return SERIES_COLORS[key] ?? '#8E8E93';
 }
 
 function getSeriesKey(category: string) {
@@ -36,6 +37,9 @@ function getSeriesKey(category: string) {
 }
 
 export default function FixtureLibraryScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { selectedFixture, setSelectedFixture } = useLightingStore();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSeries, setSelectedSeries] = useState<string>('');
@@ -91,7 +95,7 @@ export default function FixtureLibraryScreen() {
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.titleIcon}>
-            <Lightbulb size={16} color={theme.colors.accent} />
+            <Lightbulb size={16} color={colors.accent} />
           </View>
           <View>
             <Text style={styles.screenTitle}>Fixtures</Text>
@@ -100,7 +104,7 @@ export default function FixtureLibraryScreen() {
         </View>
         {hasFilters && (
           <TouchableOpacity style={styles.clearBtn} onPress={clearFilters} activeOpacity={0.7}>
-            <X size={14} color={theme.colors.error} />
+            <X size={14} color={colors.error} />
             <Text style={styles.clearBtnText}>Clear</Text>
           </TouchableOpacity>
         )}
@@ -126,8 +130,8 @@ export default function FixtureLibraryScreen() {
               style={[
                 styles.seriesChip,
                 {
-                  borderColor: isActive ? color + '60' : theme.colors.border,
-                  backgroundColor: isActive ? color + '14' : theme.colors.surface,
+                  borderColor: isActive ? color + '60' : colors.border,
+                  backgroundColor: isActive ? color + '14' : colors.surface,
                 },
               ]}
               onPress={() => {
@@ -137,8 +141,8 @@ export default function FixtureLibraryScreen() {
               activeOpacity={0.7}
             >
               <View style={[styles.seriesChipDot, { backgroundColor: color }]} />
-              <Text style={[styles.seriesChipText, { color: isActive ? color : theme.colors.textSecondary }]}>{key}</Text>
-              <Text style={[styles.seriesChipCount, { color: isActive ? color : theme.colors.textTertiary }]}>{count}</Text>
+              <Text style={[styles.seriesChipText, { color: isActive ? color : colors.textSecondary }]}>{key}</Text>
+              <Text style={[styles.seriesChipCount, { color: isActive ? color : colors.textTertiary }]}>{count}</Text>
             </TouchableOpacity>
           );
         })}
@@ -148,7 +152,7 @@ export default function FixtureLibraryScreen() {
         {Object.keys(groupedFixtures).length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconWrap}>
-              <Search size={28} color={theme.colors.textTertiary} />
+              <Search size={28} color={colors.textTertiary} />
             </View>
             <Text style={styles.emptyTitle}>No Fixtures Found</Text>
             <Text style={styles.emptySubtitle}>Try a different search or clear filters.</Text>
@@ -202,154 +206,44 @@ export default function FixtureLibraryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  scrollContainer: { flex: 1 },
-  scrollContent: { paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }) },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  titleIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: 'rgba(124, 107, 240, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  screenTitle: {
-    fontSize: 18,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
-  screenSub: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-    marginTop: 1,
-  },
-  clearBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  clearBtnText: {
-    fontSize: 12,
-    color: theme.colors.error,
-    fontWeight: '600' as const,
-  },
-  searchSection: {
-    paddingHorizontal: 16,
-    marginBottom: 4,
-  },
-  seriesScroll: {
-    maxHeight: 44,
-  },
-  seriesScrollContent: {
-    paddingHorizontal: 16,
-    gap: 8,
-    alignItems: 'center',
-    paddingBottom: 10,
-  },
-  seriesChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: isSmallPhone ? 10 : 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  seriesChipDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  seriesChipText: {
-    fontSize: 12,
-    fontWeight: '700' as const,
-  },
-  seriesChipCount: {
-    fontSize: 10,
-    fontWeight: '600' as const,
-  },
-  categorySection: {
-    marginBottom: 16,
-    paddingHorizontal: 16,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 10,
-    marginBottom: 10,
-  },
-  categoryLine: {
-    width: 3,
-    borderRadius: 2,
-  },
-  categoryTitleWrap: {
-    flex: 1,
-  },
-  categoryTitle: {
-    fontSize: isSmallPhone ? 13 : 14,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.1,
-  },
-  categoryMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  controlBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  controlText: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-  },
-  categoryCount: {
-    fontSize: 11,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-  },
-  fixturesGrid: { gap: 8 },
-  emptyContainer: { alignItems: 'center', padding: 40, marginTop: 20 },
-  emptyIconWrap: {
-    width: 64, height: 64, borderRadius: 20,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: theme.colors.border,
-    marginBottom: 16,
-  },
-  emptyTitle: { fontSize: 17, fontWeight: '700' as const, color: theme.colors.text },
-  emptySubtitle: { fontSize: 13, color: theme.colors.textSecondary, textAlign: 'center' as const, marginTop: 6 },
-  emptyAction: {
-    marginTop: 16, paddingVertical: 9, paddingHorizontal: 20,
-    borderRadius: 10, borderWidth: 1, borderColor: theme.colors.primary,
-    backgroundColor: theme.colors.glow,
-  },
-  emptyActionText: { fontSize: 13, fontWeight: '700' as const, color: theme.colors.primary },
-  footer: { alignItems: 'center', paddingVertical: 28 },
-  footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: theme.colors.border, marginBottom: 14 },
-  footerText: { fontSize: 11, color: theme.colors.textTertiary },
-  footerBrand: { color: theme.colors.primary, fontWeight: '700' as const },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    scrollContainer: { flex: 1 },
+    scrollContent: { paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }) },
+    topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+    topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+    titleIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(124, 107, 240, 0.12)', justifyContent: 'center', alignItems: 'center' },
+    screenTitle: { fontSize: 18, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3 },
+    screenSub: { fontSize: 12, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 1 },
+    clearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: 'rgba(239, 68, 68, 0.08)' },
+    clearBtnText: { fontSize: 12, color: colors.error, fontWeight: '600' as const },
+    searchSection: { paddingHorizontal: 16, marginBottom: 4 },
+    seriesScroll: { maxHeight: 44 },
+    seriesScrollContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center', paddingBottom: 10 },
+    seriesChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: isSmallPhone ? 10 : 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+    seriesChipDot: { width: 6, height: 6, borderRadius: 3 },
+    seriesChipText: { fontSize: 12, fontWeight: '700' as const },
+    seriesChipCount: { fontSize: 10, fontWeight: '600' as const },
+    categorySection: { marginBottom: 16, paddingHorizontal: 16 },
+    categoryHeader: { flexDirection: 'row', alignItems: 'stretch', gap: 10, marginBottom: 10 },
+    categoryLine: { width: 3, borderRadius: 2 },
+    categoryTitleWrap: { flex: 1 },
+    categoryTitle: { fontSize: isSmallPhone ? 13 : 14, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.1 },
+    categoryMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+    controlBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+    controlText: { fontSize: 10, fontWeight: '700' as const },
+    categoryCount: { fontSize: 11, color: colors.textTertiary, fontWeight: '500' as const },
+    fixturesGrid: { gap: 8 },
+    emptyContainer: { alignItems: 'center', padding: 40, marginTop: 20 },
+    emptyIconWrap: { width: 64, height: 64, borderRadius: 20, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, marginBottom: 16 },
+    emptyTitle: { fontSize: 17, fontWeight: '700' as const, color: colors.text },
+    emptySubtitle: { fontSize: 13, color: colors.textSecondary, textAlign: 'center' as const, marginTop: 6 },
+    emptyAction: { marginTop: 16, paddingVertical: 9, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.glow },
+    emptyActionText: { fontSize: 13, fontWeight: '700' as const, color: colors.primary },
+    footer: { alignItems: 'center', paddingVertical: 28 },
+    footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: colors.border, marginBottom: 14 },
+    footerText: { fontSize: 11, color: colors.textTertiary },
+    footerBrand: { color: colors.primary, fontWeight: '700' as const },
+  });
+}

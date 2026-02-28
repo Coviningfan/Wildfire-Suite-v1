@@ -9,17 +9,12 @@ import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
 import { useRorkAgent, createRorkTool } from '@rork-ai/toolkit-sdk';
 import { z } from 'zod';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { getFixtureCategory, getFixtureNotes, getFixturePowerWatts, getFixtureControlType } from '@/utils/fixture-helpers';
 
-const SUGGESTIONS = [
-  { icon: Zap, label: 'Best fixture for a 5m throw?', color: theme.colors.primary, tag: 'Fixture' },
-  { icon: Lightbulb, label: 'How to light a 10x8m stage?', color: theme.colors.secondary, tag: 'Design' },
-  { icon: Shield, label: 'UV safety for a haunted house', color: theme.colors.success, tag: 'Safety' },
-];
-
-const TypingIndicator = React.memo(() => {
+const TypingIndicator = React.memo(({ colors }: { colors: ThemeColors }) => {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -42,16 +37,16 @@ const TypingIndicator = React.memo(() => {
   }, [dot1, dot2, dot3]);
 
   return (
-    <View style={typingStyles.container}>
-      <View style={typingStyles.avatarAI}>
-        <Sparkles size={12} color={theme.colors.primary} />
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 16, paddingHorizontal: 4 }}>
+      <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: colors.glow, justifyContent: 'center', alignItems: 'center', marginBottom: 2 }}>
+        <Sparkles size={12} color={colors.primary} />
       </View>
-      <View style={typingStyles.bubble}>
+      <View style={{ flexDirection: 'row', gap: 4, backgroundColor: colors.surface, borderRadius: 16, borderBottomLeftRadius: 6, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: colors.border }}>
         {[dot1, dot2, dot3].map((dot, i) => (
           <Animated.View
             key={i}
             style={[
-              typingStyles.dot,
+              { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.textTertiary },
               { transform: [{ translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }], opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) },
             ]}
           />
@@ -61,14 +56,7 @@ const TypingIndicator = React.memo(() => {
   );
 });
 
-const typingStyles = StyleSheet.create({
-  container: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 16, paddingHorizontal: 4 },
-  avatarAI: { width: 28, height: 28, borderRadius: 9, backgroundColor: theme.colors.glow, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
-  bubble: { flexDirection: 'row', gap: 4, backgroundColor: theme.colors.surface, borderRadius: 16, borderBottomLeftRadius: 6, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: theme.colors.border },
-  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.textTertiary },
-});
-
-const AnimatedMessage = React.memo(({ children, index }: { children: React.ReactNode; index: number }) => {
+const AnimatedMessage = React.memo(({ children }: { children: React.ReactNode }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(12)).current;
 
@@ -87,6 +75,8 @@ const AnimatedMessage = React.memo(({ children, index }: { children: React.React
 });
 
 export default function AIAssistantScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [input, setInput] = useState<string>('');
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -94,6 +84,12 @@ export default function AIAssistantScreen() {
   const glowPulse = useRef(new Animated.Value(0.8)).current;
 
   const calculator = useRef(new LightingCalculator()).current;
+
+  const suggestions = useMemo(() => [
+    { icon: Zap, label: 'Best fixture for a 5m throw?', color: colors.primary, tag: 'Fixture' },
+    { icon: Lightbulb, label: 'How to light a 10x8m stage?', color: colors.secondary, tag: 'Design' },
+    { icon: Shield, label: 'UV safety for a haunted house', color: colors.success, tag: 'Safety' },
+  ], [colors]);
 
   const { messages, error, sendMessage, setMessages } = useRorkAgent({
     tools: {
@@ -225,15 +221,15 @@ export default function AIAssistantScreen() {
     return hasPendingTool && hasNoText;
   }, [messages]);
 
-  const renderMessage = useCallback(({ item: m, index }: { item: any; index: number }) => {
+  const renderMessage = useCallback(({ item: m }: { item: any; index: number }) => {
     const isUser = m.role === 'user';
 
     return (
-      <AnimatedMessage index={index}>
+      <AnimatedMessage>
         <View style={[styles.msgRow, isUser && styles.msgRowUser]}>
           {!isUser && (
             <View style={styles.avatarAI}>
-              <Sparkles size={13} color={theme.colors.primary} />
+              <Sparkles size={13} color={colors.primary} />
             </View>
           )}
           <View style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAI]}>
@@ -248,7 +244,7 @@ export default function AIAssistantScreen() {
                         onPress={() => handleCopy(part.text)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Copy size={11} color={theme.colors.textTertiary} />
+                        <Copy size={11} color={colors.textTertiary} />
                         <Text style={styles.copyLabel}>Copy</Text>
                       </TouchableOpacity>
                     )}
@@ -261,7 +257,7 @@ export default function AIAssistantScreen() {
                     <View key={`${m.id}-${i}`} style={styles.toolResult}>
                       <View style={styles.toolHeader}>
                         <View style={styles.toolIconWrap}>
-                          <Zap size={10} color={theme.colors.secondary} />
+                          <Zap size={10} color={colors.secondary} />
                         </View>
                         <Text style={styles.toolName}>{part.toolName}</Text>
                         <View style={styles.toolDoneBadge}>
@@ -274,7 +270,7 @@ export default function AIAssistantScreen() {
                 if (part.state === 'input-streaming' || part.state === 'input-available') {
                   return (
                     <View key={`${m.id}-${i}`} style={styles.toolRunning}>
-                      <ActivityIndicator size="small" color={theme.colors.primary} />
+                      <ActivityIndicator size="small" color={colors.primary} />
                       <Text style={styles.toolRunningText}>Running {part.toolName}...</Text>
                     </View>
                   );
@@ -298,7 +294,7 @@ export default function AIAssistantScreen() {
         </View>
       </AnimatedMessage>
     );
-  }, [handleCopy]);
+  }, [handleCopy, styles, colors]);
 
   const hasMessages = messages.length > 0;
 
@@ -312,7 +308,7 @@ export default function AIAssistantScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.headerIcon}>
-            <Sparkles size={17} color={theme.colors.primary} />
+            <Sparkles size={17} color={colors.primary} />
           </View>
           <View>
             <Text style={styles.headerTitle}>Wildfire AI</Text>
@@ -324,75 +320,77 @@ export default function AIAssistantScreen() {
         </View>
         {hasMessages && (
           <TouchableOpacity style={styles.resetBtn} onPress={handleReset} activeOpacity={0.7}>
-            <RotateCcw size={15} color={theme.colors.textSecondary} />
+            <RotateCcw size={15} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
-      {!hasMessages ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconContainer}>
-            <Animated.View style={[styles.orbitRing, { transform: [{ rotate: orbitRotate }] }]}>
-              <View style={styles.orbitDot} />
-            </Animated.View>
-            <Animated.View style={[styles.emptyIcon, { opacity: glowPulse }]}>
-              <Sparkles size={36} color={theme.colors.primary} />
-            </Animated.View>
-          </View>
-          <Text style={styles.emptyTitle}>UV Lighting Expert</Text>
-          <Text style={styles.emptyDesc}>
-            Calculate irradiance, compare fixtures, design setups, and get safety guidance — all powered by AI.
-          </Text>
-
-          <View style={styles.suggestions}>
-            {SUGGESTIONS.map((s, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.suggestionCard}
-                onPress={() => handleSuggestion(s.label)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.suggestionIcon, { backgroundColor: s.color + '14' }]}>
-                  <s.icon size={16} color={s.color} />
-                </View>
-                <View style={styles.suggestionContent}>
-                  <Text style={styles.suggestionTag}>{s.tag}</Text>
-                  <Text style={styles.suggestionText}>{s.label}</Text>
-                </View>
-                <ArrowRight size={14} color={theme.colors.textTertiary} />
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <View style={styles.emptyFooter}>
-            <MessageCircle size={13} color={theme.colors.textTertiary} />
-            <Text style={styles.emptyFooterText}>Ask anything about Wildfire UV lighting</Text>
-          </View>
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messageList}
-          contentContainerStyle={styles.messageListContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          ListFooterComponent={isThinking ? <TypingIndicator /> : null}
-        />
-      )}
-
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>Connection error. Please try again.</Text>
-        </View>
-      )}
-
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.kavContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
+        {!hasMessages ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconContainer}>
+              <Animated.View style={[styles.orbitRing, { transform: [{ rotate: orbitRotate }] }]}>
+                <View style={styles.orbitDot} />
+              </Animated.View>
+              <Animated.View style={[styles.emptyIcon, { opacity: glowPulse }]}>
+                <Sparkles size={36} color={colors.primary} />
+              </Animated.View>
+            </View>
+            <Text style={styles.emptyTitle}>UV Lighting Expert</Text>
+            <Text style={styles.emptyDesc}>
+              Calculate irradiance, compare fixtures, design setups, and get safety guidance — all powered by AI.
+            </Text>
+
+            <View style={styles.suggestions}>
+              {suggestions.map((s, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.suggestionCard}
+                  onPress={() => handleSuggestion(s.label)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.suggestionIcon, { backgroundColor: s.color + '14' }]}>
+                    <s.icon size={16} color={s.color} />
+                  </View>
+                  <View style={styles.suggestionContent}>
+                    <Text style={styles.suggestionTag}>{s.tag}</Text>
+                    <Text style={styles.suggestionText}>{s.label}</Text>
+                  </View>
+                  <ArrowRight size={14} color={colors.textTertiary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.emptyFooter}>
+              <MessageCircle size={13} color={colors.textTertiary} />
+              <Text style={styles.emptyFooterText}>Ask anything about Wildfire UV lighting</Text>
+            </View>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            style={styles.messageList}
+            contentContainerStyle={styles.messageListContent}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            keyboardShouldPersistTaps="handled"
+            ListFooterComponent={isThinking ? <TypingIndicator colors={colors} /> : null}
+          />
+        )}
+
+        {error && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>Connection error. Please try again.</Text>
+          </View>
+        )}
+
         <View style={styles.inputBar}>
           <View style={styles.inputWrap}>
             <TextInput
@@ -401,7 +399,7 @@ export default function AIAssistantScreen() {
               value={input}
               onChangeText={setInput}
               placeholder="Ask about UV lighting..."
-              placeholderTextColor={theme.colors.placeholder}
+              placeholderTextColor={colors.placeholder}
               multiline
               maxLength={2000}
               returnKeyType="default"
@@ -416,7 +414,7 @@ export default function AIAssistantScreen() {
             {isStreaming ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Send size={17} color={input.trim() ? '#fff' : theme.colors.textTertiary} />
+              <Send size={17} color={input.trim() ? '#fff' : colors.textTertiary} />
             )}
           </TouchableOpacity>
         </View>
@@ -425,361 +423,366 @@ export default function AIAssistantScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.colors.glow,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    letterSpacing: -0.3,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 1,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.success,
-  },
-  headerSub: {
-    fontSize: 12,
-    color: theme.colors.success,
-    fontWeight: '500' as const,
-  },
-  resetBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    paddingBottom: 40,
-  },
-  emptyIconContainer: {
-    width: 96,
-    height: 96,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  orbitRing: {
-    position: 'absolute',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderStyle: 'dashed',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-  },
-  orbitDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
-    marginTop: -4,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: theme.colors.glow,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '800' as const,
-    color: theme.colors.text,
-    textAlign: 'center' as const,
-    letterSpacing: -0.4,
-    marginBottom: 10,
-  },
-  emptyDesc: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    textAlign: 'center' as const,
-    lineHeight: 22,
-    marginBottom: 32,
-    paddingHorizontal: 8,
-  },
-  suggestions: {
-    width: '100%',
-    gap: 8,
-  },
-  suggestionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  suggestionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  suggestionContent: {
-    flex: 1,
-  },
-  suggestionTag: {
-    fontSize: 10,
-    fontWeight: '700' as const,
-    color: theme.colors.textTertiary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase' as const,
-    marginBottom: 2,
-  },
-  suggestionText: {
-    fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: '500' as const,
-  },
-  emptyFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 28,
-    opacity: 0.5,
-  },
-  emptyFooterText: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    fontWeight: '500' as const,
-  },
-  messageList: {
-    flex: 1,
-  },
-  messageListContent: {
-    padding: 16,
-    paddingBottom: 8,
-  },
-  msgRow: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  msgRowUser: {
-    justifyContent: 'flex-end',
-  },
-  avatarAI: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    backgroundColor: theme.colors.glow,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  avatarUser: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  msgBubble: {
-    maxWidth: '78%',
-    borderRadius: 18,
-    padding: 14,
-  },
-  msgBubbleUser: {
-    backgroundColor: theme.colors.primary,
-    borderBottomRightRadius: 6,
-  },
-  msgBubbleAI: {
-    backgroundColor: theme.colors.surface,
-    borderBottomLeftRadius: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  msgText: {
-    fontSize: 15,
-    color: theme.colors.text,
-    lineHeight: 22,
-  },
-  msgTextUser: {
-    color: '#fff',
-  },
-  copyBtn: {
-    flexDirection: 'row',
-    alignSelf: 'flex-end',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    backgroundColor: theme.colors.surfaceSecondary,
-  },
-  copyLabel: {
-    fontSize: 10,
-    color: theme.colors.textTertiary,
-    fontWeight: '600' as const,
-  },
-  toolResult: {
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  toolHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  toolIconWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
-    backgroundColor: 'rgba(245, 166, 35, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toolName: {
-    fontSize: 12,
-    color: theme.colors.secondary,
-    fontWeight: '600' as const,
-    flex: 1,
-  },
-  toolDoneBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-  },
-  toolDoneText: {
-    fontSize: 9,
-    fontWeight: '700' as const,
-    color: theme.colors.success,
-    letterSpacing: 0.3,
-  },
-  toolRunning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-    padding: 10,
-    backgroundColor: theme.colors.surfaceSecondary,
-    borderRadius: 10,
-  },
-  toolRunningText: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    fontWeight: '500' as const,
-  },
-  toolError: {
-    marginTop: 8,
-    padding: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    borderRadius: 10,
-  },
-  toolErrorText: {
-    fontSize: 12,
-    color: theme.colors.error,
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 13,
-    color: theme.colors.error,
-    textAlign: 'center' as const,
-    fontWeight: '500' as const,
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  inputWrap: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    maxHeight: 120,
-    overflow: 'hidden',
-  },
-  input: {
-    fontSize: 15,
-    color: theme.colors.text,
-    paddingHorizontal: 18,
-    paddingVertical: Platform.select({ ios: 12, default: 10 }),
-    maxHeight: 120,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.surfaceElevated,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendBtnActive: {
-    backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    kavContainer: {
+      flex: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    headerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    headerIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.glow,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '700' as const,
+      color: colors.text,
+      letterSpacing: -0.3,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: 1,
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.success,
+    },
+    headerSub: {
+      fontSize: 12,
+      color: colors.success,
+      fontWeight: '500' as const,
+    },
+    resetBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 11,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 28,
+      paddingBottom: 40,
+    },
+    emptyIconContainer: {
+      width: 96,
+      height: 96,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    orbitRing: {
+      position: 'absolute',
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+    },
+    orbitDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.primary,
+      marginTop: -4,
+    },
+    emptyIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 22,
+      backgroundColor: colors.glow,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    emptyTitle: {
+      fontSize: 22,
+      fontWeight: '800' as const,
+      color: colors.text,
+      textAlign: 'center' as const,
+      letterSpacing: -0.4,
+      marginBottom: 10,
+    },
+    emptyDesc: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center' as const,
+      lineHeight: 22,
+      marginBottom: 32,
+      paddingHorizontal: 8,
+    },
+    suggestions: {
+      width: '100%',
+      gap: 8,
+    },
+    suggestionCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: colors.surface,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    suggestionIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: 11,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    suggestionContent: {
+      flex: 1,
+    },
+    suggestionTag: {
+      fontSize: 10,
+      fontWeight: '700' as const,
+      color: colors.textTertiary,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase' as const,
+      marginBottom: 2,
+    },
+    suggestionText: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: '500' as const,
+    },
+    emptyFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 28,
+      opacity: 0.5,
+    },
+    emptyFooterText: {
+      fontSize: 12,
+      color: colors.textTertiary,
+      fontWeight: '500' as const,
+    },
+    messageList: {
+      flex: 1,
+    },
+    messageListContent: {
+      padding: 16,
+      paddingBottom: 8,
+    },
+    msgRow: {
+      flexDirection: 'row',
+      marginBottom: 16,
+      alignItems: 'flex-end',
+      gap: 8,
+    },
+    msgRowUser: {
+      justifyContent: 'flex-end',
+    },
+    avatarAI: {
+      width: 28,
+      height: 28,
+      borderRadius: 9,
+      backgroundColor: colors.glow,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    avatarUser: {
+      width: 28,
+      height: 28,
+      borderRadius: 9,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    msgBubble: {
+      maxWidth: '78%',
+      borderRadius: 18,
+      padding: 14,
+    },
+    msgBubbleUser: {
+      backgroundColor: colors.primary,
+      borderBottomRightRadius: 6,
+    },
+    msgBubbleAI: {
+      backgroundColor: colors.surface,
+      borderBottomLeftRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    msgText: {
+      fontSize: 15,
+      color: colors.text,
+      lineHeight: 22,
+    },
+    msgTextUser: {
+      color: '#fff',
+    },
+    copyBtn: {
+      flexDirection: 'row',
+      alignSelf: 'flex-end',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 8,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
+      borderRadius: 6,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    copyLabel: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      fontWeight: '600' as const,
+    },
+    toolResult: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+      padding: 10,
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    toolHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    toolIconWrap: {
+      width: 20,
+      height: 20,
+      borderRadius: 5,
+      backgroundColor: 'rgba(245, 166, 35, 0.12)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    toolName: {
+      fontSize: 12,
+      color: colors.secondary,
+      fontWeight: '600' as const,
+      flex: 1,
+    },
+    toolDoneBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    },
+    toolDoneText: {
+      fontSize: 9,
+      fontWeight: '700' as const,
+      color: colors.success,
+      letterSpacing: 0.3,
+    },
+    toolRunning: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+      padding: 10,
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 10,
+    },
+    toolRunningText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontWeight: '500' as const,
+    },
+    toolError: {
+      marginTop: 8,
+      padding: 10,
+      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+      borderRadius: 10,
+    },
+    toolErrorText: {
+      fontSize: 12,
+      color: colors.error,
+    },
+    errorBanner: {
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      marginHorizontal: 16,
+      borderRadius: 10,
+      marginBottom: 8,
+    },
+    errorText: {
+      fontSize: 13,
+      color: colors.error,
+      textAlign: 'center' as const,
+      fontWeight: '500' as const,
+    },
+    inputBar: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      backgroundColor: colors.background,
+    },
+    inputWrap: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      maxHeight: 120,
+      overflow: 'hidden',
+    },
+    input: {
+      fontSize: 15,
+      color: colors.text,
+      paddingHorizontal: 18,
+      paddingVertical: Platform.select({ ios: 12, default: 10 }),
+      maxHeight: 120,
+    },
+    sendBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surfaceElevated,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    sendBtnActive: {
+      backgroundColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 4,
+    },
+  });
+}

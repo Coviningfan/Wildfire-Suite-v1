@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card } from '@/components/ui/Card';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 
 interface ResultCardProps {
   title: string;
@@ -9,6 +10,9 @@ interface ResultCardProps {
 }
 
 export function ResultCard({ title, data }: ResultCardProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const formatLabel = (key: string): string => {
     return key
       .replace(/_/g, ' ')
@@ -41,40 +45,42 @@ export function ResultCard({ title, data }: ResultCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  title: {
-    fontSize: 15,
-    fontWeight: '700' as const,
-    color: theme.colors.text,
-    marginBottom: 12,
-    letterSpacing: -0.1,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: theme.colors.border,
-    marginBottom: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
-  },
-  rowLast: {
-    borderBottomWidth: 0,
-  },
-  label: {
-    fontSize: 13,
-    color: theme.colors.textSecondary,
-    flex: 1,
-  },
-  value: {
-    fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: '600' as const,
-    textAlign: 'right' as const,
-    flex: 1,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    title: {
+      fontSize: 15,
+      fontWeight: '700' as const,
+      color: colors.text,
+      marginBottom: 12,
+      letterSpacing: -0.1,
+    },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: colors.border,
+      marginBottom: 4,
+    },
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    rowLast: {
+      borderBottomWidth: 0,
+    },
+    label: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      flex: 1,
+    },
+    value: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: '600' as const,
+      textAlign: 'right' as const,
+      flex: 1,
+    },
+  });
+}
