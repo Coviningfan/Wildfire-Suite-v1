@@ -32,9 +32,37 @@ export class ErrorBoundary extends React.Component<Props, State> {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, gap: 12, backgroundColor: '#0f172a' },
-  title: { fontSize: 18, fontWeight: '700', color: '#ef4444' },
-  desc: { fontSize: 14, color: '#94a3b8', textAlign: 'center', lineHeight: 20 },
-  btn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155', marginTop: 4 },
-  btnText: { fontSize: 14, fontWeight: '600', color: '#e2e8f0' },
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    gap: 12,
+    backgroundColor: '#0f172a',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ef4444',
+  },
+  desc: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  btn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginTop: 4,
+  },
+  btnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#e2e8f0',
+  },
 });
