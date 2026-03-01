@@ -92,16 +92,11 @@ function NativeCameraScanner({
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [permissionRequested, setPermissionRequested] = useState<boolean>(false);
 
-  React.useEffect(() => {
-    checkPermission();
-  }, []);
-
-  const checkPermission = async () => {
+  const checkPermission = React.useCallback(async () => {
     try {
-      const { getCameraPermissionsAsync, requestCameraPermissionsAsync } = require('expo-camera') as {
-        getCameraPermissionsAsync: () => Promise<{ granted: boolean }>;
-        requestCameraPermissionsAsync: () => Promise<{ granted: boolean }>;
-      };
+      const cam = await import('expo-camera');
+      const getCameraPermissionsAsync = cam.Camera.getCameraPermissionsAsync;
+      const requestCameraPermissionsAsync = cam.Camera.requestCameraPermissionsAsync;
       const status = await getCameraPermissionsAsync();
       if (status.granted) {
         setHasPermission(true);
@@ -116,7 +111,11 @@ function NativeCameraScanner({
       console.log('[QRScanner] Permission error:', error);
       setHasPermission(false);
     }
-  };
+  }, [permissionRequested]);
+
+  React.useEffect(() => {
+    checkPermission();
+  }, [checkPermission]);
 
   if (hasPermission === null) {
     return (
@@ -151,13 +150,14 @@ function CameraPreview({
   torch: boolean;
   onBarcodeScanned: (result: { data: string }) => void;
 }) {
-  const CameraViewComponent = React.useMemo(() => {
-    try {
-      const { CameraView } = require('expo-camera');
-      return CameraView;
-    } catch {
-      return null;
-    }
+  const [CameraViewComponent, setCameraViewComponent] = useState<React.ComponentType<any> | null>(null);
+
+  React.useEffect(() => {
+    import('expo-camera').then((cam) => {
+      setCameraViewComponent(() => cam.CameraView);
+    }).catch(() => {
+      setCameraViewComponent(null);
+    });
   }, []);
 
   if (!CameraViewComponent) {

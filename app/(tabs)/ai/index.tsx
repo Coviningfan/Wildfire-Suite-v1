@@ -14,7 +14,7 @@ import { LightingCalculator } from '@/utils/lighting-calculator';
 import { getFixtureCategory, getFixtureNotes, getFixturePowerWatts, getFixtureControlType } from '@/utils/fixture-helpers';
 import { useLightingStore } from '@/stores/lighting-store';
 
-const TypingIndicator = React.memo(({ colors }: { colors: ThemeColors }) => {
+const TypingIndicator = React.memo(function TypingIndicator({ colors }: { colors: ThemeColors }) {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -56,7 +56,7 @@ const TypingIndicator = React.memo(({ colors }: { colors: ThemeColors }) => {
   );
 });
 
-const AnimatedMessage = React.memo(({ children }: { children: React.ReactNode }) => {
+const AnimatedMessage = React.memo(function AnimatedMessage({ children }: { children: React.ReactNode }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(12)).current;
 

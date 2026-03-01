@@ -1,4 +1,4 @@
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 
 interface ExportResult {
   success: boolean;
@@ -60,14 +60,14 @@ export async function exportCalculationAsText(
 }
 
 export async function exportCalculationAsCSV(
-  calculations: Array<{
+  calculations: {
     name: string;
     fixture: string;
     timestamp: number;
     safetyLevel: string;
     inputs: Record<string, string>;
     result: Record<string, any>;
-  }>,
+  }[],
 ): Promise<ExportResult> {
   const headers = [
     'Name', 'Fixture', 'Date', 'Safety Level',
@@ -105,7 +105,7 @@ export async function exportCalculationAsCSV(
       a.click();
       URL.revokeObjectURL(url);
       return { success: true };
-    } catch (error) {
+    } catch {
       return { success: false, error: 'CSV export failed on web' };
     }
   }
