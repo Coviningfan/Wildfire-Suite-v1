@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Send, Sparkles, User, Zap, Lightbulb, Shield, RotateCcw, Copy, MessageCircle, ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import * as Clipboard from 'expo-clipboard';
 import { useRorkAgent, createRorkTool } from '@rork-ai/toolkit-sdk';
 import { z } from 'zod';
 import { useThemeColors } from '@/hooks/useTheme';
@@ -218,7 +217,12 @@ export default function AIAssistantScreen() {
   }, [sendMessage]);
 
   const handleCopy = useCallback(async (text: string) => {
-    await Clipboard.setStringAsync(text);
+    try {
+      const Clipboard = await import('expo-clipboard');
+      await Clipboard.setStringAsync(text);
+    } catch {
+      console.log('[AI] Clipboard not available');
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
