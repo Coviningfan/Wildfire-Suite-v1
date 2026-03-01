@@ -13,6 +13,7 @@ import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { getFixtureCategory, getFixtureNotes, getFixturePowerWatts, getFixtureControlType } from '@/utils/fixture-helpers';
+import { useLightingStore } from '@/stores/lighting-store';
 
 const TypingIndicator = React.memo(({ colors }: { colors: ThemeColors }) => {
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -84,6 +85,22 @@ export default function AIAssistantScreen() {
   const glowPulse = useRef(new Animated.Value(0.8)).current;
 
   const calculator = useRef(new LightingCalculator()).current;
+  const { selectedFixture, lastCalculation, verticalHeight, horizontalDistance, beamWidth, beamHeight } = useLightingStore();
+
+  const calcContext = useMemo(() => {
+    if (!selectedFixture && !lastCalculation) return '';
+    let ctx = '\n\nCurrent calculator state:';
+    if (selectedFixture) ctx += `\nSelected fixture: ${selectedFixture}`;
+    if (verticalHeight) ctx += `\nVertical height: ${verticalHeight}m`;
+    if (horizontalDistance) ctx += `\nHorizontal distance: ${horizontalDistance}m`;
+    if (beamWidth) ctx += `\nBeam width: ${beamWidth}m`;
+    if (beamHeight) ctx += `\nBeam height: ${beamHeight}m`;
+    if (lastCalculation && !('error' in lastCalculation)) {
+      const r = lastCalculation.irradiance_report;
+      ctx += `\nLast calculation result: throw=${r.throw_distance_m.toFixed(2)}m, irradiance=${r.irradiance_mWm2.toFixed(0)} mW/m², beam area=${r.beam_area_m2.toFixed(2)} m², degradation=${r.irradiance_degradation_percent.toFixed(1)}%`;
+    }
+    return ctx;
+  }, [selectedFixture, lastCalculation, verticalHeight, horizontalDistance, beamWidth, beamHeight]);
 
   const suggestions = useMemo(() => [
     { icon: Zap, label: 'Best fixture for a 5m throw?', color: colors.primary, tag: 'Fixture' },
@@ -191,8 +208,9 @@ export default function AIAssistantScreen() {
     if (!text) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setInput('');
-    sendMessage(text);
-  }, [input, sendMessage]);
+    const contextPrefix = calcContext ? `[Context: ${calcContext}]\n\n` : '';
+    sendMessage(messages.length === 0 ? `${contextPrefix}${text}` : text);
+  }, [input, sendMessage, calcContext, messages.length]);
 
   const handleSuggestion = useCallback((text: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

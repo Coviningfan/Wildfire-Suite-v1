@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch, Animated, Easing, Linking } from 'react-native';
 import { router } from 'expo-router';
-import { LogOut, ChevronRight, Fingerprint, FileDown, Shield, Calculator, Lightbulb, Mail, Phone, Globe, MapPin, Ruler, Moon, Sun } from 'lucide-react-native';
+import { LogOut, ChevronRight, Fingerprint, FileDown, Shield, Calculator, Lightbulb, Mail, Phone, Globe, MapPin, Ruler, Moon, Sun, HelpCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Logo } from '@/components/ui/Logo';
+import { OnboardingModal } from '@/components/ui/OnboardingModal';
 
 import { useAuthStore } from '@/stores/auth-store';
 import { useLightingStore } from '@/stores/lighting-store';
@@ -133,14 +134,26 @@ export default function ProfileScreen() {
     }
   }, []);
 
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
   const safeCount = savedCalculations.filter(c => c.safetyLevel === 'safe').length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <OnboardingModal visible={showOnboarding} onDismiss={() => setShowOnboarding(false)} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <AnimatedSection index={0}>
           <View style={styles.profileSection}>
+            <View style={styles.profileHeaderActions}>
+              <TouchableOpacity
+                style={styles.headerActionBtn}
+                onPress={() => { Haptics.selectionAsync(); toggleThemeMode(); }}
+                activeOpacity={0.7}
+              >
+                {themeMode === 'dark' ? <Moon size={18} color={colors.accent} /> : <Sun size={18} color={colors.secondary} />}
+              </TouchableOpacity>
+            </View>
             <Animated.View style={[styles.avatarOuter, { transform: [{ scale: avatarScale }], opacity: avatarOpacity }]}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{initial}</Text>
@@ -268,6 +281,14 @@ export default function ProfileScreen() {
                 title="Export All Calculations"
                 subtitle={`CSV · ${savedCalculations.length} records`}
                 onPress={handleExportAll}
+                colors={colors}
+              />
+              <MenuItem
+                icon={<HelpCircle size={16} color={colors.accent} />}
+                iconBg="rgba(124, 107, 240, 0.12)"
+                title="View Tutorial"
+                subtitle="Re-open the onboarding guide"
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowOnboarding(true); }}
                 isLast
                 colors={colors}
               />
@@ -395,7 +416,9 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     content: { flex: 1 },
-    scrollContent: { paddingBottom: Platform.select({ ios: 30, android: 110, default: 30 }) },
+    scrollContent: { paddingBottom: 40 },
+    profileHeaderActions: { position: 'absolute' as const, top: 16, right: 16, flexDirection: 'row' as const, gap: 8, zIndex: 10 },
+    headerActionBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surface, justifyContent: 'center' as const, alignItems: 'center' as const, borderWidth: 1, borderColor: colors.border },
     profileSection: { alignItems: 'center', paddingTop: 28, paddingBottom: 22 },
     avatarOuter: {
       width: 82, height: 82, borderRadius: 25, borderWidth: 2, borderColor: colors.primary,

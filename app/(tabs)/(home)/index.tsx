@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, Platform, TouchableOpacity, Animated, Easing } from 'react-native';
-import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check } from 'lucide-react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Animated, Easing, Dimensions, Modal, Pressable } from 'react-native';
+import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check, Info, Plus, Trash2, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore } from '@/stores/lighting-store';
 import { LightingCalculator } from '@/utils/lighting-calculator';
@@ -18,8 +18,42 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFirstLaunch } from '@/hooks/useFirstLaunch';
 import { generateText } from '@rork-ai/toolkit-sdk';
 import { useSettingsStore, convertDistance, convertArea, distanceUnit, areaUnit } from '@/stores/settings-store';
+import { CalculationResponse } from '@/types/lighting';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const RESULT_ITEM_WIDTH = (SCREEN_WIDTH - 48 - 8) / 2;
 
+const SAFETY_EXPLANATIONS: Record<string, { title: string; threshold: string; action: string }> = {
+  safe: {
+    title: 'Safe UV Levels',
+    threshold: 'Irradiance below 2,500 mW/m²',
+    action: 'No special precautions required for brief exposure. Standard UV-reactive materials will fluoresce well at this level.',
+  },
+  caution: {
+    title: 'Moderate UV — Use Caution',
+    threshold: 'Irradiance between 2,500–10,000 mW/m²',
+    action: 'Limit prolonged direct skin exposure. UV-blocking eyewear recommended for operators working near the beam path.',
+  },
+  warning: {
+    title: 'Warning — PPE Required',
+    threshold: 'Irradiance between 10,000–25,000 mW/m²',
+    action: 'UV-rated eye protection mandatory. Minimize skin exposure. Post warning signage in the illuminated area.',
+  },
+  danger: {
+    title: 'Danger — High UV Exposure',
+    threshold: 'Irradiance above 25,000 mW/m²',
+    action: 'Full PPE required (UV goggles, long sleeves). Restrict access to the beam area. Do not look directly at the fixture.',
+  },
+};
+
+interface ZoneFixture {
+  id: string;
+  fixture: string;
+  verticalHeight: string;
+  horizontalDistance: string;
+  beamWidth: string;
+  beamHeight: string;
+}
 
 const MATERIAL_OPTIONS = [
   'Fluorescent Paint',
@@ -52,7 +86,7 @@ export default function CalculatorScreen() {
   const {
     selectedFixture, verticalHeight, horizontalDistance,
     beamWidth, beamHeight, rectHeight, rectWidth, rectDepth,
-    isCalculating, lastCalculation,
+    isCalculating, lastCalculation, showingPreview, isQRScannerOpen,
     setSelectedFixture, setVerticalHeight, setHorizontalDistance,
     setBeamWidth, setBeamHeight, setRectHeight, setRectWidth, setRectDepth,
     calculate, resetInputs, openQRScanner, saveCalculation, getSafetyLevel, clearResult,
@@ -70,6 +104,9 @@ export default function CalculatorScreen() {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState<boolean>(false);
   const [activeStep, setActiveStep] = useState<number>(0);
+  const [showSafetyModal, setShowSafetyModal] = useState<boolean>(false);
+  const [safetyModalLevel, setSafetyModalLevel] = useState<string>('safe');
+  const [zoneFixtures, setZoneFixtures] = useState<ZoneFixture[]>([]);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const resultFadeAnim = useRef(new Animated.Value(0)).current;
@@ -97,6 +134,14 @@ export default function CalculatorScreen() {
     A: !!beamWidth || !!beamHeight,
     M: !!material,
     E: !!effect,
+  }), [selectedFixture, verticalHeight, horizontalDistance, beamWidth, beamHeight, material, effect]);
+
+  const stepValidation = useMemo<Record<FlameLetter, { complete: boolean; missing: string[] }>>(() => ({
+    F: { complete: !!selectedFixture, missing: !selectedFixture ? ['Select a fixture model'] : [] },
+    L: { complete: !!verticalHeight || !!horizontalDistance, missing: (!verticalHeight && !horizontalDistance) ? ['Enter height or distance'] : [] },
+    A: { complete: !!beamWidth && !!beamHeight, missing: [!beamWidth ? 'Enter width' : '', !beamHeight ? 'Enter height' : ''].filter(Boolean) },
+    M: { complete: !!material, missing: [] },
+    E: { complete: !!effect, missing: [] },
   }), [selectedFixture, verticalHeight, horizontalDistance, beamWidth, beamHeight, material, effect]);
 
   const filledCount = useMemo(() =>
@@ -153,6 +198,15 @@ export default function CalculatorScreen() {
       ]).start();
     });
   }, [activeStep, stepContentAnim, stepSlideAnim]);
+
+  const handleStepChange = useCallback((newStep: number) => {
+    const currentLetter = FLAME_STEPS[activeStep].letter;
+    const validation = stepValidation[currentLetter];
+    if (!validation.complete && validation.missing.length > 0 && newStep > activeStep) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    }
+    animateStepChange(newStep);
+  }, [activeStep, stepValidation, FLAME_STEPS, animateStepChange]);
 
   const handleCalculate = useCallback(async () => {
     if (!selectedFixture) {
@@ -240,6 +294,56 @@ Give a quick practical insight about this setup - is the throw distance optimal,
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [resetInputs, resultFadeAnim]);
 
+  const handleSafetyTap = useCallback((level: string) => {
+    setSafetyModalLevel(level);
+    setShowSafetyModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const addZoneFixture = useCallback(() => {
+    const newFixture: ZoneFixture = {
+      id: `zone-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      fixture: '',
+      verticalHeight: '',
+      horizontalDistance: '',
+      beamWidth: '',
+      beamHeight: '',
+    };
+    setZoneFixtures(prev => [...prev, newFixture]);
+  }, []);
+
+  const removeZoneFixture = useCallback((id: string) => {
+    setZoneFixtures(prev => prev.filter(f => f.id !== id));
+  }, []);
+
+  const updateZoneFixture = useCallback((id: string, field: keyof ZoneFixture, value: string) => {
+    setZoneFixtures(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
+  }, []);
+
+  const zoneResults = useMemo(() => {
+    if (zoneFixtures.length === 0) return null;
+    const calc = new LightingCalculator();
+    const results: Exclude<CalculationResponse, { error: string }>[] = [];
+    for (const zf of zoneFixtures) {
+      if (!zf.fixture) continue;
+      const result = calc.calculateRadiometricData(
+        zf.fixture,
+        parseFloat(zf.verticalHeight) || 0,
+        parseFloat(zf.horizontalDistance) || 0,
+        parseFloat(zf.beamWidth) || 12,
+        parseFloat(zf.beamHeight) || 12,
+      );
+      if (!('error' in result)) {
+        results.push(result);
+      }
+    }
+    if (results.length === 0) return null;
+    const totalArea = results.reduce((s, r) => s + r.irradiance_report.beam_area_m2, 0);
+    const avgIrradiance = results.reduce((s, r) => s + r.irradiance_report.irradiance_mWm2, 0) / results.length;
+    const maxIrradiance = Math.max(...results.map(r => r.irradiance_report.irradiance_mWm2));
+    return { count: results.length, totalArea, avgIrradiance, maxIrradiance };
+  }, [zoneFixtures]);
+
   const canSave = lastCalculation != null && !('error' in lastCalculation);
   const hasResult = lastCalculation != null && !('error' in lastCalculation);
   const canCalculate = !!selectedFixture && !!beamWidth && !!beamHeight;
@@ -284,6 +388,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
         {FLAME_STEPS.map((step, i) => {
           const filled = flameProgress[step.letter];
           const isActive = activeStep === i;
+          const hasWarning = isActive && !filled && stepValidation[step.letter].missing.length > 0;
           return (
             <TouchableOpacity
               key={step.letter}
@@ -294,7 +399,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               ]}
               onPress={() => {
                 Haptics.selectionAsync();
-                animateStepChange(i);
+                handleStepChange(i);
               }}
               activeOpacity={0.7}
             >
@@ -312,6 +417,11 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 styles.stepTabTitle,
                 { color: isActive ? step.color : filled ? colors.textSecondary : colors.textTertiary },
               ]}>{step.title}</Text>
+              {hasWarning && (
+                <View style={[styles.stepIncomplete, { backgroundColor: colors.warning + '20' }]}>
+                  <View style={[styles.stepIncompleteDot, { backgroundColor: colors.warning }]} />
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -429,7 +539,10 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           onPress={() => setShowVolume(!showVolume)}
           activeOpacity={0.7}
         >
-          <Text style={styles.volumeToggleText}>Volume (Optional)</Text>
+          <View style={styles.volumeToggleLeft}>
+            <Text style={styles.volumeToggleText}>Volume (Optional)</Text>
+            <Text style={styles.volumeToggleHint}>Define a 3D space to calculate total UV exposure within a volume</Text>
+          </View>
           <ChevronDown size={16} color={colors.textTertiary} style={showVolume ? { transform: [{ rotate: '180deg' }] } : undefined} />
         </TouchableOpacity>
 
@@ -507,7 +620,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               {(() => {
                 const r = (lastCalculation as any).irradiance_report;
                 const safety = getSafetyLevel(lastCalculation);
-                const safetyColors: Record<string, string> = {
+                const safetyColorMap: Record<string, string> = {
                   safe: colors.success,
                   caution: colors.warning,
                   warning: colors.safetyOrange,
@@ -515,28 +628,35 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 };
                 return (
                   <>
-                    <View style={styles.resultItem}>
+                    <View style={[styles.resultItem, { width: RESULT_ITEM_WIDTH }]}>
                       <Text style={styles.resultLabel}>THROW</Text>
                       <Text style={styles.resultValue}>{convertDistance(r.throw_distance_m, unitSystem).toFixed(1)}</Text>
                       <Text style={styles.resultUnit}>{dUnit}</Text>
                     </View>
-                    <View style={styles.resultItem}>
+                    <View style={[styles.resultItem, { width: RESULT_ITEM_WIDTH }]}>
                       <Text style={styles.resultLabel}>IRRADIANCE</Text>
                       <Text style={styles.resultValue}>{r.irradiance_mWm2.toFixed(0)}</Text>
                       <Text style={styles.resultUnit}>mW/m²</Text>
                     </View>
-                    <View style={styles.resultItem}>
+                    <View style={[styles.resultItem, { width: RESULT_ITEM_WIDTH }]}>
                       <Text style={styles.resultLabel}>BEAM AREA</Text>
                       <Text style={styles.resultValue}>{convertArea(r.beam_area_m2, unitSystem).toFixed(1)}</Text>
                       <Text style={styles.resultUnit}>{aUnit}</Text>
                     </View>
-                    <View style={[styles.resultItem, { borderColor: safetyColors[safety] + '30' }]}>
-                      <Text style={styles.resultLabel}>SAFETY</Text>
-                      <View style={[styles.safetyBadge, { backgroundColor: safetyColors[safety] + '14' }]}>
-                        <View style={[styles.safetyDot, { backgroundColor: safetyColors[safety] }]} />
-                        <Text style={[styles.safetyText, { color: safetyColors[safety] }]}>{safety.toUpperCase()}</Text>
+                    <TouchableOpacity
+                      style={[styles.resultItem, { width: RESULT_ITEM_WIDTH, borderColor: safetyColorMap[safety] + '30' }]}
+                      onPress={() => handleSafetyTap(safety)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.safetyLabelRow}>
+                        <Text style={styles.resultLabel}>SAFETY</Text>
+                        <Info size={10} color={colors.textTertiary} />
                       </View>
-                    </View>
+                      <View style={[styles.safetyBadge, { backgroundColor: safetyColorMap[safety] + '14' }]}>
+                        <View style={[styles.safetyDot, { backgroundColor: safetyColorMap[safety] }]} />
+                        <Text style={[styles.safetyText, { color: safetyColorMap[safety] }]}>{safety.toUpperCase()}</Text>
+                      </View>
+                    </TouchableOpacity>
                   </>
                 );
               })()}
@@ -568,13 +688,94 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           </Animated.View>
         )}
 
+        <View style={styles.zoneSection}>
+          <View style={styles.zoneSectionHeader}>
+            <Text style={styles.zoneSectionTitle}>Multi-Fixture Zone</Text>
+            <TouchableOpacity style={styles.zoneAddBtn} onPress={addZoneFixture} activeOpacity={0.7}>
+              <Plus size={14} color={colors.primary} />
+              <Text style={styles.zoneAddBtnText}>Add Fixture</Text>
+            </TouchableOpacity>
+          </View>
+          {zoneFixtures.length > 0 && (
+            <Text style={styles.zoneHint}>Add multiple fixtures to calculate combined coverage for a zone</Text>
+          )}
+          {zoneFixtures.map((zf, idx) => (
+            <View key={zf.id} style={styles.zoneFixtureCard}>
+              <View style={styles.zoneFixtureHeader}>
+                <Text style={styles.zoneFixtureLabel}>Fixture {idx + 1}</Text>
+                <TouchableOpacity onPress={() => removeZoneFixture(zf.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Trash2 size={14} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+              <Picker label="Model" value={zf.fixture} options={fixtureModels} onValueChange={(v) => updateZoneFixture(zf.id, 'fixture', v)} />
+              <View style={styles.inputRow}>
+                <View style={styles.inputHalf}>
+                  <Input label="Height" value={zf.verticalHeight} onChangeText={(v) => updateZoneFixture(zf.id, 'verticalHeight', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="0.0" />
+                </View>
+                <View style={styles.inputHalf}>
+                  <Input label="H. Dist" value={zf.horizontalDistance} onChangeText={(v) => updateZoneFixture(zf.id, 'horizontalDistance', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="0.0" />
+                </View>
+              </View>
+              <View style={styles.inputRow}>
+                <View style={styles.inputHalf}>
+                  <Input label="Width" value={zf.beamWidth} onChangeText={(v) => updateZoneFixture(zf.id, 'beamWidth', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="6.0" />
+                </View>
+                <View style={styles.inputHalf}>
+                  <Input label="Height" value={zf.beamHeight} onChangeText={(v) => updateZoneFixture(zf.id, 'beamHeight', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="3.0" />
+                </View>
+              </View>
+            </View>
+          ))}
+          {zoneResults && (
+            <View style={styles.zoneResultCard}>
+              <Text style={styles.zoneResultTitle}>Zone Summary ({zoneResults.count} fixture{zoneResults.count !== 1 ? 's' : ''})</Text>
+              <View style={styles.zoneResultRow}>
+                <View style={styles.zoneResultStat}>
+                  <Text style={styles.zoneResultValue}>{convertArea(zoneResults.totalArea, unitSystem).toFixed(1)}</Text>
+                  <Text style={styles.zoneResultLabel}>Total Area ({aUnit})</Text>
+                </View>
+                <View style={styles.zoneResultStat}>
+                  <Text style={styles.zoneResultValue}>{zoneResults.avgIrradiance.toFixed(0)}</Text>
+                  <Text style={styles.zoneResultLabel}>Avg mW/m²</Text>
+                </View>
+                <View style={styles.zoneResultStat}>
+                  <Text style={styles.zoneResultValue}>{zoneResults.maxIrradiance.toFixed(0)}</Text>
+                  <Text style={styles.zoneResultLabel}>Peak mW/m²</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+
         <LightSensorCard />
 
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <CalculationPreview />
-      <QRScanner />
+      {showingPreview && <CalculationPreview />}
+      {isQRScannerOpen && <QRScanner />}
+
+      <Modal visible={showSafetyModal} transparent animationType="fade" onRequestClose={() => setShowSafetyModal(false)}>
+        <Pressable style={styles.safetyModalOverlay} onPress={() => setShowSafetyModal(false)}>
+          <Pressable style={[styles.safetyModalContent, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <View style={styles.safetyModalHeader}>
+              <AlertCircle size={20} color={(() => {
+                const c: Record<string, string> = { safe: colors.success, caution: colors.warning, warning: colors.safetyOrange, danger: colors.error };
+                return c[safetyModalLevel] || colors.textSecondary;
+              })()} />
+              <Text style={[styles.safetyModalTitle, { color: colors.text }]}>{SAFETY_EXPLANATIONS[safetyModalLevel]?.title}</Text>
+            </View>
+            <View style={[styles.safetyModalThreshold, { backgroundColor: colors.surfaceSecondary }]}>
+              <Text style={[styles.safetyModalThresholdText, { color: colors.textSecondary }]}>{SAFETY_EXPLANATIONS[safetyModalLevel]?.threshold}</Text>
+            </View>
+            <Text style={[styles.safetyModalAction, { color: colors.text }]}>{SAFETY_EXPLANATIONS[safetyModalLevel]?.action}</Text>
+            <TouchableOpacity style={[styles.safetyModalClose, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setShowSafetyModal(false)} activeOpacity={0.7}>
+              <Text style={[styles.safetyModalCloseText, { color: colors.textSecondary }]}>Got it</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <SaveCalculationModal
         visible={showSaveModal}
         onClose={() => setShowSaveModal(false)}
@@ -603,10 +804,12 @@ function createStyles(colors: ThemeColors) {
     stepTabFilled: { backgroundColor: colors.surface },
     stepCheckWrap: { width: 20, height: 20, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
     stepTabLetter: { fontSize: 14, fontWeight: '800' as const },
-    stepTabTitle: { fontSize: 9, fontWeight: '600' as const, letterSpacing: 0.2 },
+    stepTabTitle: { fontSize: 11, fontWeight: '600' as const, letterSpacing: 0.2 },
+    stepIncomplete: { width: 12, height: 12, borderRadius: 6, justifyContent: 'center' as const, alignItems: 'center' as const },
+    stepIncompleteDot: { width: 5, height: 5, borderRadius: 2.5 },
     stepAnimWrap: {},
     scrollContainer: { flex: 1 },
-    scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
+    scrollContent: { paddingBottom: 40 },
     stepHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
     stepIconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     stepHeaderText: { flex: 1, paddingTop: 2 },
@@ -629,7 +832,9 @@ function createStyles(colors: ThemeColors) {
     tipTitle: { fontSize: 13, fontWeight: '700' as const, color: colors.textSecondary, marginBottom: 4 },
     tipText: { fontSize: 12, color: colors.textTertiary, lineHeight: 18 },
     volumeToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, marginBottom: 4 },
+    volumeToggleLeft: { flex: 1, marginRight: 12 },
     volumeToggleText: { fontSize: 14, fontWeight: '600' as const, color: colors.textSecondary },
+    volumeToggleHint: { fontSize: 11, color: colors.textTertiary, marginTop: 2, lineHeight: 15 },
     actionRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10, marginTop: 8, marginBottom: 16 },
     calcButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, height: 52, borderRadius: 14, backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
     calcButtonDisabled: { opacity: 0.6 },
@@ -642,7 +847,8 @@ function createStyles(colors: ThemeColors) {
     dismissBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border },
     resultSectionTitle: { fontSize: 16, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.2 },
     resultGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    resultItem: { flex: 1, minWidth: '45%', backgroundColor: colors.surface, padding: 14, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+    resultItem: { backgroundColor: colors.surface, padding: 14, borderRadius: 14, alignItems: 'center' as const, borderWidth: 1, borderColor: colors.border },
+    safetyLabelRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
     resultLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' as const, letterSpacing: 0.8, marginBottom: 6 },
     resultValue: { fontSize: 24, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.5 },
     resultUnit: { fontSize: 10, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 2 },
@@ -661,5 +867,29 @@ function createStyles(colors: ThemeColors) {
     calcNoteBold: { fontWeight: '700' as const, color: colors.text },
     calcNoteOptional: { marginHorizontal: 16, marginBottom: 12, padding: 10, borderRadius: 10, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
     calcNoteOptionalText: { fontSize: 12, color: colors.textTertiary, lineHeight: 18, textAlign: 'center' as const },
+    safetyModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' as const, alignItems: 'center' as const, padding: 32 },
+    safetyModalContent: { width: '100%', maxWidth: 340, borderRadius: 20, padding: 24 },
+    safetyModalHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, marginBottom: 16 },
+    safetyModalTitle: { fontSize: 17, fontWeight: '700' as const, flex: 1 },
+    safetyModalThreshold: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, marginBottom: 14 },
+    safetyModalThresholdText: { fontSize: 13, fontWeight: '600' as const },
+    safetyModalAction: { fontSize: 14, lineHeight: 22, marginBottom: 20 },
+    safetyModalClose: { paddingVertical: 12, borderRadius: 12, alignItems: 'center' as const },
+    safetyModalCloseText: { fontSize: 14, fontWeight: '600' as const },
+    zoneSection: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
+    zoneSectionHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, marginBottom: 8 },
+    zoneSectionTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.text },
+    zoneAddBtn: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.glow, borderWidth: 1, borderColor: 'rgba(232, 65, 42, 0.2)' },
+    zoneAddBtnText: { fontSize: 12, fontWeight: '600' as const, color: colors.primary },
+    zoneHint: { fontSize: 12, color: colors.textTertiary, marginBottom: 10, lineHeight: 17 },
+    zoneFixtureCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+    zoneFixtureHeader: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, marginBottom: 10 },
+    zoneFixtureLabel: { fontSize: 13, fontWeight: '700' as const, color: colors.textSecondary },
+    zoneResultCard: { backgroundColor: colors.surfaceSecondary, borderRadius: 14, padding: 14, marginTop: 4, borderWidth: 1, borderColor: colors.border },
+    zoneResultTitle: { fontSize: 13, fontWeight: '700' as const, color: colors.text, marginBottom: 10 },
+    zoneResultRow: { flexDirection: 'row' as const, gap: 8 },
+    zoneResultStat: { flex: 1, alignItems: 'center' as const },
+    zoneResultValue: { fontSize: 18, fontWeight: '800' as const, color: colors.text },
+    zoneResultLabel: { fontSize: 10, color: colors.textTertiary, marginTop: 2, textAlign: 'center' as const },
   });
 }

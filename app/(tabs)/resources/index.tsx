@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,24 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as LucideIcons from 'lucide-react-native';
+import { FileQuestion } from 'lucide-react-native';
 import { WILDFIRE_RESOURCES } from '@/constants/resources';
 import { TUTORIALS } from '@/constants/tutorials';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 32;
 
 export default function ResourcesScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
+  const dynamicStyles = useMemo(() => createDynamicStyles(colors), [colors]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
+  const hasTutorials = TUTORIALS.length > 0;
+  const hasResources = WILDFIRE_RESOURCES.length > 0;
 
   const handleResourcePress = (url: string) => {
     Linking.openURL(url).catch((err) =>
@@ -42,16 +51,29 @@ export default function ResourcesScreen() {
     ) : null;
   };
 
+  if (!hasTutorials && !hasResources) {
+    return (
+      <SafeAreaView style={dynamicStyles.emptyContainer} edges={['top']}>
+        <View style={dynamicStyles.emptyContent}>
+          <View style={dynamicStyles.emptyIconWrap}>
+            <FileQuestion size={32} color={colors.textTertiary} />
+          </View>
+          <Text style={dynamicStyles.emptyTitle}>No Resources Available</Text>
+          <Text style={dynamicStyles.emptySubtitle}>Tutorials and documentation will appear here when available.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <LinearGradient
-          colors={['#7C6BF0', '#6366F1']}
+          colors={[colors.primary, colors.primaryDark]}
           style={styles.header}
         >
           <Text style={styles.headerTitle}>Resources & Tutorials</Text>
@@ -60,13 +82,12 @@ export default function ResourcesScreen() {
           </Text>
         </LinearGradient>
 
-        {/* Tutorials Section */}
-        <View style={styles.categoryContainer}>
+        <View style={[styles.categoryContainer, { backgroundColor: colors.surface }]}>
           <View style={styles.categoryHeader}>
-            {renderIcon('GraduationCap', '#7C6BF0', 28)}
-            <Text style={styles.categoryTitle}>Interactive Tutorials</Text>
+            {renderIcon('GraduationCap', colors.accent, 28)}
+            <Text style={[styles.categoryTitle, { color: colors.text }]}>Interactive Tutorials</Text>
           </View>
-          <Text style={styles.categoryDescription}>
+          <Text style={[styles.categoryDescription, { color: colors.textSecondary }]}>
             Deep-dive educational content on UV lighting, fluorescence, and
             effects technology
           </Text>
@@ -102,18 +123,17 @@ export default function ResourcesScreen() {
           </View>
         </View>
 
-        {/* Resource Categories */}
         {WILDFIRE_RESOURCES.map((category) => {
           const isExpanded = expandedCategory === category.id;
           return (
-            <View key={category.id} style={styles.categoryContainer}>
+            <View key={category.id} style={[styles.categoryContainer, { backgroundColor: colors.surface }]}>
               <TouchableOpacity
                 style={styles.categoryHeader}
                 onPress={() => toggleCategory(category.id)}
                 activeOpacity={0.7}
               >
                 {renderIcon(category.icon, category.color, 28)}
-                <Text style={styles.categoryTitle}>{category.title}</Text>
+                <Text style={[styles.categoryTitle, { color: colors.text }]}>{category.title}</Text>
                 <View style={{ flex: 1 }} />
                 {renderIcon(
                   isExpanded ? 'ChevronUp' : 'ChevronDown',
@@ -129,13 +149,13 @@ export default function ResourcesScreen() {
                       key={index}
                       style={[
                         styles.resourceItem,
-                        { borderLeftColor: category.color },
+                        { borderLeftColor: category.color, backgroundColor: colors.surfaceSecondary },
                       ]}
                       onPress={() => handleResourcePress(item.url)}
                       activeOpacity={0.7}
                     >
                       <View style={styles.resourceContent}>
-                        <Text style={styles.resourceTitle}>{item.title}</Text>
+                        <Text style={[styles.resourceTitle, { color: colors.text }]}>{item.title}</Text>
                         <View style={styles.resourceMeta}>
                           <View
                             style={[
@@ -166,17 +186,26 @@ export default function ResourcesScreen() {
           );
         })}
 
-        {/* Footer Spacing */}
         <View style={styles.footer} />
       </ScrollView>
     </View>
   );
 }
 
+function createDynamicStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    emptyContainer: { flex: 1, backgroundColor: colors.background },
+    emptyContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+    emptyIconWrap: { width: 72, height: 72, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, marginBottom: 18 },
+    emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: colors.text, textAlign: 'center' as const },
+    emptySubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' as const, marginTop: 8, lineHeight: 20 },
+  });
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#09090B',
   },
   scrollView: {
     flex: 1,

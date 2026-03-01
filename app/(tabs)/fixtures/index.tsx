@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
-import { Lightbulb, Search, X } from 'lucide-react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Modal, Pressable } from 'react-native';
+import { Lightbulb, Search, X, GitCompareArrows, Check } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { useLightingStore } from '@/stores/lighting-store';
@@ -44,6 +44,9 @@ export default function FixtureLibraryScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSeries, setSelectedSeries] = useState<string>('');
   const [detailFixture, setDetailFixture] = useState<string | null>(null);
+  const [compareMode, setCompareMode] = useState<boolean>(false);
+  const [compareFixtures, setCompareFixtures] = useState<string[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
 
   const fixtureModels = LightingCalculator.getFixtureModels();
 
@@ -77,6 +80,36 @@ export default function FixtureLibraryScreen() {
 
   const hasFilters = searchQuery !== '' || selectedSeries !== '';
 
+  const toggleCompareFixture = useCallback((model: string) => {
+    setCompareFixtures(prev => {
+      if (prev.includes(model)) return prev.filter(m => m !== model);
+      if (prev.length >= 3) return prev;
+      return [...prev, model];
+    });
+    Haptics.selectionAsync();
+  }, []);
+
+  const compareData = useMemo(() => {
+    if (compareFixtures.length < 2) return null;
+    const throwDist = 3;
+    const calc = new LightingCalculator();
+    return compareFixtures.map(model => {
+      const data = LightingCalculator.getFixtureData(model);
+      const result = calc.calculateRadiometricData(model, throwDist, 0, 6, 3);
+      const hasResult = !('error' in result);
+      return {
+        model,
+        peakMW: data?.peak_irradiance_mWm2 ?? 0,
+        beamH: data?.beam_h_deg ?? 0,
+        beamV: data?.beam_v_deg ?? 0,
+        irradiance: hasResult ? result.irradiance_report.irradiance_mWm2 : 0,
+        beamArea: hasResult ? result.irradiance_report.beam_area_m2 : 0,
+        category: getFixtureCategory(model),
+        control: getFixtureControlType(model),
+      };
+    });
+  }, [compareFixtures]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {detailFixture != null && (
@@ -102,12 +135,28 @@ export default function FixtureLibraryScreen() {
             <Text style={styles.screenSub}>{filteredFixtures.length} of {fixtureModels.length} models</Text>
           </View>
         </View>
-        {hasFilters && (
-          <TouchableOpacity style={styles.clearBtn} onPress={clearFilters} activeOpacity={0.7}>
-            <X size={14} color={colors.error} />
-            <Text style={styles.clearBtnText}>Clear</Text>
+        <View style={styles.topBarActions}>
+          <TouchableOpacity
+            style={[styles.compareToggle, compareMode && styles.compareToggleActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setCompareMode(!compareMode);
+              if (compareMode) { setCompareFixtures([]); }
+            }}
+            activeOpacity={0.7}
+          >
+            <GitCompareArrows size={14} color={compareMode ? colors.primary : colors.textSecondary} />
+            <Text style={[styles.compareToggleText, compareMode && { color: colors.primary }]}>
+              {compareMode ? `Compare (${compareFixtures.length})` : 'Compare'}
+            </Text>
           </TouchableOpacity>
-        )}
+          {hasFilters && (
+            <TouchableOpacity style={styles.clearBtn} onPress={clearFilters} activeOpacity={0.7}>
+              <X size={14} color={colors.error} />
+              <Text style={styles.clearBtnText}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.searchSection}>
@@ -180,16 +229,32 @@ export default function FixtureLibraryScreen() {
                 </View>
                 <View style={styles.fixturesGrid}>
                   {fixtures.map(model => (
-                    <FixtureCard
-                      key={model}
-                      model={model}
-                      isSelected={selectedFixture === model}
-                      onSelect={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedFixture(model);
-                      }}
-                      onDetail={() => setDetailFixture(model)}
-                    />
+                    <View key={model} style={styles.fixtureCardWrap}>
+                      {compareMode && (
+                        <TouchableOpacity
+                          style={[styles.compareCheckbox, compareFixtures.includes(model) && styles.compareCheckboxActive]}
+                          onPress={() => toggleCompareFixture(model)}
+                          activeOpacity={0.7}
+                        >
+                          {compareFixtures.includes(model) && <Check size={12} color="#fff" strokeWidth={3} />}
+                        </TouchableOpacity>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <FixtureCard
+                          model={model}
+                          isSelected={selectedFixture === model}
+                          onSelect={() => {
+                            if (compareMode) {
+                              toggleCompareFixture(model);
+                            } else {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setSelectedFixture(model);
+                            }
+                          }}
+                          onDetail={() => setDetailFixture(model)}
+                        />
+                      </View>
+                    </View>
                   ))}
                 </View>
               </View>
@@ -202,6 +267,77 @@ export default function FixtureLibraryScreen() {
           <Text style={styles.footerText}>Powered by <Text style={styles.footerBrand}>JABVLabs</Text></Text>
         </View>
       </ScrollView>
+
+      {compareMode && compareFixtures.length >= 2 && (
+        <View style={styles.compareBar}>
+          <Text style={styles.compareBarText}>{compareFixtures.length} fixtures selected</Text>
+          <TouchableOpacity
+            style={styles.compareBarBtn}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowCompareModal(true); }}
+            activeOpacity={0.7}
+          >
+            <GitCompareArrows size={14} color="#fff" />
+            <Text style={styles.compareBarBtnText}>Compare</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <Modal visible={showCompareModal} transparent animationType="slide" onRequestClose={() => setShowCompareModal(false)}>
+        <Pressable style={styles.compareOverlay} onPress={() => setShowCompareModal(false)}>
+          <Pressable style={[styles.compareSheet, { backgroundColor: colors.background }]} onPress={() => {}}>
+            <View style={styles.compareSheetHandle} />
+            <View style={styles.compareSheetHeader}>
+              <Text style={[styles.compareSheetTitle, { color: colors.text }]}>Fixture Comparison</Text>
+              <TouchableOpacity onPress={() => setShowCompareModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={20} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.compareSheetSub, { color: colors.textTertiary }]}>At 3m throw distance, 6×3m target</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.compareScrollContent}>
+              {compareData && (
+                <View style={styles.compareTable}>
+                  <View style={[styles.compareRow, styles.compareHeaderRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.compareCell, styles.compareLabelCell, { color: colors.textTertiary }]}>Metric</Text>
+                    {compareData.map(d => (
+                      <Text key={d.model} style={[styles.compareCell, styles.compareHeaderCell, { color: colors.text }]}>{d.model}</Text>
+                    ))}
+                  </View>
+                  {[
+                    { label: 'Peak mW/m²', key: 'peakMW' as const, fmt: (v: number) => v.toFixed(0) },
+                    { label: '@3m mW/m²', key: 'irradiance' as const, fmt: (v: number) => v.toFixed(0) },
+                    { label: 'Beam Area m²', key: 'beamArea' as const, fmt: (v: number) => v.toFixed(1) },
+                    { label: 'Beam H°', key: 'beamH' as const, fmt: (v: number) => v.toFixed(0) + '°' },
+                    { label: 'Beam V°', key: 'beamV' as const, fmt: (v: number) => v.toFixed(0) + '°' },
+                  ].map(row => {
+                    const values = compareData.map(d => d[row.key]);
+                    const maxVal = Math.max(...values);
+                    return (
+                      <View key={row.label} style={[styles.compareRow, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.compareCell, styles.compareLabelCell, { color: colors.textSecondary }]}>{row.label}</Text>
+                        {compareData.map(d => {
+                          const isBest = d[row.key] === maxVal && values.filter(v => v === maxVal).length === 1;
+                          return (
+                            <Text key={d.model} style={[styles.compareCell, { color: isBest ? colors.success : colors.text, fontWeight: isBest ? '700' as const : '500' as const }]}>
+                              {row.fmt(d[row.key])}
+                            </Text>
+                          );
+                        })}
+                      </View>
+                    );
+                  })}
+                  <View style={[styles.compareRow, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.compareCell, styles.compareLabelCell, { color: colors.textSecondary }]}>Control</Text>
+                    {compareData.map(d => (
+                      <Text key={d.model} style={[styles.compareCell, { color: colors.text }]}>{d.control}</Text>
+                    ))}
+                  </View>
+                </View>
+              )}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -210,7 +346,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     scrollContainer: { flex: 1 },
-    scrollContent: { paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }) },
+    scrollContent: { paddingBottom: 40 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
     topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
     titleIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(124, 107, 240, 0.12)', justifyContent: 'center', alignItems: 'center' },
@@ -241,6 +377,30 @@ function createStyles(colors: ThemeColors) {
     emptySubtitle: { fontSize: 13, color: colors.textSecondary, textAlign: 'center' as const, marginTop: 6 },
     emptyAction: { marginTop: 16, paddingVertical: 9, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.glow },
     emptyActionText: { fontSize: 13, fontWeight: '700' as const, color: colors.primary },
+    topBarActions: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+    compareToggle: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    compareToggleActive: { borderColor: colors.primary + '40', backgroundColor: colors.glow },
+    compareToggleText: { fontSize: 11, fontWeight: '600' as const, color: colors.textSecondary },
+    fixtureCardWrap: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+    compareCheckbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: colors.border, justifyContent: 'center' as const, alignItems: 'center' as const, backgroundColor: colors.surface },
+    compareCheckboxActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+    compareBar: { position: 'absolute' as const, bottom: 0, left: 0, right: 0, flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+    compareBarText: { fontSize: 13, fontWeight: '600' as const, color: colors.textSecondary },
+    compareBarBtn: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 10, backgroundColor: colors.primary },
+    compareBarBtnText: { fontSize: 13, fontWeight: '700' as const, color: '#fff' },
+    compareOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' as const },
+    compareSheet: { maxHeight: '80%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20 },
+    compareSheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center' as const, marginBottom: 16 },
+    compareSheetHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, marginBottom: 4 },
+    compareSheetTitle: { fontSize: 18, fontWeight: '700' as const },
+    compareSheetSub: { fontSize: 12, marginBottom: 16 },
+    compareScrollContent: { flex: 1 },
+    compareTable: {},
+    compareRow: { flexDirection: 'row' as const, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 10 },
+    compareHeaderRow: { paddingBottom: 8 },
+    compareCell: { flex: 1, fontSize: 13, textAlign: 'center' as const },
+    compareLabelCell: { textAlign: 'left' as const, fontWeight: '500' as const },
+    compareHeaderCell: { fontWeight: '700' as const, fontSize: 12 },
     footer: { alignItems: 'center', paddingVertical: 28 },
     footerDivider: { width: 32, height: 2, borderRadius: 1, backgroundColor: colors.border, marginBottom: 14 },
     footerText: { fontSize: 11, color: colors.textTertiary },

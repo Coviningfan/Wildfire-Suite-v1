@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform, Animated, Easing } from 'react-native';
-import { History, Filter, Trash2, X, Zap, FileDown, ChevronRight, Share2, Sparkles } from 'lucide-react-native';
+import { History, Filter, Trash2, X, Zap, FileDown, ChevronRight, Share2, Sparkles, FolderOpen, List } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
 import { ResultCard } from '@/components/ResultCard';
@@ -46,6 +46,7 @@ export default function CalculationsScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterFixture, setFilterFixture] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('newest');
+  const [viewMode, setViewMode] = useState<'list' | 'project'>('list');
   const detailFade = useRef(new Animated.Value(0)).current;
   const detailSlide = useRef(new Animated.Value(30)).current;
 
@@ -88,6 +89,17 @@ export default function CalculationsScreen() {
     });
     return list;
   }, [savedCalculations, searchQuery, filterFixture, sortBy]);
+
+  const groupedByProject = useMemo(() => {
+    if (viewMode !== 'project') return null;
+    const groups: Record<string, typeof filteredCalculations> = { 'No Project': [] };
+    filteredCalculations.forEach(c => {
+      const key = c.projectId || 'No Project';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+    return groups;
+  }, [filteredCalculations, viewMode]);
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
@@ -297,6 +309,22 @@ export default function CalculationsScreen() {
             <Text style={styles.screenSub}>{savedCalculations.length} calculation{savedCalculations.length !== 1 ? 's' : ''}</Text>
           </View>
         </View>
+        <View style={styles.viewModeRow}>
+          <TouchableOpacity
+            style={[styles.viewModeBtn, viewMode === 'list' && styles.viewModeBtnActive]}
+            onPress={() => { Haptics.selectionAsync(); setViewMode('list'); }}
+            activeOpacity={0.7}
+          >
+            <List size={14} color={viewMode === 'list' ? colors.primary : colors.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.viewModeBtn, viewMode === 'project' && styles.viewModeBtnActive]}
+            onPress={() => { Haptics.selectionAsync(); setViewMode('project'); }}
+            activeOpacity={0.7}
+          >
+            <FolderOpen size={14} color={viewMode === 'project' ? colors.primary : colors.textTertiary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.searchSection}>
@@ -335,6 +363,23 @@ export default function CalculationsScreen() {
               : 'Try adjusting your search or filters.'}
           </Text>
         </View>
+      ) : viewMode === 'project' && groupedByProject ? (
+        <ScrollView style={styles.calcList} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+          {Object.entries(groupedByProject).map(([project, calcs]) => (
+            <View key={project} style={styles.projectGroup}>
+              <View style={styles.projectGroupHeader}>
+                <FolderOpen size={14} color={project === 'No Project' ? colors.textTertiary : colors.accent} />
+                <Text style={styles.projectGroupTitle}>{project}</Text>
+                <Text style={styles.projectGroupCount}>{calcs.length}</Text>
+              </View>
+              {calcs.map((item, index) => (
+                <View key={item.id}>
+                  {renderItem({ item, index })}
+                </View>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
       ) : (
         <FlatList
           data={filteredCalculations}
@@ -342,7 +387,7 @@ export default function CalculationsScreen() {
           keyExtractor={(item) => item.id}
           style={styles.calcList}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }) }}
+          contentContainerStyle={{ paddingBottom: 40 }}
         />
       )}
     </SafeAreaView>
@@ -353,7 +398,7 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     scrollContainer: { flex: 1 },
-    scrollContent: { paddingBottom: Platform.select({ ios: 20, android: 100, default: 20 }) },
+    scrollContent: { paddingBottom: 40 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
     topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     titleIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(245, 166, 35, 0.12)', justifyContent: 'center', alignItems: 'center' },
@@ -390,6 +435,13 @@ function createStyles(colors: ThemeColors) {
     emptyIconWrap: { width: 72, height: 72, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, marginBottom: 18 },
     emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: colors.text, textAlign: 'center' as const },
     emptySubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' as const, marginTop: 8, lineHeight: 20 },
+    viewModeRow: { flexDirection: 'row' as const, borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' as const },
+    viewModeBtn: { paddingHorizontal: 10, paddingVertical: 7, backgroundColor: colors.surface },
+    viewModeBtnActive: { backgroundColor: colors.glow },
+    projectGroup: { marginBottom: 16 },
+    projectGroupHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, paddingVertical: 8, paddingHorizontal: 4, marginBottom: 4 },
+    projectGroupTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.text, flex: 1 },
+    projectGroupCount: { fontSize: 11, fontWeight: '600' as const, color: colors.textTertiary, backgroundColor: colors.surfaceSecondary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
     detailTopBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
     backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     backText: { fontSize: 15, color: colors.text, fontWeight: '600' as const },

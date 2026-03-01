@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: Platform.select({ ios: 40, android: 120, default: 40 }),
+    paddingBottom: 40,
   },
   heroSection: {
     paddingTop: 12,
