@@ -1,17 +1,16 @@
 import React, { useRef, useCallback } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
   Platform, Linking, Alert, Animated,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import {
-  ArrowLeft, ExternalLink, ChevronDown, BookOpen,
+  ArrowLeft, ExternalLink, BookOpen,
   Atom, Zap, Lightbulb, Flame, Cpu, Camera,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { theme } from '@/constants/theme';
-import { TUTORIALS, Tutorial } from '@/constants/tutorials';
+import { TUTORIALS } from '@/constants/tutorials';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Atom, Zap, Lightbulb, Flame, Cpu, Camera, BookOpen,
@@ -115,9 +114,11 @@ export default function TutorialDetailScreen() {
           <Text style={styles.heroTitle}>{tutorial.title}</Text>
           <Text style={styles.heroSubtitle}>{tutorial.subtitle}</Text>
           <View style={styles.metaRow}>
-            <View style={[styles.metaBadge, { backgroundColor: tutorial.color + '14' }]}>
-              <Text style={[styles.metaBadgeText, { color: tutorial.color }]}>{tutorial.readTime} read</Text>
-            </View>
+            {tutorial.readTime ? (
+              <View style={[styles.metaBadge, { backgroundColor: tutorial.color + '14' }]}>
+                <Text style={[styles.metaBadgeText, { color: tutorial.color }]}>{tutorial.readTime} read</Text>
+              </View>
+            ) : null}
             <View style={styles.metaBadge}>
               <Text style={styles.metaBadgeText}>{tutorial.sections.length} sections</Text>
             </View>
@@ -132,8 +133,8 @@ export default function TutorialDetailScreen() {
               <Text style={[styles.sectionNumber, { color: tutorial.color }]}>{idx + 1}</Text>
             </View>
             <View style={styles.sectionContent}>
-              <Text style={styles.sectionHeading}>{section.heading}</Text>
-              <Text style={styles.sectionBody}>{section.body}</Text>
+              <Text style={styles.sectionHeading}>{section.heading ?? section.title}</Text>
+              <Text style={styles.sectionBody}>{section.body ?? section.content}</Text>
             </View>
           </View>
         ))}

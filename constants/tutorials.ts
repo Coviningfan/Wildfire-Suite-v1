@@ -1,6 +1,8 @@
 export interface TutorialSection {
   title: string;
   content: string;
+  heading?: string;
+  body?: string;
 }
 
 export interface Tutorial {
@@ -9,6 +11,8 @@ export interface Tutorial {
   subtitle: string;
   icon: string;
   color: string;
+  readTime?: string;
+  pdfUrl?: string;
   sections: TutorialSection[];
 }
 
