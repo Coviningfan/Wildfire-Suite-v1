@@ -71,8 +71,10 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* History hidden from tab bar — accessible via Calculator header button */}
-      <Tabs.Screen name="calculations" options={{ href: null }} />
+      <Tabs.Screen
+        name="calculations"
+        options={{ href: null }}
+      />
       <Tabs.Screen
         name="resources"
         options={{
