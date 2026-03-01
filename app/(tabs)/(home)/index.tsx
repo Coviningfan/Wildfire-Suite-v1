@@ -12,6 +12,7 @@ import { CalculationPreview } from '@/components/CalculationPreview';
 import { QRScanner } from '@/components/QRScanner';
 import { SaveCalculationModal } from '@/components/SaveCalculationModal';
 import { LightSensorCard } from '@/components/LightSensorCard';
+import { RoomSimulation } from '@/components/RoomSimulation';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -107,6 +108,10 @@ export default function CalculatorScreen() {
   const [showSafetyModal, setShowSafetyModal] = useState<boolean>(false);
   const [safetyModalLevel, setSafetyModalLevel] = useState<string>('safe');
   const [zoneFixtures, setZoneFixtures] = useState<ZoneFixture[]>([]);
+  const [roomWidth, setRoomWidth] = useState<string>('12');
+  const [roomDepth, setRoomDepth] = useState<string>('8');
+  const [roomCeiling, setRoomCeiling] = useState<string>('4');
+  const [showSimulation, setShowSimulation] = useState<boolean>(true);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const resultFadeAnim = useRef(new Animated.Value(0)).current;
@@ -745,6 +750,42 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               </View>
             </View>
           )}
+
+          <View style={styles.simSection}>
+            <TouchableOpacity
+              style={styles.simToggle}
+              onPress={() => { Haptics.selectionAsync(); setShowSimulation(!showSimulation); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.simToggleTitle}>Room Simulation</Text>
+              <Text style={styles.simToggleHint}>{showSimulation ? 'Hide' : 'Show'} beam visualization</Text>
+            </TouchableOpacity>
+            {showSimulation && (
+              <>
+                <View style={styles.roomDimsCard}>
+                  <Text style={styles.roomDimsLabel}>Room Dimensions</Text>
+                  <View style={styles.inputRow}>
+                    <View style={styles.inputThird}>
+                      <Input label="Width" value={roomWidth} onChangeText={setRoomWidth} keyboardType="decimal-pad" unit={dUnit} placeholder="12" />
+                    </View>
+                    <View style={styles.inputThird}>
+                      <Input label="Depth" value={roomDepth} onChangeText={setRoomDepth} keyboardType="decimal-pad" unit={dUnit} placeholder="8" />
+                    </View>
+                    <View style={styles.inputThird}>
+                      <Input label="Ceiling" value={roomCeiling} onChangeText={setRoomCeiling} keyboardType="decimal-pad" unit={dUnit} placeholder="4" />
+                    </View>
+                  </View>
+                </View>
+                <RoomSimulation
+                  roomWidth={parseFloat(roomWidth) || 0}
+                  roomDepth={parseFloat(roomDepth) || 0}
+                  roomHeight={parseFloat(roomCeiling) || 0}
+                  fixtures={zoneFixtures}
+                  unitLabel={dUnit}
+                />
+              </>
+            )}
+          </View>
         </View>
 
         <LightSensorCard />
@@ -891,5 +932,11 @@ function createStyles(colors: ThemeColors) {
     zoneResultStat: { flex: 1, alignItems: 'center' as const },
     zoneResultValue: { fontSize: 18, fontWeight: '800' as const, color: colors.text },
     zoneResultLabel: { fontSize: 10, color: colors.textTertiary, marginTop: 2, textAlign: 'center' as const },
+    simSection: { marginTop: 12 },
+    simToggle: { marginBottom: 8 },
+    simToggleTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.text, marginBottom: 2 },
+    simToggleHint: { fontSize: 11, color: colors.textTertiary },
+    roomDimsCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 4, borderWidth: 1, borderColor: colors.border },
+    roomDimsLabel: { fontSize: 12, fontWeight: '600' as const, color: colors.textSecondary, marginBottom: 10 },
   });
 }
