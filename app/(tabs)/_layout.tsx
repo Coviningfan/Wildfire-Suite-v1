@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
-import { Calculator, History, Lightbulb, User, Sparkles, BookOpen } from 'lucide-react-native';
+import { Calculator, Lightbulb, User, Sparkles, BookOpen } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { useThemeColors } from '@/hooks/useTheme';
 import { Platform, View } from 'react-native';
@@ -71,17 +71,12 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="calculations"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ color, size }) => <History size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
-        }}
-      />
+      {/* History hidden from tab bar — accessible via Calculator header button */}
+      <Tabs.Screen name="calculations" options={{ href: null }} />
       <Tabs.Screen
         name="resources"
         options={{
-          title: 'Resources',
+          title: 'Docs',
           tabBarIcon: ({ color, size }) => <BookOpen size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />
