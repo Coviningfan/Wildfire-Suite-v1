@@ -579,11 +579,6 @@ Give a quick practical insight about this setup - is the throw distance optimal,
               <Text style={styles.calcButtonText}>{isCalculating ? 'Calculating...' : 'Calculate'}</Text>
             </TouchableOpacity>
           </Animated.View>
-          {canSave && (
-            <TouchableOpacity style={styles.saveAction} onPress={() => setShowSaveModal(true)} activeOpacity={0.7}>
-              <Save size={18} color={colors.success} />
-            </TouchableOpacity>
-          )}
         </View>
 
         {!canCalculate && selectedFixture ? (
@@ -666,6 +661,19 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 );
               })()}
             </View>
+
+            {canSave && (
+              <View style={styles.resultActionsRow}>
+                <TouchableOpacity
+                  style={styles.resultSaveBtn}
+                  onPress={() => setShowSaveModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Save size={16} color="#fff" />
+                  <Text style={styles.resultSaveText}>Save this setup</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.aiInsightBtn, aiLoading && styles.aiInsightBtnLoading]}
@@ -889,6 +897,9 @@ function createStyles(colors: ThemeColors) {
     resultSectionTitle: { fontSize: 16, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.2 },
     resultGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     resultItem: { backgroundColor: colors.surface, padding: 14, borderRadius: 14, alignItems: 'center' as const, borderWidth: 1, borderColor: colors.border },
+    resultActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
+    resultSaveBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.primary, gap: 6, shadowColor: colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
+    resultSaveText: { fontSize: 13, fontWeight: '600' as const, color: '#fff' },
     safetyLabelRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
     resultLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' as const, letterSpacing: 0.8, marginBottom: 6 },
     resultValue: { fontSize: 24, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.5 },
