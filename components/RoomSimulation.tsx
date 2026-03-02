@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder, Platform } from 'react-native';
 import Svg, { Rect, Ellipse, Line, Defs, RadialGradient, Stop, G, Circle, Text as SvgText } from 'react-native-svg';
 import { Eye, Layers, RefreshCw, Target } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -315,10 +315,11 @@ const RoomSimulation = React.memo(
           const centerX = toSvgX(beam.xPos);
           const centerY = toSvgY(beam.zPos);
           const panResponder = createPanResponder(beam.id);
+          const panHandlers = Platform.OS === 'web' ? {} : panResponder.panHandlers;
           const isSelected = selectedFixture === beam.id;
 
           return (
-            <G key={`fixture-${beam.id}`} {...panResponder.panHandlers}>
+            <G key={`fixture-${beam.id}`} {...panHandlers}>
               <Circle cx={centerX} cy={centerY} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
               <Circle cx={centerX} cy={centerY} r={4} fill={beam.color} />
               <SvgText x={centerX} y={centerY - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
