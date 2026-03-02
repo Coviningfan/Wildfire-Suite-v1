@@ -30,6 +30,10 @@ interface RoomSimulationProps {
   fixtures: SimFixture[];
   unitLabel: string;
   onPositionsChange?: (updatedFixtures: SimFixture[]) => void;
+  /** Optional external selection id controlled by the parent UI. */
+  selectedFixtureId?: string;
+  /** Fired when the user taps or starts dragging a fixture circle. */
+  onFixtureTap?: (fixtureId: string) => void;
 }
 
 interface FixtureBeamData {
@@ -68,14 +72,23 @@ function getSafetyLabel(irradiance: number): string {
 }
 
 const RoomSimulation = React.memo(
-  ({ roomWidth, roomDepth, roomHeight, fixtures, unitLabel, onPositionsChange }: RoomSimulationProps) => {
+  ({
+    roomWidth,
+    roomDepth,
+    roomHeight,
+    fixtures,
+    unitLabel,
+    onPositionsChange,
+    selectedFixtureId,
+    onFixtureTap,
+  }: RoomSimulationProps) => {
     const colors = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const calc = useMemo(() => new LightingCalculator(), []);
 
     const [viewMode, setViewMode] = useState<'top' | 'side'>('top');
     const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
-    const [selectedFixture, setSelectedFixture] = useState<string | null>(null);
+    const [selectedFixtureInternal, setSelectedFixtureInternal] = useState<string | null>(null);
     const [fixturePositions, setFixturePositions] = useState<Record<string, { x: number; z: number }>>({});
 
     const svgWidth = SCREEN_WIDTH - 32;
@@ -84,7 +97,6 @@ const RoomSimulation = React.memo(
     const drawHeight = svgHeight - SVG_PADDING * 2;
 
     useEffect(() => {
-      console.log('[RoomSimulation] fixtures changed', { count: fixtures.length, roomWidth, roomDepth });
       const pendingPositions: Record<string, { x: number; z: number }> = {};
       fixtures.forEach((fixture, index) => {
         if (!fixturePositions[fixture.id]) {
@@ -113,7 +125,6 @@ const RoomSimulation = React.memo(
           const result = calc.calculateRadiometricData(fixture.fixture, verticalHeight, horizontalDistance);
 
           if ('error' in result || !result.irradiance_report) {
-            console.log('[RoomSimulation] skipping invalid fixture result', { id: fixture.id, model: fixture.fixture, error: 'error' in result ? result.error : 'unknown' });
             return null;
           }
 
@@ -143,7 +154,6 @@ const RoomSimulation = React.memo(
         })
         .filter(Boolean) as FixtureBeamData[];
 
-      console.log('[RoomSimulation] beamData generated', { count: values.length });
       return values;
     }, [fixtures, fixturePositions, roomWidth, roomDepth, roomHeight, calc]);
 
@@ -195,7 +205,10 @@ const RoomSimulation = React.memo(
             startX = beam.xPos;
             startZ = beam.zPos;
           }
-          setSelectedFixture(fixtureId);
+          setSelectedFixtureInternal(fixtureId);
+          if (onFixtureTap) {
+            onFixtureTap(fixtureId);
+          }
         },
         onPanResponderMove: (_, gestureState) => {
           const beam = beamData.find((entry) => entry.id === fixtureId);
@@ -218,7 +231,6 @@ const RoomSimulation = React.memo(
         },
         onPanResponderRelease: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setSelectedFixture(null);
         },
       });
     };
@@ -257,6 +269,8 @@ const RoomSimulation = React.memo(
         coverage: Math.min(98, Math.round(coverage)),
       };
     }, [beamData, hasData, roomWidth, roomDepth]);
+
+    const activeSelectionId = selectedFixtureId ?? selectedFixtureInternal;
 
     const renderTopView = () => (
       <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
@@ -302,11 +316,12 @@ const RoomSimulation = React.memo(
           const centerY = toSvgY(beam.zPos);
           const radiusX = Math.max(scaleX(beam.beamDiamH / 2), 8);
           const radiusY = Math.max((beam.beamDiamV / roomDepth) * drawHeight / 2, 8);
+          const isSelected = activeSelectionId === beam.id;
 
           return (
             <G key={`beam-${beam.id}`}>
-              <Ellipse cx={centerX} cy={centerY} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={selectedFixture === beam.id ? 0.78 : 0.5} />
-              <Ellipse cx={centerX} cy={centerY} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={1.5} strokeDasharray="4,3" />
+              <Ellipse cx={centerX} cy={centerY} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.8 : 0.5} />
+              <Ellipse cx={centerX} cy={centerY} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
             </G>
           );
         })}
@@ -316,7 +331,7 @@ const RoomSimulation = React.memo(
           const centerY = toSvgY(beam.zPos);
           const panResponder = createPanResponder(beam.id);
           const panHandlers = Platform.OS === 'web' ? {} : panResponder.panHandlers;
-          const isSelected = selectedFixture === beam.id;
+          const isSelected = activeSelectionId === beam.id;
 
           return (
             <G key={`fixture-${beam.id}`} {...panHandlers}>
@@ -355,12 +370,13 @@ const RoomSimulation = React.memo(
           const fixtureY = SVG_PADDING + 2;
           const floorY = SVG_PADDING + drawHeight;
           const beamHalfW = Math.max(scaleX(beam.beamDiamH / 2), 8);
+          const isSelected = activeSelectionId === beam.id;
 
           return (
             <G key={`side-${beam.id}`}>
               <Line x1={fixtureX} y1={fixtureY} x2={fixtureX - beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
               <Line x1={fixtureX} y1={fixtureY} x2={fixtureX + beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
-              <Ellipse cx={fixtureX} cy={(fixtureY + floorY) / 2} rx={beamHalfW / 2} ry={(floorY - fixtureY) / 2} fill={`url(#side-grad-${index})`} />
+              <Ellipse cx={fixtureX} cy={(fixtureY + floorY) / 2} rx={beamHalfW / 2} ry={(floorY - fixtureY) / 2} fill={`url(#side-grad-${index})`} opacity={isSelected ? 0.9 : 0.7} />
               <Line
                 x1={fixtureX - beamHalfW}
                 y1={floorY}
@@ -371,7 +387,7 @@ const RoomSimulation = React.memo(
                 strokeLinecap="round"
                 opacity={0.8}
               />
-              <Circle cx={fixtureX} cy={fixtureY + 6} r={6} fill={colors.surface} stroke={beam.color} strokeWidth={1.5} />
+              <Circle cx={fixtureX} cy={fixtureY + 6} r={6} fill={colors.surface} stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} />
               <Circle cx={fixtureX} cy={fixtureY + 6} r={2.5} fill={beam.color} />
             </G>
           );
