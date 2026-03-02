@@ -10,7 +10,7 @@ import { LightingCalculator } from '@/utils/lighting-calculator';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SVG_PADDING = 28;
 const FIXTURE_COLORS = ['#E8412A', '#3B9FE8', '#22C55E', '#F5A623', '#7C6BF0', '#F97316'];
-const GRID_SIZE = 8;
+const GRID_SIZE = 10;
 
 interface SimFixture {
   id: string;
@@ -23,6 +23,17 @@ interface SimFixture {
   zPos?: number;
 }
 
+export interface PersonMarker {
+  id: string;
+  label: string;
+  x: number;
+  z: number;
+  heightM: number;
+  dwellMinutes: number;
+}
+
+type SurfaceMode = 'floor' | 'leftWall' | 'rightWall' | 'backWall' | 'ceiling';
+
 interface RoomSimulationProps {
   roomWidth: number;
   roomDepth: number;
@@ -34,6 +45,10 @@ interface RoomSimulationProps {
   selectedFixtureId?: string;
   /** Fired when the user taps or starts dragging a fixture circle. */
   onFixtureTap?: (fixtureId: string) => void;
+  /** Calibration factor applied to simulated irradiance (1.0 = raw math). */
+  calibrationFactor?: number;
+  /** Optional markers for people / operators used for dose readouts. */
+  people?: PersonMarker[];
 }
 
 interface FixtureBeamData {
@@ -53,6 +68,7 @@ interface FixtureBeamData {
 
 interface HeatmapCell {
   x: number;
+  y: number;
   z: number;
   totalIrr: number;
 }
@@ -71,6 +87,15 @@ function getSafetyLabel(irradiance: number): string {
   return 'SAFE';
 }
 
+function computeDoseMJcm2(irradiance_mWm2: number, minutes: number): number {
+  // mW/m² → W/m², then J/m² over time, then mJ/cm²
+  const wattsPerM2 = irradiance_mWm2 / 1000;
+  const seconds = minutes * 60;
+  const joulesPerM2 = wattsPerM2 * seconds;
+  const mJPerCm2 = (joulesPerM2 / 10); // 1 J/m² = 0.1 mJ/cm²
+  return mJPerCm2;
+}
+
 const RoomSimulation = React.memo(
   ({
     roomWidth,
@@ -81,18 +106,21 @@ const RoomSimulation = React.memo(
     onPositionsChange,
     selectedFixtureId,
     onFixtureTap,
+    calibrationFactor = 1,
+    people = [],
   }: RoomSimulationProps) => {
     const colors = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const calc = useMemo(() => new LightingCalculator(), []);
 
     const [viewMode, setViewMode] = useState<'top' | 'side'>('top');
+    const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('floor');
     const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
     const [selectedFixtureInternal, setSelectedFixtureInternal] = useState<string | null>(null);
     const [fixturePositions, setFixturePositions] = useState<Record<string, { x: number; z: number }>>({});
 
     const svgWidth = SCREEN_WIDTH - 32;
-    const svgHeight = viewMode === 'top' ? svgWidth * 0.72 : svgWidth * 0.58;
+    const svgHeight = viewMode === 'top' ? svgWidth * 0.8 : svgWidth * 0.6;
     const drawWidth = svgWidth - SVG_PADDING * 2;
     const drawHeight = svgHeight - SVG_PADDING * 2;
 
@@ -137,6 +165,8 @@ const RoomSimulation = React.memo(
           const clampedX = Math.max(report.beam_diameter_h_m / 2, Math.min(basePosition.x, roomWidth - report.beam_diameter_h_m / 2));
           const clampedZ = Math.max(report.beam_diameter_v_m / 2, Math.min(basePosition.z, roomDepth - report.beam_diameter_v_m / 2));
 
+          const calibratedIrr = report.irradiance_mWm2 * calibrationFactor;
+
           return {
             id: fixture.id,
             model: fixture.fixture,
@@ -144,8 +174,8 @@ const RoomSimulation = React.memo(
             throwDistance: report.throw_distance_m,
             beamDiamH: Math.min(report.beam_diameter_h_m, roomWidth),
             beamDiamV: Math.min(report.beam_diameter_v_m, roomDepth),
-            irradiance: report.irradiance_mWm2,
-            safetyLevel: getSafetyLabel(report.irradiance_mWm2),
+            irradiance: calibratedIrr,
+            safetyLevel: getSafetyLabel(calibratedIrr),
             verticalHeight,
             horizontalDistance,
             xPos: clampedX,
@@ -155,16 +185,39 @@ const RoomSimulation = React.memo(
         .filter(Boolean) as FixtureBeamData[];
 
       return values;
-    }, [fixtures, fixturePositions, roomWidth, roomDepth, roomHeight, calc]);
+    }, [fixtures, fixturePositions, roomWidth, roomDepth, roomHeight, calc, calibrationFactor]);
 
-    const heatmapData = useMemo<HeatmapCell[]>(() => {
-      if (!showHeatmap || roomWidth <= 0 || roomDepth <= 0) return [];
-
+    const sampleSurfaceCells = useCallback((): HeatmapCell[] => {
+      if (!showHeatmap || roomWidth <= 0 || roomDepth <= 0 || roomHeight <= 0) return [];
       const cells: HeatmapCell[] = [];
-      for (let i = 0; i < GRID_SIZE; i += 1) {
-        for (let j = 0; j < GRID_SIZE; j += 1) {
-          const worldX = ((i + 0.5) / GRID_SIZE) * roomWidth;
-          const worldZ = ((j + 0.5) / GRID_SIZE) * roomDepth;
+      for (let ix = 0; ix < GRID_SIZE; ix += 1) {
+        for (let iz = 0; iz < GRID_SIZE; iz += 1) {
+          let worldX = 0;
+          let worldY = 0;
+          let worldZ = 0;
+
+          if (surfaceMode === 'floor') {
+            worldX = ((ix + 0.5) / GRID_SIZE) * roomWidth;
+            worldZ = ((iz + 0.5) / GRID_SIZE) * roomDepth;
+            worldY = 0;
+          } else if (surfaceMode === 'ceiling') {
+            worldX = ((ix + 0.5) / GRID_SIZE) * roomWidth;
+            worldZ = ((iz + 0.5) / GRID_SIZE) * roomDepth;
+            worldY = roomHeight;
+          } else if (surfaceMode === 'backWall') {
+            worldX = ((ix + 0.5) / GRID_SIZE) * roomWidth;
+            worldY = ((iz + 0.5) / GRID_SIZE) * roomHeight;
+            worldZ = 0;
+          } else if (surfaceMode === 'leftWall') {
+            worldZ = ((ix + 0.5) / GRID_SIZE) * roomDepth;
+            worldY = ((iz + 0.5) / GRID_SIZE) * roomHeight;
+            worldX = 0;
+          } else {
+            // rightWall
+            worldZ = ((ix + 0.5) / GRID_SIZE) * roomDepth;
+            worldY = ((iz + 0.5) / GRID_SIZE) * roomHeight;
+            worldX = roomWidth;
+          }
 
           let totalIrr = 0;
           beamData.forEach((beam) => {
@@ -173,22 +226,25 @@ const RoomSimulation = React.memo(
 
             const dx = worldX - beam.xPos;
             const dz = worldZ - beam.zPos;
-            const distance3D = Math.sqrt(dx * dx + dz * dz + beam.verticalHeight * beam.verticalHeight);
+            const dy = worldY - beam.verticalHeight;
+            const distance3D = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
             if (distance3D > 0.01) {
-              totalIrr += fixtureData.peak_irradiance_mWm2 / (distance3D * distance3D);
+              totalIrr += fixtureData.peak_irradiance_mWm2 * calibrationFactor / (distance3D * distance3D);
             }
           });
 
-          cells.push({ x: worldX, z: worldZ, totalIrr });
+          cells.push({ x: worldX, y: worldY, z: worldZ, totalIrr });
         }
       }
-
       return cells;
-    }, [showHeatmap, roomWidth, roomDepth, beamData]);
+    }, [beamData, calibrationFactor, roomDepth, roomHeight, roomWidth, showHeatmap, surfaceMode]);
+
+    const heatmapData = useMemo<HeatmapCell[]>(() => sampleSurfaceCells(), [sampleSurfaceCells]);
 
     const toSvgX = useCallback((worldX: number): number => SVG_PADDING + (worldX / roomWidth) * drawWidth, [roomWidth, drawWidth]);
-    const toSvgY = useCallback((worldY: number): number => SVG_PADDING + (worldY / roomDepth) * drawHeight, [roomDepth, drawHeight]);
+    const toSvgZ = useCallback((worldZ: number): number => SVG_PADDING + (worldZ / roomDepth) * drawHeight, [roomDepth, drawHeight]);
+    const toSvgY = useCallback((worldY: number): number => SVG_PADDING + ((roomHeight - worldY) / roomHeight) * drawHeight, [roomHeight, drawHeight]);
     const scaleX = useCallback((distance: number): number => (distance / roomWidth) * drawWidth, [roomWidth, drawWidth]);
 
     const createPanResponder = (fixtureId: string) => {
@@ -260,15 +316,22 @@ const RoomSimulation = React.memo(
       const irradiances = beamData.map((entry) => entry.irradiance);
       const maxIrr = Math.max(...irradiances);
       const avgIrr = irradiances.reduce((sum, current) => sum + current, 0) / irradiances.length;
-      const coverage = ((beamData.length * 0.6) / (roomWidth * roomDepth)) * 100;
+      const coverage = heatmapData.length
+        ? Math.min(
+            98,
+            Math.round(
+              (heatmapData.filter((cell) => cell.totalIrr >= 2500).length / heatmapData.length) * 100,
+            ),
+          )
+        : 0;
 
       return {
         maxIrr: Math.round(maxIrr),
         avgIrr: Math.round(avgIrr),
         safety: getSafetyLabel(maxIrr),
-        coverage: Math.min(98, Math.round(coverage)),
+        coverage,
       };
-    }, [beamData, hasData, roomWidth, roomDepth]);
+    }, [beamData, hasData, heatmapData]);
 
     const activeSelectionId = selectedFixtureId ?? selectedFixtureInternal;
 
@@ -295,14 +358,35 @@ const RoomSimulation = React.memo(
         ))}
 
         {showHeatmap && heatmapData.map((cell, index) => {
-          const cellX = toSvgX(cell.x) - drawWidth / GRID_SIZE / 2;
-          const cellY = toSvgY(cell.z) - drawHeight / GRID_SIZE / 2;
+          if (surfaceMode !== 'floor' && surfaceMode !== 'ceiling') {
+            // For walls we project X/Y into the rectangle
+            const projX = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? cell.z : cell.x;
+            const projY = cell.y;
+            const svgX = SVG_PADDING + (projX / roomDepth) * drawWidth;
+            const svgY = SVG_PADDING + ((roomHeight - projY) / roomHeight) * drawHeight;
+            const sizeX = drawWidth / GRID_SIZE;
+            const sizeY = drawHeight / GRID_SIZE;
+            return (
+              <Rect
+                key={`heat-${index}`}
+                x={svgX - sizeX / 2}
+                y={svgY - sizeY / 2}
+                width={sizeX}
+                height={sizeY}
+                fill={getSafetyColor(cell.totalIrr)}
+                opacity={Math.min(0.65, cell.totalIrr / 35000)}
+              />
+            );
+          }
+
+          const svgX = toSvgX(cell.x) - drawWidth / GRID_SIZE / 2;
+          const svgY = toSvgZ(cell.z) - drawHeight / GRID_SIZE / 2;
           const size = drawWidth / GRID_SIZE;
           return (
             <Rect
               key={`heat-${index}`}
-              x={cellX}
-              y={cellY}
+              x={svgX}
+              y={svgY}
               width={size}
               height={size}
               fill={getSafetyColor(cell.totalIrr)}
@@ -313,31 +397,31 @@ const RoomSimulation = React.memo(
 
         {beamData.map((beam, index) => {
           const centerX = toSvgX(beam.xPos);
-          const centerY = toSvgY(beam.zPos);
+          const centerZ = toSvgZ(beam.zPos);
           const radiusX = Math.max(scaleX(beam.beamDiamH / 2), 8);
           const radiusY = Math.max((beam.beamDiamV / roomDepth) * drawHeight / 2, 8);
           const isSelected = activeSelectionId === beam.id;
 
           return (
             <G key={`beam-${beam.id}`}>
-              <Ellipse cx={centerX} cy={centerY} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.8 : 0.5} />
-              <Ellipse cx={centerX} cy={centerY} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
+              <Ellipse cx={centerX} cy={centerZ} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.8 : 0.5} />
+              <Ellipse cx={centerX} cy={centerZ} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
             </G>
           );
         })}
 
         {beamData.map((beam) => {
           const centerX = toSvgX(beam.xPos);
-          const centerY = toSvgY(beam.zPos);
+          const centerZ = toSvgZ(beam.zPos);
           const panResponder = createPanResponder(beam.id);
           const panHandlers = Platform.OS === 'web' ? {} : panResponder.panHandlers;
           const isSelected = activeSelectionId === beam.id;
 
           return (
             <G key={`fixture-${beam.id}`} {...panHandlers}>
-              <Circle cx={centerX} cy={centerY} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
-              <Circle cx={centerX} cy={centerY} r={4} fill={beam.color} />
-              <SvgText x={centerX} y={centerY - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
+              <Circle cx={centerX} cy={centerZ} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
+              <Circle cx={centerX} cy={centerZ} r={4} fill={beam.color} />
+              <SvgText x={centerX} y={centerZ - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
                 {beam.model}
               </SvgText>
             </G>
@@ -345,7 +429,9 @@ const RoomSimulation = React.memo(
         })}
 
         <SvgText x={svgWidth / 2} y={svgHeight - 4} textAnchor="middle" fontSize="9" fill={colors.textTertiary}>
-          {roomWidth.toFixed(1)} {unitLabel}
+          {surfaceMode === 'floor' || surfaceMode === 'ceiling'
+            ? `${roomWidth.toFixed(1)} × ${roomDepth.toFixed(1)} ${unitLabel}`
+            : `${roomHeight.toFixed(1)} ${unitLabel} height`}
         </SvgText>
       </Svg>
     );
@@ -395,6 +481,27 @@ const RoomSimulation = React.memo(
       </Svg>
     );
 
+    const peopleReadouts = useMemo(() => {
+      if (!people.length || !beamData.length) return [] as { id: string; label: string; irr: number; dose: number; level: string }[];
+      return people.map((p) => {
+        let maxIrr = 0;
+        beamData.forEach((beam) => {
+          const fixtureData = LightingCalculator.getFixtureData(beam.model);
+          if (!fixtureData) return;
+          const dx = p.x - beam.xPos;
+          const dz = p.z - beam.zPos;
+          const dy = p.heightM - beam.verticalHeight;
+          const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (dist > 0.01) {
+            const irr = fixtureData.peak_irradiance_mWm2 * calibrationFactor / (dist * dist);
+            if (irr > maxIrr) maxIrr = irr;
+          }
+        });
+        const dose = computeDoseMJcm2(maxIrr, p.dwellMinutes);
+        return { id: p.id, label: p.label, irr: Math.round(maxIrr), dose: Math.round(dose * 10) / 10, level: getSafetyLabel(maxIrr) };
+      });
+    }, [beamData, calibrationFactor, people]);
+
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -415,6 +522,30 @@ const RoomSimulation = React.memo(
               <Text style={styles.viewToggleText}>{viewMode === 'top' ? 'TOP' : 'SIDE'}</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.surfaceTabs}>
+          {(
+            [
+              { id: 'floor', label: 'Floor' },
+              { id: 'backWall', label: 'Back Wall' },
+              { id: 'leftWall', label: 'Left Wall' },
+              { id: 'rightWall', label: 'Right Wall' },
+              { id: 'ceiling', label: 'Ceiling' },
+            ] as { id: SurfaceMode; label: string }[]
+          ).map((tab) => {
+            const active = surfaceMode === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.surfaceTab, active && styles.surfaceTabActive]}
+                onPress={() => setSurfaceMode(tab.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.surfaceTabText, active && styles.surfaceTabTextActive]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {!hasData ? (
@@ -441,11 +572,25 @@ const RoomSimulation = React.memo(
               <Text style={styles.statsLabel}>COVER</Text>
               <Text style={styles.statsValue}>{stats.coverage}%</Text>
             </View>
+
+            {!!peopleReadouts.length && (
+              <View style={styles.peopleRow}>
+                {peopleReadouts.map((p) => (
+                  <View key={p.id} style={styles.personChip}>
+                    <Text style={styles.personLabel}>{p.label}</Text>
+                    <Text style={[styles.personDose, { color: getSafetyColor(p.irr) }]}>
+                      {p.irr} mW/m² • {p.dose} mJ/cm²
+                    </Text>
+                    <Text style={styles.personLevel}>{p.level}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </>
         )}
       </View>
     );
-  }
+  },
 );
 
 RoomSimulation.displayName = 'RoomSimulation';
@@ -513,6 +658,34 @@ function createStyles(colors: ThemeColors) {
       fontWeight: '600' as const,
       color: colors.primary,
     },
+    surfaceTabs: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 10,
+      paddingBottom: 6,
+      paddingTop: 6,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    surfaceTab: {
+      flex: 1,
+      marginHorizontal: 2,
+      paddingVertical: 4,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    surfaceTabActive: {
+      backgroundColor: colors.glow,
+    },
+    surfaceTabText: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      fontWeight: '600' as const,
+    },
+    surfaceTabTextActive: {
+      color: colors.primary,
+    },
     svgContainer: {
       alignItems: 'center',
       paddingVertical: 8,
@@ -551,6 +724,39 @@ function createStyles(colors: ThemeColors) {
       fontSize: 10,
       color: colors.textTertiary,
       marginRight: 8,
+    },
+    peopleRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingBottom: 10,
+      backgroundColor: colors.surfaceSecondary,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    personChip: {
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    personLabel: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: colors.text,
+    },
+    personDose: {
+      fontSize: 11,
+      fontWeight: '600' as const,
+      marginTop: 2,
+    },
+    personLevel: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      marginTop: 2,
     },
   });
 }
