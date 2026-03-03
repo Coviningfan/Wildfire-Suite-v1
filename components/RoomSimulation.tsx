@@ -363,70 +363,6 @@ const RoomSimulation = React.memo(
         };
       };
 
-      const heatmapRects = showHeatmap ? heatmapData.map((cell, index) => {
-        const center = projectSurfacePoint(cell);
-        const cellWidth = drawWidth / GRID_SIZE;
-        const cellHeight = drawHeight / GRID_SIZE;
-
-        return (
-          <Rect
-            key={`heat-${index}`}
-            x={center.x - cellWidth / 2}
-            y={center.y - cellHeight / 2}
-            width={cellWidth}
-            height={cellHeight}
-            fill={getSafetyColor(cell.totalIrr)}
-            opacity={Math.min(0.65, cell.totalIrr / 35000)}
-          />
-        );
-      }) : null;
-
-      const beamEllipses = beamData.map((beam, index) => {
-        const sourcePoint = {
-          x: beam.xPos,
-          z: beam.zPos,
-          y: isHorizontalSurface
-            ? (surfaceMode === 'ceiling' ? roomHeight : 0)
-            : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
-        };
-        const center = projectSurfacePoint(sourcePoint);
-        const beamWidthWorld = isSideWall ? beam.beamDiamV : beam.beamDiamH;
-        const beamHeightWorld = isHorizontalSurface ? beam.beamDiamV : Math.min(roomHeight, Math.max(0.8, beam.beamDiamV));
-        const radiusX = Math.max((beamWidthWorld / spanX) * drawWidth / 2, 8);
-        const radiusY = Math.max((beamHeightWorld / spanY) * drawHeight / 2, 8);
-        const isSelected = activeSelectionId === beam.id;
-
-        return (
-          <G key={`beam-${beam.id}`}>
-            <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.82 : 0.5} />
-            <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
-          </G>
-        );
-      });
-
-      const fixtureMarkers = beamData.map((beam) => {
-        const center = projectSurfacePoint({
-          x: beam.xPos,
-          z: beam.zPos,
-          y: isHorizontalSurface
-            ? (surfaceMode === 'ceiling' ? roomHeight : 0)
-            : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
-        });
-        const panResponder = createPanResponder(beam.id);
-        const panHandlers = Platform.OS === 'web' || !isHorizontalSurface ? {} : panResponder.panHandlers;
-        const isSelected = activeSelectionId === beam.id;
-
-        return (
-          <G key={`fixture-${beam.id}`} {...panHandlers}>
-            <Circle cx={center.x} cy={center.y} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
-            <Circle cx={center.x} cy={center.y} r={4} fill={beam.color} />
-            <SvgText x={center.x} y={center.y - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
-              {beam.model}
-            </SvgText>
-          </G>
-        );
-      });
-
       return (
         <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
           <Defs>
@@ -449,11 +385,85 @@ const RoomSimulation = React.memo(
             </G>
           ))}
 
-          {heatmapRects}
+          {showHeatmap && heatmapData.map((cell, index) => {
+            const center = projectSurfacePoint(cell);
+            const cellWidth = drawWidth / GRID_SIZE;
+            const cellHeight = drawHeight / GRID_SIZE;
+        {[0.25, 0.5, 0.75].map((fraction) => (
+          <G key={`grid-${fraction}`}>
+            <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * fraction} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * fraction} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+            <Line x1={SVG_PADDING + drawWidth * fraction} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * fraction} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+          </G>
+        ))}
 
-          {beamEllipses}
+        {showHeatmap && heatmapData.map((cell, index) => {
+          if (surfaceMode !== 'floor' && surfaceMode !== 'ceiling') {
+            // For walls we project X/Y into the rectangle
+            const projX = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? cell.z : cell.x;
+            const projY = cell.y;
+            const wallSpan = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? roomDepth : roomWidth;
+            const svgX = SVG_PADDING + (projX / wallSpan) * drawWidth;
+            const svgY = SVG_PADDING + ((roomHeight - projY) / roomHeight) * drawHeight;
+            const sizeX = drawWidth / GRID_SIZE;
+            const sizeY = drawHeight / GRID_SIZE;
+            return (
+              <Rect
+                key={`heat-${index}`}
+                x={center.x - cellWidth / 2}
+                y={center.y - cellHeight / 2}
+                width={cellWidth}
+                height={cellHeight}
+                fill={getSafetyColor(cell.totalIrr)}
+                opacity={Math.min(0.65, cell.totalIrr / 35000)}
+              />
+            );
+          })}
 
-          {fixtureMarkers}
+          {beamData.map((beam, index) => {
+            const sourcePoint = {
+              x: beam.xPos,
+              z: beam.zPos,
+              y: isHorizontalSurface
+                ? (surfaceMode === 'ceiling' ? roomHeight : 0)
+                : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
+            };
+            const center = projectSurfacePoint(sourcePoint);
+            const beamWidthWorld = isSideWall ? beam.beamDiamV : beam.beamDiamH;
+            const beamHeightWorld = isHorizontalSurface ? beam.beamDiamV : Math.min(roomHeight, Math.max(0.8, beam.beamDiamV));
+            const radiusX = Math.max((beamWidthWorld / spanX) * drawWidth / 2, 8);
+            const radiusY = Math.max((beamHeightWorld / spanY) * drawHeight / 2, 8);
+            const isSelected = activeSelectionId === beam.id;
+
+            return (
+              <G key={`beam-${beam.id}`}>
+                <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.82 : 0.5} />
+                <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
+              </G>
+            );
+          })}
+
+          {beamData.map((beam) => {
+            const center = projectSurfacePoint({
+              x: beam.xPos,
+              z: beam.zPos,
+              y: isHorizontalSurface
+                ? (surfaceMode === 'ceiling' ? roomHeight : 0)
+                : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
+            });
+            const panResponder = createPanResponder(beam.id);
+            const panHandlers = Platform.OS === 'web' || !isHorizontalSurface ? {} : panResponder.panHandlers;
+            const isSelected = activeSelectionId === beam.id;
+
+            return (
+              <G key={`fixture-${beam.id}`} {...panHandlers}>
+                <Circle cx={center.x} cy={center.y} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
+                <Circle cx={center.x} cy={center.y} r={4} fill={beam.color} />
+                <SvgText x={center.x} y={center.y - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
+                  {beam.model}
+                </SvgText>
+              </G>
+            );
+          })}
 
           {!isHorizontalSurface && (
             <SvgText x={SVG_PADDING + 8} y={SVG_PADDING + 14} fontSize="9" fontWeight="700" fill={colors.textSecondary}>
