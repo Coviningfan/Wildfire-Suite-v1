@@ -19,6 +19,51 @@ export interface Tutorial {
 export const TUTORIALS: Tutorial[] = [
   {
     id: 'app-walkthrough',
+    title: 'Getting Started: Full App Tutorial',
+    subtitle: 'Learn the complete workflow from login to room simulation and saved setups',
+    icon: 'BookOpen',
+    color: '#3B82F6',
+    readTime: '10 min',
+    sections: [
+      {
+        title: 'Welcome and Sign In',
+        content: 'Open the app and sign in with your account (or use the demo account). After login, you will land on the Calculator screen where all projects begin.'
+      },
+      {
+        title: 'Use the FLAME Workflow',
+        content: 'Complete each FLAME step in order: Fixture, Location, Angle, Material, and Effect. This ensures your calculation includes the key parameters needed for reliable UV planning.'
+      },
+      {
+        title: 'Run a Calculation',
+        content: 'Tap Calculate to generate irradiance, beam area, throw information, and safety level. Review the result card to confirm the setup matches your target.'
+      },
+      {
+        title: 'Open Room Simulation',
+        content: 'Turn on Room Simulation to visualize fixture placement in the room. Enter room dimensions, add fixtures, and inspect coverage directly on the simulation canvas.'
+      },
+      {
+        title: 'Switch Views and Surfaces',
+        content: 'Use TOP, SIDE, and 3D view modes. Then switch between Floor, Back Wall, Left Wall, Right Wall, and Ceiling to verify how UV behaves on each surface.'
+      },
+      {
+        title: 'Use Advanced Layout Tools',
+        content: 'Use Auto Layout presets (Line, Grid, Perimeter) to quickly generate structured fixture arrangements before doing final manual adjustments.'
+      },
+      {
+        title: 'Tune and Validate',
+        content: 'Adjust fixture positions and compare MAX, AVG, SAFETY, and COVER values. Use these metrics to balance visual impact with safe operation.'
+      },
+      {
+        title: 'Save and Reuse',
+        content: 'Save your final setup with a clear name so you can reopen it later. Saved entries make future projects faster and keep your team consistent.'
+      },
+      {
+        title: 'Use AI Insights',
+        content: 'Generate AI insights after a calculation to receive practical optimization guidance for fixture selection, coverage, and safety tradeoffs.'
+      },
+      {
+        title: 'Next Steps',
+        content: 'After your first full run, explore Fixtures for hardware details, History for saved results, and Resources for deeper training content.'
     title: 'Complete App Walkthrough (Demo Ready)',
     subtitle: 'Step-by-step guide from login to simulation, save, and AI insights',
     icon: 'BookOpen',

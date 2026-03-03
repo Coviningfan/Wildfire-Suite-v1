@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder, Platform } from 'react-native';
 import Svg, { Rect, Ellipse, Line, Defs, RadialGradient, Stop, G, Circle, Text as SvgText } from 'react-native-svg';
-import { Eye, Layers, RefreshCw, Target } from 'lucide-react-native';
+import { Eye, Layers, RefreshCw, Target, LayoutGrid } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
@@ -317,6 +317,57 @@ const RoomSimulation = React.memo(
         setViewMode('top');
       }
     }, [viewMode]);
+
+
+    const applyAutoLayout = useCallback((mode: 'line' | 'grid' | 'perimeter') => {
+      if (!fixtures.length || roomWidth <= 0 || roomDepth <= 0) return;
+
+      const nextPositions: Record<string, { x: number; z: number }> = {};
+      const clampPos = (x: number, z: number) => ({
+        x: Math.max(0.2, Math.min(x, roomWidth - 0.2)),
+        z: Math.max(0.2, Math.min(z, roomDepth - 0.2)),
+      });
+
+      if (mode === 'line') {
+        const spacing = roomWidth / (fixtures.length + 1);
+        fixtures.forEach((fixture, index) => {
+          nextPositions[fixture.id] = clampPos(spacing * (index + 1), roomDepth / 2);
+        });
+      } else if (mode === 'grid') {
+        const cols = Math.max(1, Math.ceil(Math.sqrt(fixtures.length)));
+        const rows = Math.max(1, Math.ceil(fixtures.length / cols));
+        fixtures.forEach((fixture, index) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+          const x = ((col + 1) / (cols + 1)) * roomWidth;
+          const z = ((row + 1) / (rows + 1)) * roomDepth;
+          nextPositions[fixture.id] = clampPos(x, z);
+        });
+      } else {
+        const cx = roomWidth / 2;
+        const cz = roomDepth / 2;
+        const rx = Math.max(roomWidth * 0.42, 0.6);
+        const rz = Math.max(roomDepth * 0.42, 0.6);
+        fixtures.forEach((fixture, index) => {
+          const angle = (index / Math.max(fixtures.length, 1)) * Math.PI * 2;
+          const x = cx + Math.cos(angle) * rx;
+          const z = cz + Math.sin(angle) * rz;
+          nextPositions[fixture.id] = clampPos(x, z);
+        });
+      }
+
+      setFixturePositions((previous) => ({ ...previous, ...nextPositions }));
+
+      if (onPositionsChange) {
+        const updatedFixtures = fixtures.map((fixture) => {
+          const next = nextPositions[fixture.id];
+          return next ? { ...fixture, xPos: next.x, zPos: next.z } : fixture;
+        });
+        onPositionsChange(updatedFixtures);
+      }
+
+      Haptics.selectionAsync();
+    }, [fixtures, roomDepth, roomWidth, onPositionsChange]);
 
     const hasData = beamData.length > 0 && roomWidth > 0 && roomDepth > 0;
 
@@ -658,6 +709,24 @@ const RoomSimulation = React.memo(
           })}
         </View>
 
+        <View style={styles.layoutRow}>
+          <View style={styles.layoutTitleWrap}>
+            <LayoutGrid size={14} color={colors.textTertiary} />
+            <Text style={styles.layoutTitle}>Auto Layout</Text>
+          </View>
+          <View style={styles.layoutButtons}>
+            <TouchableOpacity style={styles.layoutBtn} onPress={() => applyAutoLayout('line')} activeOpacity={0.7}>
+              <Text style={styles.layoutBtnText}>Line</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.layoutBtn} onPress={() => applyAutoLayout('grid')} activeOpacity={0.7}>
+              <Text style={styles.layoutBtnText}>Grid</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.layoutBtn} onPress={() => applyAutoLayout('perimeter')} activeOpacity={0.7}>
+              <Text style={styles.layoutBtnText}>Perimeter</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {!hasData ? (
           <View style={styles.emptyState}>
             <Layers size={32} color={colors.textTertiary} />
@@ -767,6 +836,41 @@ function createStyles(colors: ThemeColors) {
       fontSize: 11,
       fontWeight: '600' as const,
       color: colors.primary,
+    },
+    layoutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 14,
+      paddingBottom: 10,
+      gap: 8,
+    },
+    layoutTitleWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    layoutTitle: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      color: colors.textSecondary,
+    },
+    layoutButtons: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    layoutBtn: {
+      paddingHorizontal: 9,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    layoutBtnText: {
+      fontSize: 11,
+      fontWeight: '600' as const,
+      color: colors.textSecondary,
     },
     surfaceTabs: {
       flexDirection: 'row',

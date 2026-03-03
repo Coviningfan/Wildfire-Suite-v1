@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, 
 import { Stack, Link, router } from 'expo-router';
 import { ArrowLeft, Fingerprint, Apple } from 'lucide-react-native';
 import { Input } from '@/components/ui/Input';
+import { OnboardingModal } from '@/components/ui/OnboardingModal';
 import { Logo } from '@/components/ui/Logo';
 import { useAuthStore } from '@/stores/auth-store';
 import { theme } from '@/constants/theme';
@@ -10,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { isAppleAuthAvailable } from '@/utils/apple-auth';
 import { isBiometricAvailable, getBiometricType } from '@/utils/biometric-auth';
 import * as Haptics from 'expo-haptics';
+import { useFirstLaunch } from '@/hooks/useFirstLaunch';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState<string>('');
@@ -18,6 +20,9 @@ export default function LoginScreen() {
   const [appleAvailable, setAppleAvailable] = useState<boolean>(false);
   const [biometricAvailable, setBiometricAvailable] = useState<boolean>(false);
   const [biometricType, setBiometricType] = useState<string>('Biometric');
+  const [isFirstLaunch, markSeen] = useFirstLaunch();
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+  const [pendingDemoLogin, setPendingDemoLogin] = useState<boolean>(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
 
@@ -28,6 +33,12 @@ export default function LoginScreen() {
       Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  useEffect(() => {
+    if (isFirstLaunch) {
+      setShowOnboarding(true);
+    }
+  }, [isFirstLaunch]);
 
   const checkAuthMethods = async () => {
     const appleOk = await isAppleAuthAvailable();
@@ -55,7 +66,7 @@ export default function LoginScreen() {
     }
   }, [email, password, login]);
 
-  const handleDemoLogin = useCallback(async () => {
+  const executeDemoLogin = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const success = await login('demo@example.com', 'password123');
     if (success) {
@@ -64,6 +75,23 @@ export default function LoginScreen() {
       Alert.alert('Demo Login Failed', 'Please try again');
     }
   }, [login]);
+
+  const handleDemoLogin = useCallback(() => {
+    setPendingDemoLogin(true);
+    setShowOnboarding(true);
+  }, []);
+
+  const handleDismissOnboarding = useCallback(() => {
+    const shouldRunDemoLogin = pendingDemoLogin;
+    setPendingDemoLogin(false);
+    setShowOnboarding(false);
+    if (isFirstLaunch) {
+      markSeen();
+    }
+    if (shouldRunDemoLogin) {
+      executeDemoLogin();
+    }
+  }, [pendingDemoLogin, isFirstLaunch, markSeen, executeDemoLogin]);
 
   const handleAppleLogin = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -92,6 +120,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <OnboardingModal visible={showOnboarding} onDismiss={handleDismissOnboarding} />
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.bgAccent} />

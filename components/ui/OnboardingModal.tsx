@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   Modal, ScrollView,
 } from 'react-native';
+import { Calculator, History, Lightbulb, CheckCircle, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react-native';
 import { Calculator, History, Lightbulb, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
@@ -19,6 +20,13 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
 
   const slides = useMemo(() => [
     {
+      icon: <Sparkles size={40} color={colors.primary} />,
+      title: 'Welcome to Wildfire Suite',
+      subtitle: 'A quick hands-on tutorial to run your first UV design in minutes.',
+      bullets: [
+        'Follow this once to learn the full app flow',
+        'You can reopen learning content in Resources anytime',
+        'Use this exact sequence for customer demos',
       icon: <Calculator size={40} color={colors.primary} />,
       title: 'Welcome to Wildfire UV',
       subtitle: 'Professional UV lighting calculations\nat your fingertips.',
@@ -31,6 +39,34 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
     },
     {
       icon: <Calculator size={40} color={colors.primary} />,
+      title: 'Step 1 · Calculator (FLAME)',
+      subtitle: 'Build one complete result from top to bottom.',
+      bullets: [
+        'F: choose a fixture model',
+        'L + A: set location and target beam area',
+        'M + E: pick material and desired effect',
+        'Tap Calculate to generate irradiance and safety levels',
+      ],
+    },
+    {
+      icon: <Lightbulb size={40} color={colors.accent} />,
+      title: 'Step 2 · Room Simulation',
+      subtitle: 'Visualize placement and coverage like a real venue setup.',
+      bullets: [
+        'Switch views: TOP, SIDE, 3D',
+        'Switch surfaces: floor, walls, ceiling',
+        'Use heatmap + drag fixtures for quick layout tuning',
+        'Read MAX/AVG/SAFETY/COVER to validate design quality',
+      ],
+    },
+    {
+      icon: <History size={40} color={colors.secondary} />,
+      title: 'Step 3 · Save, Recall, Compare',
+      subtitle: 'Turn one-off calculations into reusable project presets.',
+      bullets: [
+        'Save each scenario with clear names',
+        'Re-open from history during customer reviews',
+        'Compare multiple fixture strategies side by side',
       title: 'Calculator Tab',
       subtitle: 'Your main workspace.',
       bullets: [
@@ -64,6 +100,12 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
     },
     {
       icon: <CheckCircle size={40} color={colors.success} />,
+      title: 'Step 4 · Present with Confidence',
+      subtitle: 'Your repeatable customer demo flow is now ready.',
+      bullets: [
+        'Open with Calculator result',
+        'Show Room Simulation transitions and controls',
+        'Close with saved scenario + AI insight recommendation',
       title: 'The FLAME Formula',
       subtitle: 'Professional UV design in 5 steps.',
       bullets: [
@@ -114,6 +156,7 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
               onPress={page === 0 ? handleClose : () => setPage((p) => p - 1)}
               activeOpacity={0.7}
               accessibilityRole="button"
+              accessibilityLabel={page === 0 ? 'Skip tutorial' : 'Previous tutorial step'}
               accessibilityLabel={page === 0 ? 'Skip onboarding' : 'Previous onboarding step'}
             >
               {page === 0 ? (
@@ -131,9 +174,10 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
               onPress={isLast ? handleClose : () => setPage((p) => p + 1)}
               activeOpacity={0.8}
               accessibilityRole="button"
+              accessibilityLabel={isLast ? 'Finish tutorial' : 'Next tutorial step'}
               accessibilityLabel={isLast ? 'Finish onboarding' : 'Next onboarding step'}
             >
-              <Text style={styles.navBtnPrimaryText}>{isLast ? "Let's go!" : 'Next'}</Text>
+              <Text style={styles.navBtnPrimaryText}>{isLast ? 'Start Using App' : 'Next'}</Text>
               {!isLast && <ChevronRight size={16} color="#fff" />}
             </TouchableOpacity>
           </View>
