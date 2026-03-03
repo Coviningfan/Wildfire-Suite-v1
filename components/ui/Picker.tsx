@@ -26,6 +26,9 @@ export function Picker({ label, value, options, onValueChange }: PickerProps) {
       style={[styles.option, item === value && styles.optionSelected]}
       onPress={() => handleSelect(item)}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityState={{ selected: item === value }}
+      accessibilityLabel={`Select ${item || 'All'}`}
     >
       <Text style={[styles.optionText, item === value && styles.optionTextSelected]}>{item || 'All'}</Text>
       {item === value && <Check size={18} color={colors.primary} />}
@@ -39,6 +42,9 @@ export function Picker({ label, value, options, onValueChange }: PickerProps) {
         style={styles.trigger}
         onPress={() => setIsVisible(true)}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`${label || 'Picker'}: ${value || 'No selection'}`}
+        accessibilityHint="Opens a list of options"
       >
         <Text style={[styles.value, !value && styles.placeholder]} numberOfLines={1}>{value || 'Select...'}</Text>
         <ChevronDown size={18} color={colors.textTertiary} />

@@ -22,7 +22,12 @@ export function InfoTooltip({ title, body, size = 16 }: Props) {
 
   return (
     <>
-      <TouchableOpacity onPress={open} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity
+        onPress={open}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel={`More information about ${title}`}
+      >
         <HelpCircle size={size} color={colors.textTertiary} />
       </TouchableOpacity>
 
@@ -35,7 +40,12 @@ export function InfoTooltip({ title, body, size = 16 }: Props) {
                 <HelpCircle size={16} color={colors.primary} />
               </View>
               <Text style={styles.title}>{title}</Text>
-              <TouchableOpacity onPress={close} style={styles.closeBtn}>
+              <TouchableOpacity
+                onPress={close}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close info dialog"
+              >
                 <X size={18} color={colors.textTertiary} />
               </TouchableOpacity>
             </View>
