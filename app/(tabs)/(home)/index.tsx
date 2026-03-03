@@ -164,16 +164,24 @@ export default function CalculatorScreen() {
   }, [progressWidth, progressAnim]);
 
   useEffect(() => {
+    let glowLoop: Animated.CompositeAnimation | null = null;
+
     if (selectedFixture && filledCount >= 2) {
-      Animated.loop(
+      glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(calcBtnGlow, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
           Animated.timing(calcBtnGlow, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
         ])
-      ).start();
+      );
+      glowLoop.start();
     } else {
+      calcBtnGlow.stopAnimation();
       calcBtnGlow.setValue(0);
     }
+
+    return () => {
+      glowLoop?.stop();
+    };
   }, [selectedFixture, filledCount, calcBtnGlow]);
 
   useEffect(() => {
