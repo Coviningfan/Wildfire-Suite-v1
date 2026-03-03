@@ -362,7 +362,8 @@ const RoomSimulation = React.memo(
             // For walls we project X/Y into the rectangle
             const projX = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? cell.z : cell.x;
             const projY = cell.y;
-            const svgX = SVG_PADDING + (projX / roomDepth) * drawWidth;
+            const wallSpan = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? roomDepth : roomWidth;
+            const svgX = SVG_PADDING + (projX / wallSpan) * drawWidth;
             const svgY = SVG_PADDING + ((roomHeight - projY) / roomHeight) * drawHeight;
             const sizeX = drawWidth / GRID_SIZE;
             const sizeY = drawHeight / GRID_SIZE;
