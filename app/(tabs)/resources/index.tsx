@@ -1,345 +1,237 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Linking,
-} from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { BookOpen, ChevronRight, ExternalLink, GraduationCap } from 'lucide-react-native';
 import * as LucideIcons from 'lucide-react-native';
-import { FileQuestion } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { WILDFIRE_RESOURCES } from '@/constants/resources';
 import { TUTORIALS } from '@/constants/tutorials';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 32;
-
 export default function ResourcesScreen() {
   const router = useRouter();
   const colors = useThemeColors();
-  const dynamicStyles = useMemo(() => createDynamicStyles(colors), [colors]);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const hasTutorials = TUTORIALS.length > 0;
-  const hasResources = WILDFIRE_RESOURCES.length > 0;
+  const appTour = TUTORIALS.find(t => t.id === 'app-walkthrough');
+  const otherTutorials = TUTORIALS.filter(
+    t => t.id !== 'app-walkthrough' && t.id !== 'complete-app-walkthrough'
+  );
 
-  const handleResourcePress = (url: string) => {
-    Linking.openURL(url).catch((err) =>
-      console.error('Failed to open URL:', err)
-    );
+  const renderIcon = (iconName: string, color: string, size = 18) => {
+    const Icon = (LucideIcons as any)[iconName];
+    return Icon ? <Icon size={size} color={color} strokeWidth={2} /> : <BookOpen size={size} color={color} strokeWidth={2} />;
   };
 
-  const handleTutorialPress = (tutorialId: string) => {
-    router.push(`/resources/tutorials/${tutorialId}`);
+  const openTutorial = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/resources/${id}` as any);
   };
-
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
-  };
-
-  const renderIcon = (iconName: string, color: string, size: number = 24) => {
-    const IconComponent = (LucideIcons as any)[iconName];
-    return IconComponent ? (
-      <IconComponent size={size} color={color} strokeWidth={2.5} />
-    ) : null;
-  };
-
-  if (!hasTutorials && !hasResources) {
-    return (
-      <SafeAreaView style={dynamicStyles.emptyContainer} edges={['top']}>
-        <View style={dynamicStyles.emptyContent}>
-          <View style={dynamicStyles.emptyIconWrap}>
-            <FileQuestion size={32} color={colors.textTertiary} />
-          </View>
-          <Text style={dynamicStyles.emptyTitle}>No Resources Available</Text>
-          <Text style={dynamicStyles.emptySubtitle}>Tutorials and documentation will appear here when available.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          style={styles.header}
-        >
-          <Text style={styles.headerTitle}>Resources & Tutorials</Text>
-          <Text style={styles.headerSubtitle}>
-            Technical documentation, standards, and learning materials
-          </Text>
-        </LinearGradient>
-
-        <View style={[styles.categoryContainer, { backgroundColor: colors.surface }]}>
-          <View style={styles.categoryHeader}>
-            {renderIcon('GraduationCap', colors.accent, 28)}
-            <Text style={[styles.categoryTitle, { color: colors.text }]}>Interactive Tutorials</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <View style={styles.topIconWrap}>
+            <GraduationCap size={18} color={colors.primary} />
           </View>
-          <Text style={[styles.categoryDescription, { color: colors.textSecondary }]}>
-            Deep-dive educational content on UV lighting, fluorescence, and
-            effects technology
-          </Text>
+          <View>
+            <Text style={styles.topTitle}>Resources</Text>
+            <Text style={styles.topSubtitle}>Tutorials, guides & references</Text>
+          </View>
+        </View>
+      </View>
 
-          <View style={styles.tutorialsGrid}>
-            {TUTORIALS.map((tutorial) => (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {appTour && (
+          <TouchableOpacity
+            style={styles.featuredCard}
+            onPress={() => openTutorial(appTour.id)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.featuredTop}>
+              <View style={styles.featuredIconWrap}>
+                {renderIcon(appTour.icon, colors.primary, 22)}
+              </View>
+              <View style={styles.featuredBadge}>
+                <Text style={styles.featuredBadgeText}>START HERE</Text>
+              </View>
+            </View>
+            <Text style={styles.featuredTitle}>{appTour.title}</Text>
+            <Text style={styles.featuredSubtitle}>{appTour.subtitle}</Text>
+            <View style={styles.featuredFooter}>
+              <Text style={styles.featuredMeta}>
+                {appTour.sections.length} steps
+                {appTour.readTime ? ` · ${appTour.readTime}` : ''}
+              </Text>
+              <View style={styles.featuredCta}>
+                <Text style={styles.featuredCtaText}>Begin Tour</Text>
+                <ChevronRight size={14} color="#fff" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {otherTutorials.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Tutorials</Text>
+            {otherTutorials.map(tutorial => (
               <TouchableOpacity
                 key={tutorial.id}
-                style={styles.tutorialCard}
-                onPress={() => handleTutorialPress(tutorial.id)}
+                style={styles.rowCard}
+                onPress={() => openTutorial(tutorial.id)}
                 activeOpacity={0.7}
               >
-                <LinearGradient
-                  colors={[tutorial.color, `${tutorial.color}DD`]}
-                  style={styles.tutorialGradient}
-                >
-                  <View style={styles.tutorialIconContainer}>
-                    {renderIcon(tutorial.icon, '#fff', 28)}
-                  </View>
-                  <Text style={styles.tutorialTitle}>{tutorial.title}</Text>
-                  <Text style={styles.tutorialSubtitle}>
-                    {tutorial.subtitle}
+                <View style={[styles.rowIconWrap, { backgroundColor: tutorial.color + '18' }]}>
+                  {renderIcon(tutorial.icon, tutorial.color, 18)}
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{tutorial.title}</Text>
+                  <Text style={styles.rowSub}>
+                    {tutorial.sections.length} sections
+                    {tutorial.readTime ? ` · ${tutorial.readTime}` : ''}
                   </Text>
-                  <View style={styles.tutorialFooter}>
-                    <Text style={styles.tutorialSections}>
-                      {tutorial.sections.length} sections
-                    </Text>
-                    {renderIcon('ChevronRight', 'rgba(255,255,255,0.7)', 20)}
-                  </View>
-                </LinearGradient>
+                </View>
+                <ChevronRight size={15} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+
+        {WILDFIRE_RESOURCES.map(category => (
+          <View key={category.id}>
+            <Text style={styles.sectionLabel}>{category.title}</Text>
+            {category.items.map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={styles.rowCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  Linking.openURL(item.url).catch(() => {});
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.rowIconWrap, { backgroundColor: category.color + '14' }]}>
+                  {renderIcon(category.icon, category.color, 16)}
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{item.title}</Text>
+                  <Text style={[styles.rowFormat, { color: category.color }]}>
+                    {item.format.toUpperCase()}
+                  </Text>
+                </View>
+                <ExternalLink size={14} color={colors.textTertiary} />
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        ))}
 
-        {WILDFIRE_RESOURCES.map((category) => {
-          const isExpanded = expandedCategory === category.id;
-          return (
-            <View key={category.id} style={[styles.categoryContainer, { backgroundColor: colors.surface }]}>
-              <TouchableOpacity
-                style={styles.categoryHeader}
-                onPress={() => toggleCategory(category.id)}
-                activeOpacity={0.7}
-              >
-                {renderIcon(category.icon, category.color, 28)}
-                <Text style={[styles.categoryTitle, { color: colors.text }]}>{category.title}</Text>
-                <View style={{ flex: 1 }} />
-                {renderIcon(
-                  isExpanded ? 'ChevronUp' : 'ChevronDown',
-                  '#64748b',
-                  24
-                )}
-              </TouchableOpacity>
-
-              {isExpanded && (
-                <View style={styles.itemsContainer}>
-                  {category.items.map((item, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.resourceItem,
-                        { borderLeftColor: category.color, backgroundColor: colors.surfaceSecondary },
-                      ]}
-                      onPress={() => handleResourcePress(item.url)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.resourceContent}>
-                        <Text style={[styles.resourceTitle, { color: colors.text }]}>{item.title}</Text>
-                        <View style={styles.resourceMeta}>
-                          <View
-                            style={[
-                              styles.formatBadge,
-                              {
-                                backgroundColor: `${category.color}22`,
-                                borderColor: `${category.color}66`,
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.formatText,
-                                { color: category.color },
-                              ]}
-                            >
-                              {item.format.toUpperCase()}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                      {renderIcon('ExternalLink', '#64748b', 20)}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-          );
-        })}
-
-        <View style={styles.footer} />
+        <View style={{ height: 48 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-function createDynamicStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    emptyContainer: { flex: 1, backgroundColor: colors.background },
-    emptyContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-    emptyIconWrap: { width: 72, height: 72, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, marginBottom: 18 },
-    emptyTitle: { fontSize: 18, fontWeight: '700' as const, color: colors.text, textAlign: 'center' as const },
-    emptySubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' as const, marginTop: 8, lineHeight: 20 },
+    container: { flex: 1, backgroundColor: colors.background },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    topIconWrap: {
+      width: 38, height: 38, borderRadius: 12,
+      backgroundColor: colors.glow,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    topTitle: { fontSize: 17, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3 },
+    topSubtitle: { fontSize: 12, color: colors.textTertiary, marginTop: 1 },
+    scrollContent: { paddingHorizontal: 16, paddingTop: 4 },
+    featuredCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      padding: 20,
+      marginBottom: 28,
+      borderWidth: 1,
+      borderColor: 'rgba(232, 65, 42, 0.2)',
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.14,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+    featuredTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    },
+    featuredIconWrap: {
+      width: 44, height: 44, borderRadius: 14,
+      backgroundColor: colors.glow,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    featuredBadge: {
+      paddingHorizontal: 8, paddingVertical: 4,
+      borderRadius: 7,
+      backgroundColor: colors.primary,
+    },
+    featuredBadgeText: {
+      fontSize: 10, fontWeight: '800' as const,
+      color: '#fff', letterSpacing: 0.8,
+    },
+    featuredTitle: {
+      fontSize: 20, fontWeight: '800' as const,
+      color: colors.text, letterSpacing: -0.3, marginBottom: 6,
+    },
+    featuredSubtitle: {
+      fontSize: 13, color: colors.textSecondary,
+      lineHeight: 19, marginBottom: 18,
+    },
+    featuredFooter: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    featuredMeta: { fontSize: 12, color: colors.textTertiary, fontWeight: '500' as const },
+    featuredCta: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      paddingHorizontal: 14, paddingVertical: 9,
+      borderRadius: 999, backgroundColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.3, shadowRadius: 8, elevation: 3,
+    },
+    featuredCtaText: { fontSize: 13, fontWeight: '700' as const, color: '#fff' },
+    sectionLabel: {
+      fontSize: 11, fontWeight: '700' as const,
+      color: colors.textTertiary, letterSpacing: 0.9,
+      textTransform: 'uppercase' as const,
+      marginBottom: 10, marginTop: 4,
+    },
+    rowCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: colors.surface,
+      borderRadius: 14, padding: 13,
+      marginBottom: 8,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    rowIconWrap: {
+      width: 38, height: 38, borderRadius: 11,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    rowText: { flex: 1 },
+    rowTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.text, marginBottom: 3 },
+    rowSub: { fontSize: 12, color: colors.textTertiary },
+    rowFormat: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.5 },
   });
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#09090B',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 32,
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 22,
-  },
-  categoryContainer: {
-    marginHorizontal: 16,
-    marginBottom: 24,
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  categoryTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f1f5f9',
-    marginLeft: 12,
-    flex: 1,
-  },
-  categoryDescription: {
-    fontSize: 14,
-    color: '#94a3b8',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  tutorialsGrid: {
-    gap: 12,
-  },
-  tutorialCard: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  tutorialGradient: {
-    padding: 20,
-  },
-  tutorialIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  tutorialTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 6,
-  },
-  tutorialSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.85)',
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  tutorialFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  tutorialSections: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontWeight: '600',
-  },
-  itemsContainer: {
-    marginTop: 8,
-  },
-  resourceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 8,
-    borderLeftWidth: 4,
-  },
-  resourceContent: {
-    flex: 1,
-    marginRight: 12,
-  },
-  resourceTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#e2e8f0',
-    marginBottom: 6,
-  },
-  resourceMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  formatBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  formatText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  footer: {
-    height: 40,
-  },
-});
