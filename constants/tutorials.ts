@@ -64,6 +64,51 @@ export const TUTORIALS: Tutorial[] = [
       {
         title: 'Next Steps',
         content: 'After your first full run, explore Fixtures for hardware details, History for saved results, and Resources for deeper training content.'
+    title: 'Complete App Walkthrough (Demo Ready)',
+    subtitle: 'Step-by-step guide from login to simulation, save, and AI insights',
+    icon: 'BookOpen',
+    color: '#3B82F6',
+    readTime: '12 min',
+    sections: [
+      {
+        title: '1) Quick Demo Goal (What success looks like)',
+        content: 'By the end of this walkthrough you will: (a) sign in, (b) run a full FLAME calculation, (c) open Room Simulation and change surface/view modes, (d) save the result, and (e) generate AI recommendations.\n\nDemo script target: complete this flow in 4-6 minutes with clear visual transitions and no dead ends.'
+      },
+      {
+        title: '2) Start & Authentication (Welcome → Login)',
+        content: 'Open the app and tap Get Started. Use demo credentials if needed. After login, verify you land in the Calculator tab.\n\nPresenter tip: briefly explain that authentication is local/demo-safe for now and production auth can be swapped later.'
+      },
+      {
+        title: '3) FLAME Step F + L (Fixture + Location)',
+        content: 'In Calculator, choose a fixture first. Then enter mounting height and/or horizontal distance.\n\nAnimation checkpoint: step progress bar should animate forward and the CTA glow should appear only after required progress is met.'
+      },
+      {
+        title: '4) FLAME Step A + M + E (Angle, Material, Effect)',
+        content: 'Enter beam width/height target, then pick material and desired effect.\n\nDemo tip: call out that different materials/effects influence recommendations and safety interpretation.'
+      },
+      {
+        title: '5) Calculate & Interpret Results',
+        content: 'Tap Calculate. Review irradiance, beam diameter, throw distance, and safety status.\n\nTalk track: explain "safe / caution / warning / danger" as operational guidance, not just numbers.'
+      },
+      {
+        title: '6) Room Simulation (Top-to-Bottom)',
+        content: 'Enable Room Simulation and set room width/depth/ceiling. Add one or more fixtures, then: \n• Toggle Heatmap\n• Switch view mode (TOP, SIDE, 3D)\n• Tap Floor / Back Wall / Left Wall / Right Wall / Ceiling\n• Drag fixture positions in top view\n\nAnimation checkpoint: transitions and haptics should feel responsive; there should be no stutter or stuck state while switching surfaces/views.'
+      },
+      {
+        title: '7) AI Insight + Save Flow',
+        content: 'Generate AI insight from the latest calculation and summarize practical setup advice. Then save the result with a clear name and optional description/project.\n\nDemo tip: use names like "Venue A - UV Main Stage" so retrieval is obvious in front of customers.'
+      },
+      {
+        title: '8) History, Fixtures, and Resources Tabs',
+        content: 'Open Fixtures to show the model database, then Calculations/History to reload a saved run. Finish in Resources to show technical depth and training materials.\n\nPositioning line: "The app supports both fast field decisions and deeper engineering review."'
+      },
+      {
+        title: '9) Live Presentation Checklist',
+        content: 'Preflight before customer meeting:\n• Device brightness > 70%\n• Correct theme mode for room lighting\n• One saved scenario preloaded\n• Network-independent fallback story prepared\n• Backup fixture choice ready\n\nIf anything fails live: return to Calculator, run a fresh result, open simulation, and narrate the recovery confidently.'
+      },
+      {
+        title: '10) Advanced Demo Variations (Optional)',
+        content: 'If time allows, run two variants: (1) high-intensity focal effect, (2) broad safe wash. Compare irradiance and coverage to show design tradeoffs.\n\nClose by asking: "Do you optimize for max pop, max safety margin, or balanced output?"'
       }
     ]
   },

@@ -4,6 +4,7 @@ import {
   Modal, ScrollView,
 } from 'react-native';
 import { Calculator, History, Lightbulb, CheckCircle, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react-native';
+import { Calculator, History, Lightbulb, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 
@@ -26,6 +27,14 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
         'Follow this once to learn the full app flow',
         'You can reopen learning content in Resources anytime',
         'Use this exact sequence for customer demos',
+      icon: <Calculator size={40} color={colors.primary} />,
+      title: 'Welcome to Wildfire UV',
+      subtitle: 'Professional UV lighting calculations\nat your fingertips.',
+      bullets: [
+        'Calculate beam coverage & irradiance',
+        'Browse 23+ professional fixture database',
+        'Save & compare calculations',
+        'Scan fixture QR codes instantly',
       ],
     },
     {
@@ -58,6 +67,35 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
         'Save each scenario with clear names',
         'Re-open from history during customer reviews',
         'Compare multiple fixture strategies side by side',
+      title: 'Calculator Tab',
+      subtitle: 'Your main workspace.',
+      bullets: [
+        'Select a fixture model or scan QR code',
+        'Enter throw distance (height + offset)',
+        'Tap Calculate for instant results',
+        'Save results to your history',
+      ],
+    },
+    {
+      icon: <History size={40} color={colors.secondary} />,
+      title: 'Calculations Tab',
+      subtitle: 'Your saved results library.',
+      bullets: [
+        'All saved calculations stored here',
+        'Search & filter by fixture or safety level',
+        'Load any result back into the Calculator',
+        'Delete old results you no longer need',
+      ],
+    },
+    {
+      icon: <Lightbulb size={40} color={colors.accent} />,
+      title: 'Fixtures Tab',
+      subtitle: 'Browse the full fixture library.',
+      bullets: [
+        'Browse all Wildfire UV fixtures',
+        'View full photometric specs per fixture',
+        'Live beam coverage preview at 3m throw',
+        'Select any fixture for calculations',
       ],
     },
     {
@@ -68,6 +106,14 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
         'Open with Calculator result',
         'Show Room Simulation transitions and controls',
         'Close with saved scenario + AI insight recommendation',
+      title: 'The FLAME Formula',
+      subtitle: 'Professional UV design in 5 steps.',
+      bullets: [
+        'F — Fixture: choose the right UV fixture',
+        'L — Location: set throw height & distance',
+        'A — Angle: match beam to target area',
+        'M — Material: UV surfaces peak at 365-370nm',
+        'E — Effect: verify irradiance with Calculator',
       ],
     },
   ], [colors]);
@@ -111,6 +157,7 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={page === 0 ? 'Skip tutorial' : 'Previous tutorial step'}
+              accessibilityLabel={page === 0 ? 'Skip onboarding' : 'Previous onboarding step'}
             >
               {page === 0 ? (
                 <Text style={styles.navBtnOutlineText}>Skip</Text>
@@ -128,6 +175,7 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={isLast ? 'Finish tutorial' : 'Next tutorial step'}
+              accessibilityLabel={isLast ? 'Finish onboarding' : 'Next onboarding step'}
             >
               <Text style={styles.navBtnPrimaryText}>{isLast ? 'Start Using App' : 'Next'}</Text>
               {!isLast && <ChevronRight size={16} color="#fff" />}
