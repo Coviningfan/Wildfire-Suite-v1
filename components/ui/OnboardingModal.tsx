@@ -1,10 +1,21 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  Modal, ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
 } from 'react-native';
-import { Calculator, History, Lightbulb, CheckCircle, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react-native';
-import { Calculator, History, Lightbulb, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react-native';
+import {
+  Calculator,
+  History,
+  Lightbulb,
+  CheckCircle,
+  ChevronRight,
+  ChevronLeft,
+  Sparkles,
+} from 'lucide-react-native';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 
@@ -13,28 +24,27 @@ interface Props {
   onDismiss: () => void;
 }
 
+interface OnboardingSlide {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  bullets: string[];
+}
+
 export function OnboardingModal({ visible, onDismiss }: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [page, setPage] = useState<number>(0);
 
-  const slides = useMemo(() => [
+  const slides = useMemo<OnboardingSlide[]>(() => [
     {
       icon: <Sparkles size={40} color={colors.primary} />,
       title: 'Welcome to Wildfire Suite',
       subtitle: 'A quick hands-on tutorial to run your first UV design in minutes.',
       bullets: [
         'Follow this once to learn the full app flow',
-        'You can reopen learning content in Resources anytime',
-        'Use this exact sequence for customer demos',
-      icon: <Calculator size={40} color={colors.primary} />,
-      title: 'Welcome to Wildfire UV',
-      subtitle: 'Professional UV lighting calculations\nat your fingertips.',
-      bullets: [
-        'Calculate beam coverage & irradiance',
-        'Browse 23+ professional fixture database',
-        'Save & compare calculations',
-        'Scan fixture QR codes instantly',
+        'Reopen learning content in Resources anytime',
+        'Use this sequence for customer demos',
       ],
     },
     {
@@ -67,35 +77,6 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
         'Save each scenario with clear names',
         'Re-open from history during customer reviews',
         'Compare multiple fixture strategies side by side',
-      title: 'Calculator Tab',
-      subtitle: 'Your main workspace.',
-      bullets: [
-        'Select a fixture model or scan QR code',
-        'Enter throw distance (height + offset)',
-        'Tap Calculate for instant results',
-        'Save results to your history',
-      ],
-    },
-    {
-      icon: <History size={40} color={colors.secondary} />,
-      title: 'Calculations Tab',
-      subtitle: 'Your saved results library.',
-      bullets: [
-        'All saved calculations stored here',
-        'Search & filter by fixture or safety level',
-        'Load any result back into the Calculator',
-        'Delete old results you no longer need',
-      ],
-    },
-    {
-      icon: <Lightbulb size={40} color={colors.accent} />,
-      title: 'Fixtures Tab',
-      subtitle: 'Browse the full fixture library.',
-      bullets: [
-        'Browse all Wildfire UV fixtures',
-        'View full photometric specs per fixture',
-        'Live beam coverage preview at 3m throw',
-        'Select any fixture for calculations',
       ],
     },
     {
@@ -103,61 +84,74 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
       title: 'Step 4 · Present with Confidence',
       subtitle: 'Your repeatable customer demo flow is now ready.',
       bullets: [
-        'Open with Calculator result',
+        'Open with a Calculator result',
         'Show Room Simulation transitions and controls',
         'Close with saved scenario + AI insight recommendation',
-      title: 'The FLAME Formula',
-      subtitle: 'Professional UV design in 5 steps.',
-      bullets: [
-        'F — Fixture: choose the right UV fixture',
-        'L — Location: set throw height & distance',
-        'A — Angle: match beam to target area',
-        'M — Material: UV surfaces peak at 365-370nm',
-        'E — Effect: verify irradiance with Calculator',
       ],
     },
   ], [colors]);
 
-  const slide = slides[page];
+  const slide = slides[page] ?? slides[0];
   const isLast = page === slides.length - 1;
 
+  useEffect(() => {
+    console.log('[OnboardingModal] visible:', visible, 'page:', page);
+  }, [visible, page]);
+
   const handleClose = useCallback(() => {
+    console.log('[OnboardingModal] closing modal and resetting page');
     setPage(0);
     onDismiss();
   }, [onDismiss]);
 
+  const handleBack = useCallback(() => {
+    if (page === 0) {
+      handleClose();
+      return;
+    }
+    setPage((prev) => Math.max(0, prev - 1));
+  }, [handleClose, page]);
+
+  const handleNext = useCallback(() => {
+    if (isLast) {
+      handleClose();
+      return;
+    }
+    setPage((prev) => Math.min(slides.length - 1, prev + 1));
+  }, [handleClose, isLast, slides.length]);
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.dots}>
+      <View style={styles.overlay} testID="onboarding-modal-overlay">
+        <View style={styles.sheet} testID="onboarding-modal-sheet">
+          <View style={styles.dots} testID="onboarding-progress-dots">
             {slides.map((_, i) => (
-              <View key={i} style={[styles.dot, i === page && styles.dotActive]} />
+              <View key={i} style={[styles.dot, i === page && styles.dotActive]} testID={`onboarding-dot-${i}`} />
             ))}
           </View>
 
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <View style={styles.iconWrap}>{slide.icon}</View>
-            <Text style={styles.title}>{slide.title}</Text>
-            <Text style={styles.subtitle}>{slide.subtitle}</Text>
-            <View style={styles.bullets}>
-              {slide.bullets.map((b, i) => (
-                <View key={i} style={styles.bulletRow}>
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} testID="onboarding-content-scroll">
+            <View style={styles.iconWrap} testID="onboarding-slide-icon">{slide.icon}</View>
+            <Text style={styles.title} testID="onboarding-slide-title">{slide.title}</Text>
+            <Text style={styles.subtitle} testID="onboarding-slide-subtitle">{slide.subtitle}</Text>
+            <View style={styles.bullets} testID="onboarding-slide-bullets">
+              {slide.bullets.map((bullet, i) => (
+                <View key={i} style={styles.bulletRow} testID={`onboarding-bullet-row-${i}`}>
                   <View style={styles.bulletDot} />
-                  <Text style={styles.bullet}>{b}</Text>
+                  <Text style={styles.bullet}>{bullet}</Text>
                 </View>
               ))}
             </View>
           </ScrollView>
 
-          <View style={styles.navRow}>
+          <View style={styles.navRow} testID="onboarding-nav-row">
             <TouchableOpacity
               style={[styles.navBtn, styles.navBtnOutline]}
-              onPress={page === 0 ? handleClose : () => setPage((p) => p - 1)}
+              onPress={handleBack}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={page === 0 ? 'Skip tutorial' : 'Previous tutorial step'}
               accessibilityLabel={page === 0 ? 'Skip onboarding' : 'Previous onboarding step'}
+              testID="onboarding-back-button"
             >
               {page === 0 ? (
                 <Text style={styles.navBtnOutlineText}>Skip</Text>
@@ -171,17 +165,17 @@ export function OnboardingModal({ visible, onDismiss }: Props) {
 
             <TouchableOpacity
               style={[styles.navBtn, styles.navBtnPrimary]}
-              onPress={isLast ? handleClose : () => setPage((p) => p + 1)}
+              onPress={handleNext}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel={isLast ? 'Finish tutorial' : 'Next tutorial step'}
               accessibilityLabel={isLast ? 'Finish onboarding' : 'Next onboarding step'}
+              testID="onboarding-next-button"
             >
               <Text style={styles.navBtnPrimaryText}>{isLast ? 'Start Using App' : 'Next'}</Text>
               {!isLast && <ChevronRight size={16} color="#fff" />}
             </TouchableOpacity>
           </View>
-          <View style={{ height: 24 }} />
+          <View style={styles.bottomSpacer} />
         </View>
       </View>
     </Modal>
@@ -283,5 +277,6 @@ function createStyles(colors: ThemeColors) {
       elevation: 4,
     },
     navBtnPrimaryText: { fontSize: 15, fontWeight: '600' as const, color: '#fff' },
+    bottomSpacer: { height: 24 },
   });
 }
