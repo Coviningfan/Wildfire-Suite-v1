@@ -37,7 +37,9 @@ interface InputProps {
   inputStyle?: TextStyle;
   showPasswordToggle?: boolean;
   testID?: string;
+  accessibilityLabel?: string;
 }
+
 
 export const Input = forwardRef<TextInput, InputProps>(({
   label,
@@ -62,6 +64,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
   inputStyle,
   showPasswordToggle = false,
   testID,
+  accessibilityLabel,
 }, ref) => {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -135,6 +138,7 @@ export const Input = forwardRef<TextInput, InputProps>(({
           returnKeyType="done"
           blurOnSubmit={!multiline}
           testID={testID}
+          accessibilityLabel={accessibilityLabel ?? label ?? placeholder ?? 'Input field'}
         />
 
         {unit ? (
@@ -147,6 +151,8 @@ export const Input = forwardRef<TextInput, InputProps>(({
           <TouchableOpacity
             style={styles.passwordToggle}
             onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+            accessibilityRole="button"
+            accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
           >
             {isPasswordVisible ? (
               <EyeOff size={20} color={colors.textSecondary} />
