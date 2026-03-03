@@ -24,7 +24,9 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   testID?: string;
+  accessibilityLabel?: string;
 }
+
 
 export function Button({
   title,
@@ -38,6 +40,7 @@ export function Button({
   style,
   textStyle,
   testID,
+  accessibilityLabel,
 }: ButtonProps) {
   const colors = useThemeColors();
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -62,9 +65,10 @@ export function Button({
   }, [scaleAnim]);
 
   const handlePress = useCallback(() => {
+    if (isDisabled) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
-  }, [onPress]);
+  }, [onPress, isDisabled]);
 
   const variantStyle = useMemo((): ViewStyle => {
     switch (variant) {
@@ -137,6 +141,9 @@ export function Button({
         disabled={isDisabled}
         activeOpacity={0.85}
         testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? title}
+        accessibilityState={{ disabled: isDisabled, busy: loading }}
       >
         {loading ? (
           <ActivityIndicator size="small" color={variant === 'outline' ? colors.text : '#FFFFFF'} />
