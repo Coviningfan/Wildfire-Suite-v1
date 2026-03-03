@@ -64,6 +64,11 @@ export const TUTORIALS: Tutorial[] = [
       {
         title: 'Next Steps',
         content: 'After your first full run, explore Fixtures for hardware details, History for saved results, and Resources for deeper training content.'
+      }
+    ]
+  },
+  {
+    id: 'complete-app-walkthrough',
     title: 'Complete App Walkthrough (Demo Ready)',
     subtitle: 'Step-by-step guide from login to simulation, save, and AI insights',
     icon: 'BookOpen',
