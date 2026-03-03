@@ -7,7 +7,6 @@ import { LightingCalculator } from '@/utils/lighting-calculator';
 import { Input } from '@/components/ui/Input';
 import { Picker } from '@/components/ui/Picker';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
-import { OnboardingModal } from '@/components/ui/OnboardingModal';
 import { CalculationPreview } from '@/components/CalculationPreview';
 import { QRScanner } from '@/components/QRScanner';
 import { SaveCalculationModal } from '@/components/SaveCalculationModal';
@@ -16,7 +15,6 @@ import { RoomSimulation } from '@/components/RoomSimulation';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFirstLaunch } from '@/hooks/useFirstLaunch';
 import { generateText } from '@rork-ai/toolkit-sdk';
 import { useSettingsStore, convertDistance, convertArea, distanceUnit, areaUnit } from '@/stores/settings-store';
 import { CalculationResponse } from '@/types/lighting';
@@ -98,7 +96,6 @@ export default function CalculatorScreen() {
   const aUnit = areaUnit(unitSystem);
 
   const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
-  const [isFirstLaunch, markSeen] = useFirstLaunch();
   const [showVolume, setShowVolume] = useState<boolean>(false);
   const [material, setMaterial] = useState<string>('');
   const [effect, setEffect] = useState<string>('');
@@ -164,16 +161,24 @@ export default function CalculatorScreen() {
   }, [progressWidth, progressAnim]);
 
   useEffect(() => {
+    let glowLoop: Animated.CompositeAnimation | null = null;
+
     if (selectedFixture && filledCount >= 2) {
-      Animated.loop(
+      glowLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(calcBtnGlow, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
           Animated.timing(calcBtnGlow, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
         ])
-      ).start();
+      );
+      glowLoop.start();
     } else {
+      calcBtnGlow.stopAnimation();
       calcBtnGlow.setValue(0);
     }
+
+    return () => {
+      glowLoop?.stop();
+    };
   }, [selectedFixture, filledCount, calcBtnGlow]);
 
   useEffect(() => {
@@ -360,8 +365,6 @@ Give a quick practical insight about this setup - is the throw distance optimal,
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <OnboardingModal visible={isFirstLaunch} onDismiss={markSeen} />
-
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
           <View style={styles.flameIconWrap}>

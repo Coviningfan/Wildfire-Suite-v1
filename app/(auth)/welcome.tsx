@@ -39,14 +39,19 @@ export default function WelcomeScreen() {
       ]),
     ]).start();
 
-    Animated.loop(
+    const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(glowPulse, { toValue: 0.7, duration: 2000, useNativeDriver: true }),
         Animated.timing(glowPulse, { toValue: 0.4, duration: 2000, useNativeDriver: true }),
       ])
-    ).start();
+    );
+    pulseLoop.start();
 
     checkApple();
+
+    return () => {
+      pulseLoop.stop();
+    };
   }, []);
 
   const checkApple = async () => {

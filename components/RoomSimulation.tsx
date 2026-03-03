@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder, Platform } from 'react-native';
 import Svg, { Rect, Ellipse, Line, Defs, RadialGradient, Stop, G, Circle, Text as SvgText } from 'react-native-svg';
-import { Eye, Layers, RefreshCw, Target } from 'lucide-react-native';
+import { Eye, Layers, RefreshCw, Target, LayoutGrid } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
@@ -113,14 +113,14 @@ const RoomSimulation = React.memo(
     const styles = useMemo(() => createStyles(colors), [colors]);
     const calc = useMemo(() => new LightingCalculator(), []);
 
-    const [viewMode, setViewMode] = useState<'top' | 'side'>('top');
+    const [viewMode, setViewMode] = useState<'top' | 'side' | 'iso'>('top');
     const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('floor');
     const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
     const [selectedFixtureInternal, setSelectedFixtureInternal] = useState<string | null>(null);
     const [fixturePositions, setFixturePositions] = useState<Record<string, { x: number; z: number }>>({});
 
     const svgWidth = SCREEN_WIDTH - 32;
-    const svgHeight = viewMode === 'top' ? svgWidth * 0.8 : svgWidth * 0.6;
+    const svgHeight = viewMode === 'top' ? svgWidth * 0.8 : (viewMode === 'iso' ? svgWidth * 0.72 : svgWidth * 0.6);
     const drawWidth = svgWidth - SVG_PADDING * 2;
     const drawHeight = svgHeight - SVG_PADDING * 2;
 
@@ -293,7 +293,11 @@ const RoomSimulation = React.memo(
 
     const toggleView = useCallback(() => {
       Haptics.selectionAsync();
-      setViewMode((previous) => (previous === 'top' ? 'side' : 'top'));
+      setViewMode((previous) => {
+        if (previous === 'top') return 'side';
+        if (previous === 'side') return 'iso';
+        return 'top';
+      });
     }, []);
 
     const toggleHeatmap = useCallback(() => {
@@ -305,6 +309,65 @@ const RoomSimulation = React.memo(
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setFixturePositions({});
     }, []);
+
+    const handleSurfaceModeChange = useCallback((mode: SurfaceMode) => {
+      Haptics.selectionAsync();
+      setSurfaceMode(mode);
+      if (viewMode !== 'top') {
+        setViewMode('top');
+      }
+    }, [viewMode]);
+
+
+    const applyAutoLayout = useCallback((mode: 'line' | 'grid' | 'perimeter') => {
+      if (!fixtures.length || roomWidth <= 0 || roomDepth <= 0) return;
+
+      const nextPositions: Record<string, { x: number; z: number }> = {};
+      const clampPos = (x: number, z: number) => ({
+        x: Math.max(0.2, Math.min(x, roomWidth - 0.2)),
+        z: Math.max(0.2, Math.min(z, roomDepth - 0.2)),
+      });
+
+      if (mode === 'line') {
+        const spacing = roomWidth / (fixtures.length + 1);
+        fixtures.forEach((fixture, index) => {
+          nextPositions[fixture.id] = clampPos(spacing * (index + 1), roomDepth / 2);
+        });
+      } else if (mode === 'grid') {
+        const cols = Math.max(1, Math.ceil(Math.sqrt(fixtures.length)));
+        const rows = Math.max(1, Math.ceil(fixtures.length / cols));
+        fixtures.forEach((fixture, index) => {
+          const col = index % cols;
+          const row = Math.floor(index / cols);
+          const x = ((col + 1) / (cols + 1)) * roomWidth;
+          const z = ((row + 1) / (rows + 1)) * roomDepth;
+          nextPositions[fixture.id] = clampPos(x, z);
+        });
+      } else {
+        const cx = roomWidth / 2;
+        const cz = roomDepth / 2;
+        const rx = Math.max(roomWidth * 0.42, 0.6);
+        const rz = Math.max(roomDepth * 0.42, 0.6);
+        fixtures.forEach((fixture, index) => {
+          const angle = (index / Math.max(fixtures.length, 1)) * Math.PI * 2;
+          const x = cx + Math.cos(angle) * rx;
+          const z = cz + Math.sin(angle) * rz;
+          nextPositions[fixture.id] = clampPos(x, z);
+        });
+      }
+
+      setFixturePositions((previous) => ({ ...previous, ...nextPositions }));
+
+      if (onPositionsChange) {
+        const updatedFixtures = fixtures.map((fixture) => {
+          const next = nextPositions[fixture.id];
+          return next ? { ...fixture, xPos: next.x, zPos: next.z } : fixture;
+        });
+        onPositionsChange(updatedFixtures);
+      }
+
+      Haptics.selectionAsync();
+    }, [fixtures, roomDepth, roomWidth, onPositionsChange]);
 
     const hasData = beamData.length > 0 && roomWidth > 0 && roomDepth > 0;
 
@@ -335,106 +398,128 @@ const RoomSimulation = React.memo(
 
     const activeSelectionId = selectedFixtureId ?? selectedFixtureInternal;
 
-    const renderTopView = () => (
-      <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
-        <Defs>
-          {beamData.map((beam, index) => (
-            <RadialGradient key={`grad-${beam.id}`} id={`beam-grad-${index}`} cx="50%" cy="50%" rx="50%" ry="50%">
-              <Stop offset="0%" stopColor={beam.color} stopOpacity="0.55" />
-              <Stop offset="45%" stopColor={beam.color} stopOpacity="0.28" />
-              <Stop offset="80%" stopColor={beam.color} stopOpacity="0.08" />
-              <Stop offset="100%" stopColor={beam.color} stopOpacity="0" />
-            </RadialGradient>
-          ))}
-        </Defs>
+    const renderTopView = () => {
+      const isHorizontalSurface = surfaceMode === 'floor' || surfaceMode === 'ceiling';
+      const isSideWall = surfaceMode === 'leftWall' || surfaceMode === 'rightWall';
+      const spanX = isHorizontalSurface ? roomWidth : (isSideWall ? roomDepth : roomWidth);
+      const spanY = isHorizontalSurface ? roomDepth : roomHeight;
 
-        <Rect x={SVG_PADDING} y={SVG_PADDING} width={drawWidth} height={drawHeight} fill={colors.surfaceSecondary} stroke={colors.border} strokeWidth={2} rx={6} />
+      const projectSurfacePoint = (point: { x: number; y: number; z: number }) => {
+        const worldSurfaceX = isHorizontalSurface ? point.x : (isSideWall ? point.z : point.x);
+        const worldSurfaceY = isHorizontalSurface ? point.z : point.y;
 
-        {[0.25, 0.5, 0.75].map((fraction) => (
-          <G key={`grid-${fraction}`}>
-            <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * fraction} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * fraction} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
-            <Line x1={SVG_PADDING + drawWidth * fraction} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * fraction} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+        return {
+          x: SVG_PADDING + (worldSurfaceX / spanX) * drawWidth,
+          y: SVG_PADDING + ((spanY - worldSurfaceY) / spanY) * drawHeight,
+        };
+      };
+
+      const heatmapRects = showHeatmap ? heatmapData.map((cell, index) => {
+        const center = projectSurfacePoint(cell);
+        const cellWidth = drawWidth / GRID_SIZE;
+        const cellHeight = drawHeight / GRID_SIZE;
+
+        return (
+          <Rect
+            key={`heat-${index}`}
+            x={center.x - cellWidth / 2}
+            y={center.y - cellHeight / 2}
+            width={cellWidth}
+            height={cellHeight}
+            fill={getSafetyColor(cell.totalIrr)}
+            opacity={Math.min(0.65, cell.totalIrr / 35000)}
+          />
+        );
+      }) : null;
+
+      const beamEllipses = beamData.map((beam, index) => {
+        const sourcePoint = {
+          x: beam.xPos,
+          z: beam.zPos,
+          y: isHorizontalSurface
+            ? (surfaceMode === 'ceiling' ? roomHeight : 0)
+            : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
+        };
+        const center = projectSurfacePoint(sourcePoint);
+        const beamWidthWorld = isSideWall ? beam.beamDiamV : beam.beamDiamH;
+        const beamHeightWorld = isHorizontalSurface ? beam.beamDiamV : Math.min(roomHeight, Math.max(0.8, beam.beamDiamV));
+        const radiusX = Math.max((beamWidthWorld / spanX) * drawWidth / 2, 8);
+        const radiusY = Math.max((beamHeightWorld / spanY) * drawHeight / 2, 8);
+        const isSelected = activeSelectionId === beam.id;
+
+        return (
+          <G key={`beam-${beam.id}`}>
+            <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.82 : 0.5} />
+            <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
           </G>
-        ))}
+        );
+      });
 
-        {showHeatmap && heatmapData.map((cell, index) => {
-          if (surfaceMode !== 'floor' && surfaceMode !== 'ceiling') {
-            // For walls we project X/Y into the rectangle
-            const projX = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? cell.z : cell.x;
-            const projY = cell.y;
-            const svgX = SVG_PADDING + (projX / roomDepth) * drawWidth;
-            const svgY = SVG_PADDING + ((roomHeight - projY) / roomHeight) * drawHeight;
-            const sizeX = drawWidth / GRID_SIZE;
-            const sizeY = drawHeight / GRID_SIZE;
-            return (
-              <Rect
-                key={`heat-${index}`}
-                x={svgX - sizeX / 2}
-                y={svgY - sizeY / 2}
-                width={sizeX}
-                height={sizeY}
-                fill={getSafetyColor(cell.totalIrr)}
-                opacity={Math.min(0.65, cell.totalIrr / 35000)}
-              />
-            );
-          }
+      const fixtureMarkers = beamData.map((beam) => {
+        const center = projectSurfacePoint({
+          x: beam.xPos,
+          z: beam.zPos,
+          y: isHorizontalSurface
+            ? (surfaceMode === 'ceiling' ? roomHeight : 0)
+            : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
+        });
+        const panResponder = createPanResponder(beam.id);
+        const panHandlers = Platform.OS === 'web' || !isHorizontalSurface ? {} : panResponder.panHandlers;
+        const isSelected = activeSelectionId === beam.id;
 
-          const svgX = toSvgX(cell.x) - drawWidth / GRID_SIZE / 2;
-          const svgY = toSvgZ(cell.z) - drawHeight / GRID_SIZE / 2;
-          const size = drawWidth / GRID_SIZE;
-          return (
-            <Rect
-              key={`heat-${index}`}
-              x={svgX}
-              y={svgY}
-              width={size}
-              height={size}
-              fill={getSafetyColor(cell.totalIrr)}
-              opacity={Math.min(0.65, cell.totalIrr / 35000)}
-            />
-          );
-        })}
+        return (
+          <G key={`fixture-${beam.id}`} {...panHandlers}>
+            <Circle cx={center.x} cy={center.y} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
+            <Circle cx={center.x} cy={center.y} r={4} fill={beam.color} />
+            <SvgText x={center.x} y={center.y - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
+              {beam.model}
+            </SvgText>
+          </G>
+        );
+      });
 
-        {beamData.map((beam, index) => {
-          const centerX = toSvgX(beam.xPos);
-          const centerZ = toSvgZ(beam.zPos);
-          const radiusX = Math.max(scaleX(beam.beamDiamH / 2), 8);
-          const radiusY = Math.max((beam.beamDiamV / roomDepth) * drawHeight / 2, 8);
-          const isSelected = activeSelectionId === beam.id;
+      return (
+        <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+          <Defs>
+            {beamData.map((beam, index) => (
+              <RadialGradient key={`grad-${beam.id}`} id={`beam-grad-${index}`} cx="50%" cy="50%" rx="50%" ry="50%">
+                <Stop offset="0%" stopColor={beam.color} stopOpacity="0.55" />
+                <Stop offset="45%" stopColor={beam.color} stopOpacity="0.28" />
+                <Stop offset="80%" stopColor={beam.color} stopOpacity="0.08" />
+                <Stop offset="100%" stopColor={beam.color} stopOpacity="0" />
+              </RadialGradient>
+            ))}
+          </Defs>
 
-          return (
-            <G key={`beam-${beam.id}`}>
-              <Ellipse cx={centerX} cy={centerZ} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.8 : 0.5} />
-              <Ellipse cx={centerX} cy={centerZ} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
+          <Rect x={SVG_PADDING} y={SVG_PADDING} width={drawWidth} height={drawHeight} fill={colors.surfaceSecondary} stroke={colors.border} strokeWidth={2} rx={6} />
+
+          {[0.25, 0.5, 0.75].map((fraction) => (
+            <G key={`grid-${fraction}`}>
+              <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * fraction} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * fraction} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+              <Line x1={SVG_PADDING + drawWidth * fraction} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * fraction} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
             </G>
-          );
-        })}
+          ))}
 
-        {beamData.map((beam) => {
-          const centerX = toSvgX(beam.xPos);
-          const centerZ = toSvgZ(beam.zPos);
-          const panResponder = createPanResponder(beam.id);
-          const panHandlers = Platform.OS === 'web' ? {} : panResponder.panHandlers;
-          const isSelected = activeSelectionId === beam.id;
+          {heatmapRects}
 
-          return (
-            <G key={`fixture-${beam.id}`} {...panHandlers}>
-              <Circle cx={centerX} cy={centerZ} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
-              <Circle cx={centerX} cy={centerZ} r={4} fill={beam.color} />
-              <SvgText x={centerX} y={centerZ - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
-                {beam.model}
-              </SvgText>
-            </G>
-          );
-        })}
+          {beamEllipses}
 
-        <SvgText x={svgWidth / 2} y={svgHeight - 4} textAnchor="middle" fontSize="9" fill={colors.textTertiary}>
-          {surfaceMode === 'floor' || surfaceMode === 'ceiling'
-            ? `${roomWidth.toFixed(1)} × ${roomDepth.toFixed(1)} ${unitLabel}`
-            : `${roomHeight.toFixed(1)} ${unitLabel} height`}
-        </SvgText>
-      </Svg>
-    );
+          {fixtureMarkers}
+
+          {!isHorizontalSurface && (
+            <SvgText x={SVG_PADDING + 8} y={SVG_PADDING + 14} fontSize="9" fontWeight="700" fill={colors.textSecondary}>
+              Elevation View ({surfaceMode === 'backWall' ? 'Back Wall' : surfaceMode === 'leftWall' ? 'Left Wall' : 'Right Wall'})
+            </SvgText>
+          )}
+
+          <SvgText x={svgWidth / 2} y={svgHeight - 4} textAnchor="middle" fontSize="9" fill={colors.textTertiary}>
+            {isHorizontalSurface
+              ? `${roomWidth.toFixed(1)} × ${roomDepth.toFixed(1)} ${unitLabel}`
+              : `${spanX.toFixed(1)} ${unitLabel} width × ${roomHeight.toFixed(1)} ${unitLabel} height`}
+          </SvgText>
+        </Svg>
+      );
+    };
 
     const renderSideView = () => (
       <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
@@ -481,6 +566,82 @@ const RoomSimulation = React.memo(
       </Svg>
     );
 
+
+    const renderIsometricView = () => {
+      const projectIso = (x: number, y: number, z: number) => {
+        const nx = roomWidth > 0 ? x / roomWidth : 0;
+        const ny = roomHeight > 0 ? y / roomHeight : 0;
+        const nz = roomDepth > 0 ? z / roomDepth : 0;
+        const isoX = (nx - nz) * 0.5;
+        const isoY = (nx + nz) * 0.28 - ny * 0.7;
+
+        return {
+          x: SVG_PADDING + drawWidth * (0.5 + isoX),
+          y: SVG_PADDING + drawHeight * (0.78 + isoY),
+        };
+      };
+
+      const corners = {
+        floorFrontLeft: projectIso(0, 0, roomDepth),
+        floorFrontRight: projectIso(roomWidth, 0, roomDepth),
+        floorBackLeft: projectIso(0, 0, 0),
+        floorBackRight: projectIso(roomWidth, 0, 0),
+        ceilFrontLeft: projectIso(0, roomHeight, roomDepth),
+        ceilFrontRight: projectIso(roomWidth, roomHeight, roomDepth),
+        ceilBackLeft: projectIso(0, roomHeight, 0),
+        ceilBackRight: projectIso(roomWidth, roomHeight, 0),
+      };
+
+      return (
+        <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+          <Rect x={SVG_PADDING} y={SVG_PADDING} width={drawWidth} height={drawHeight} fill={colors.surfaceSecondary} rx={8} />
+
+          <G opacity={0.9}>
+            <Line x1={corners.floorFrontLeft.x} y1={corners.floorFrontLeft.y} x2={corners.floorFrontRight.x} y2={corners.floorFrontRight.y} stroke={colors.border} strokeWidth={1.3} />
+            <Line x1={corners.floorFrontRight.x} y1={corners.floorFrontRight.y} x2={corners.floorBackRight.x} y2={corners.floorBackRight.y} stroke={colors.border} strokeWidth={1.3} />
+            <Line x1={corners.floorBackRight.x} y1={corners.floorBackRight.y} x2={corners.floorBackLeft.x} y2={corners.floorBackLeft.y} stroke={colors.border} strokeWidth={1.3} />
+            <Line x1={corners.floorBackLeft.x} y1={corners.floorBackLeft.y} x2={corners.floorFrontLeft.x} y2={corners.floorFrontLeft.y} stroke={colors.border} strokeWidth={1.3} />
+
+            <Line x1={corners.ceilFrontLeft.x} y1={corners.ceilFrontLeft.y} x2={corners.ceilFrontRight.x} y2={corners.ceilFrontRight.y} stroke={colors.border} strokeWidth={1} opacity={0.8} />
+            <Line x1={corners.ceilFrontRight.x} y1={corners.ceilFrontRight.y} x2={corners.ceilBackRight.x} y2={corners.ceilBackRight.y} stroke={colors.border} strokeWidth={1} opacity={0.8} />
+            <Line x1={corners.ceilBackRight.x} y1={corners.ceilBackRight.y} x2={corners.ceilBackLeft.x} y2={corners.ceilBackLeft.y} stroke={colors.border} strokeWidth={1} opacity={0.8} />
+            <Line x1={corners.ceilBackLeft.x} y1={corners.ceilBackLeft.y} x2={corners.ceilFrontLeft.x} y2={corners.ceilFrontLeft.y} stroke={colors.border} strokeWidth={1} opacity={0.8} />
+
+            <Line x1={corners.floorFrontLeft.x} y1={corners.floorFrontLeft.y} x2={corners.ceilFrontLeft.x} y2={corners.ceilFrontLeft.y} stroke={colors.border} strokeWidth={1} opacity={0.7} />
+            <Line x1={corners.floorFrontRight.x} y1={corners.floorFrontRight.y} x2={corners.ceilFrontRight.x} y2={corners.ceilFrontRight.y} stroke={colors.border} strokeWidth={1} opacity={0.7} />
+            <Line x1={corners.floorBackLeft.x} y1={corners.floorBackLeft.y} x2={corners.ceilBackLeft.x} y2={corners.ceilBackLeft.y} stroke={colors.border} strokeWidth={1} opacity={0.7} />
+            <Line x1={corners.floorBackRight.x} y1={corners.floorBackRight.y} x2={corners.ceilBackRight.x} y2={corners.ceilBackRight.y} stroke={colors.border} strokeWidth={1} opacity={0.7} />
+          </G>
+
+          {beamData.map((beam, index) => {
+            const fixture = projectIso(beam.xPos, Math.min(roomHeight, beam.verticalHeight), beam.zPos);
+            const floorCenter = projectIso(beam.xPos, 0, beam.zPos);
+            const footprintX = Math.max((beam.beamDiamH / Math.max(roomWidth, 0.1)) * drawWidth * 0.25, 6);
+            const footprintY = Math.max((beam.beamDiamV / Math.max(roomDepth, 0.1)) * drawHeight * 0.12, 5);
+            const isSelected = activeSelectionId === beam.id;
+
+            return (
+              <G key={`iso-${beam.id}`}>
+                <Line x1={fixture.x} y1={fixture.y} x2={floorCenter.x} y2={floorCenter.y} stroke={beam.color} strokeDasharray="4,3" strokeWidth={1.2} opacity={0.55} />
+                <Ellipse cx={floorCenter.x} cy={floorCenter.y} rx={footprintX} ry={footprintY} fill={beam.color} opacity={isSelected ? 0.3 : 0.16} />
+                <Circle cx={fixture.x} cy={fixture.y} r={isSelected ? 5.5 : 4.2} fill={colors.surface} stroke={beam.color} strokeWidth={2} />
+                <Circle cx={fixture.x} cy={fixture.y} r={2} fill={beam.color} />
+                {index < 3 && (
+                  <SvgText x={fixture.x + 7} y={fixture.y - 6} fontSize="8" fill={colors.textSecondary}>
+                    {beam.model}
+                  </SvgText>
+                )}
+              </G>
+            );
+          })}
+
+          <SvgText x={SVG_PADDING + 8} y={SVG_PADDING + 14} fontSize="9" fontWeight="700" fill={colors.textSecondary}>
+            3D Overview · {surfaceMode === 'floor' ? 'Floor Focus' : surfaceMode === 'ceiling' ? 'Ceiling Focus' : 'Wall Focus'}
+          </SvgText>
+        </Svg>
+      );
+    };
+
     const peopleReadouts = useMemo(() => {
       if (!people.length || !beamData.length) return [] as { id: string; label: string; irr: number; dose: number; level: string }[];
       return people.map((p) => {
@@ -519,7 +680,7 @@ const RoomSimulation = React.memo(
             </TouchableOpacity>
             <TouchableOpacity testID="toggle-view-button" style={styles.viewToggle} onPress={toggleView}>
               <Eye size={13} color={colors.primary} />
-              <Text style={styles.viewToggleText}>{viewMode === 'top' ? 'TOP' : 'SIDE'}</Text>
+              <Text style={styles.viewToggleText}>{viewMode === 'top' ? 'TOP' : (viewMode === 'side' ? 'SIDE' : '3D')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -539,13 +700,31 @@ const RoomSimulation = React.memo(
               <TouchableOpacity
                 key={tab.id}
                 style={[styles.surfaceTab, active && styles.surfaceTabActive]}
-                onPress={() => setSurfaceMode(tab.id)}
+                onPress={() => handleSurfaceModeChange(tab.id)}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.surfaceTabText, active && styles.surfaceTabTextActive]}>{tab.label}</Text>
               </TouchableOpacity>
             );
           })}
+        </View>
+
+        <View style={styles.layoutRow}>
+          <View style={styles.layoutTitleWrap}>
+            <LayoutGrid size={14} color={colors.textTertiary} />
+            <Text style={styles.layoutTitle}>Auto Layout</Text>
+          </View>
+          <View style={styles.layoutButtons}>
+            <TouchableOpacity style={styles.layoutBtn} onPress={() => applyAutoLayout('line')} activeOpacity={0.7}>
+              <Text style={styles.layoutBtnText}>Line</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.layoutBtn} onPress={() => applyAutoLayout('grid')} activeOpacity={0.7}>
+              <Text style={styles.layoutBtnText}>Grid</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.layoutBtn} onPress={() => applyAutoLayout('perimeter')} activeOpacity={0.7}>
+              <Text style={styles.layoutBtnText}>Perimeter</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {!hasData ? (
@@ -555,7 +734,7 @@ const RoomSimulation = React.memo(
           </View>
         ) : (
           <>
-            <View style={styles.svgContainer}>{viewMode === 'top' ? renderTopView() : renderSideView()}</View>
+            <View style={styles.svgContainer}>{viewMode === 'top' ? renderTopView() : (viewMode === 'side' ? renderSideView() : renderIsometricView())}</View>
 
             <View style={styles.statsBar}>
               <Text style={styles.statsLabel}>MAX</Text>
@@ -657,6 +836,41 @@ function createStyles(colors: ThemeColors) {
       fontSize: 11,
       fontWeight: '600' as const,
       color: colors.primary,
+    },
+    layoutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 14,
+      paddingBottom: 10,
+      gap: 8,
+    },
+    layoutTitleWrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    layoutTitle: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      color: colors.textSecondary,
+    },
+    layoutButtons: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    layoutBtn: {
+      paddingHorizontal: 9,
+      paddingVertical: 6,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    layoutBtnText: {
+      fontSize: 11,
+      fontWeight: '600' as const,
+      color: colors.textSecondary,
     },
     surfaceTabs: {
       flexDirection: 'row',
