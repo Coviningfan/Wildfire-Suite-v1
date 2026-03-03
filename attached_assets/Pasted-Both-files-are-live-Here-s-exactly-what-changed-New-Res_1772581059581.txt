@@ -1,0 +1,64 @@
+Both files are live. Here's exactly what changed:
+
+New Resources Index
+Matches the app's design system — uses useThemeColors() everywhere, same card style, same top bar pattern as the calculator. No more hardcoded hex colors or LinearGradient banners.
+
+Featured "App Tour" card at the top — prominent, with a START HERE badge and a Begin Tour CTA button. First thing you see when you open the tab.
+
+Tutorials shown as clean compact rows — icon tinted in the tutorial's color, title + section count, chevron.
+
+Resources always visible, one tap → opens link. No accordion, no format badges.
+
+New Interactive Tutorial Viewer
+The detail screen is completely rebuilt as a step-by-step experience:
+
+One section at a time — no scrolling through a wall of text
+
+Animated slide transitions — sections slide left/right when navigating, with a fade
+
+Swipe to navigate — swipe left to go forward, swipe right to go back via PanResponder
+
+Progress bar under the nav bar fills as you advance through steps
+
+Dot stepper — tappable dots, active dot expands to a pill, completed dots dim in the tutorial's accent color
+
+Previous / Next buttons — Previous disabled and faded on step 1; final step shows a green Done button that returns to the list
+
+Step badge — small colored chip shows "Step 3" so you always know where you are
+
+Prepared using Claude Sonnet 4.6 Thinking
+Do you realize that what is on the tutorials section are not really tutorials?
+Yes, exactly. Looking at what's actually in tutorials.ts, most of them are educational articles, not tutorials:
+
+"The Science Behind UV" — Wikipedia-style UV physics
+
+"How Fluorescence Works" — explains Stokes shift and quantum yield
+
+"Shedding Light on Luminescence" — types of light emission
+
+"Technologies That Produce UV Light" — lamp comparison article
+
+"Shooting UV Effects" — photography guide
+
+"The FLAME Formula" — academic breakdown
+
+None of those teach someone how to use the app. They're articles dressed up as tutorials. The only one that's actually a real app tutorial is app-walkthrough, and even that one is written more like a demo script than a hands-on guide.
+
+What real app tutorials would look like
+Each one tied directly to a feature, written as "do this, then this":
+
+Real Tutorial	Teaches
+Your First Calculation	F→L→A steps, hitting Calculate, reading results
+Understanding Your Results	What irradiance means, safety levels, beam area
+Building a Multi-Fixture Zone	Adding fixtures, reading zone summary
+Room Simulation	Setting room dims, adding fixtures, switching views
+Saving & Projects	Save flow, naming, history retrieval
+AI Insights	When to use it, how to read it
+QR Code Scanner	Scanning a fixture label
+The UV science articles could still live in the Resources section as reference docs — they're not useless, just misplaced.
+
+Should I rewrite constants/tutorials.ts?
+I'd replace the science articles with 7 real app tutorials, each written step-by-step, tied to actual UI elements the user taps. The science content moves to resources or gets trimmed. Want me to push that?
+
+Prepared using Claude Sonnet 4.6 Thinking
+yes, i like that idea of keeping them and creating the actual tutorials and renaming the category of the existing informational slips or whatever we wanna call them, also the introductory tutorial should take place when you initially first sign in (every time with a demo account but only one time with an actual registered user with the ability to start again) also add more detail to the walkthrough,

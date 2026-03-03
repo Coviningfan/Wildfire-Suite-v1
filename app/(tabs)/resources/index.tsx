@@ -16,9 +16,10 @@ export default function ResourcesScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const appTour = TUTORIALS.find(t => t.id === 'app-walkthrough');
-  const otherTutorials = TUTORIALS.filter(
-    t => t.id !== 'app-walkthrough' && t.id !== 'complete-app-walkthrough'
+  const appTutorials = TUTORIALS.filter(
+    t => t.category === 'tutorial' && t.id !== 'app-walkthrough'
   );
+  const knowledgeBase = TUTORIALS.filter(t => t.category === 'knowledge');
 
   const renderIcon = (iconName: string, color: string, size = 18) => {
     const Icon = (LucideIcons as any)[iconName];
@@ -78,10 +79,10 @@ export default function ResourcesScreen() {
           </TouchableOpacity>
         )}
 
-        {otherTutorials.length > 0 && (
+        {appTutorials.length > 0 && (
           <>
-            <Text style={styles.sectionLabel}>Tutorials</Text>
-            {otherTutorials.map(tutorial => (
+            <Text style={styles.sectionLabel}>App Tutorials</Text>
+            {appTutorials.map(tutorial => (
               <TouchableOpacity
                 key={tutorial.id}
                 style={styles.rowCard}
@@ -94,8 +95,33 @@ export default function ResourcesScreen() {
                 <View style={styles.rowText}>
                   <Text style={styles.rowTitle}>{tutorial.title}</Text>
                   <Text style={styles.rowSub}>
-                    {tutorial.sections.length} sections
+                    {tutorial.sections.length} steps
                     {tutorial.readTime ? ` · ${tutorial.readTime}` : ''}
+                  </Text>
+                </View>
+                <ChevronRight size={15} color={colors.textTertiary} />
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+
+        {knowledgeBase.length > 0 && (
+          <>
+            <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Knowledge Base</Text>
+            {knowledgeBase.map(article => (
+              <TouchableOpacity
+                key={article.id}
+                style={styles.rowCard}
+                onPress={() => openTutorial(article.id)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.rowIconWrap, { backgroundColor: article.color + '18' }]}>
+                  {renderIcon(article.icon, article.color, 18)}
+                </View>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{article.title}</Text>
+                  <Text style={styles.rowSub}>
+                    {article.sections.length} sections
                   </Text>
                 </View>
                 <ChevronRight size={15} color={colors.textTertiary} />
@@ -106,7 +132,7 @@ export default function ResourcesScreen() {
 
         {WILDFIRE_RESOURCES.map(category => (
           <View key={category.id}>
-            <Text style={styles.sectionLabel}>{category.title}</Text>
+            <Text style={[styles.sectionLabel, { marginTop: 20 }]}>{category.title}</Text>
             {category.items.map((item, idx) => (
               <TouchableOpacity
                 key={idx}

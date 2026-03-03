@@ -8,6 +8,7 @@ import {
   ArrowLeft, ExternalLink, BookOpen,
   Atom, Zap, Lightbulb, Flame, Cpu, Camera,
   ChevronLeft, ChevronRight, Check,
+  Calculator, Target, Layout, Save, Sparkles, QrCode,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeColors } from '@/hooks/useTheme';
@@ -17,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Atom, Zap, Lightbulb, Flame, Cpu, Camera, BookOpen,
+  Calculator, Target, Layout, Save, Sparkles, QrCode,
 };
 
 export default function TutorialDetailScreen() {
@@ -202,7 +204,7 @@ export default function TutorialDetailScreen() {
       <View style={styles.navButtons}>
         <TouchableOpacity
           style={[styles.navBtn, styles.navBtnSecondary, isFirst && styles.navBtnDisabled]}
-          onPress={() => goNextRef.current && goPrevRef.current()}
+          onPress={() => goPrevRef.current()}
           disabled={isFirst}
           activeOpacity={0.7}
         >

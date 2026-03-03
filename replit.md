@@ -1,7 +1,7 @@
 # Wildfire Suite - Replit Configuration
 
 ## Project Overview
-Expo React Native app (web) for Wildfire Lighting. Features calculations, fixtures, AI tools, and resources for lighting professionals.
+Expo React Native app (web) for Wildfire Lighting. Features UV lighting calculations, fixture catalog, AI insights, room simulation, and educational resources for lighting professionals.
 
 ## Architecture
 - **Framework**: Expo SDK 54 + Expo Router v6 (file-based routing)
@@ -9,18 +9,39 @@ Expo React Native app (web) for Wildfire Lighting. Features calculations, fixtur
 - **Package Manager**: Bun
 - **Renderer**: React Native Web (web platform)
 - **Bundler**: Metro (configured in app.json)
+- **State Management**: Zustand with AsyncStorage persistence
 
 ## Directory Structure
 ```
-app/           - Expo Router pages (auth, tabs)
-components/    - Reusable UI components
-constants/     - App constants (colors, theme, tutorials)
-hooks/         - Custom React hooks
-assets/        - Images and static assets
+app/              - Expo Router pages
+  (auth)/         - Auth screens (welcome, login, register)
+  (tabs)/         - Main app tabs
+    (home)/       - Calculator tab
+    fixtures/     - Fixture catalog
+    ai/           - AI insights
+    calculations/ - Saved calculations (hidden tab)
+    resources/    - Docs tab (tutorials, knowledge base, PDF resources)
+    profile/      - User profile and settings
+components/       - Reusable UI components
+constants/        - App constants (colors, theme, tutorials, resources)
+hooks/            - Custom React hooks
+stores/           - Zustand stores (auth, lighting, settings)
+utils/            - Utility functions
+assets/           - Images and static assets
 ```
 
+## Key Features
+- **FLAME Calculator**: Fixture-Location-Angle-Material-Effect workflow for UV calculations
+- **Room Simulation**: 2D/3D room visualization with fixture placement and heatmaps
+- **Tutorials System**: Two categories:
+  - App Tutorials: Step-by-step guides tied to app features (7 tutorials)
+  - Knowledge Base: Educational articles about UV science (7 articles)
+- **Auto App Tour**: First-time users see the app walkthrough automatically
+  - Demo accounts: Tour shown every login
+  - Registered users: Tour shown once, can restart from Profile or Docs tab
+- **QR Scanner**: Scan fixture labels to auto-populate calculator inputs
+
 ## Running the App
-The app runs as a web application on port 5000:
 ```
 bun run dev
 # Runs: expo start --web --port 5000 --host lan

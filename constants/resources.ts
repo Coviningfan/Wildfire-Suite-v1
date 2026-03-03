@@ -27,8 +27,8 @@ export const WILDFIRE_RESOURCES: ResourceCategory[] = [
     ],
   },
   {
-    id: 'tutorials',
-    title: 'Tutorials',
+    id: 'reference-articles',
+    title: 'Reference Articles (PDF)',
     icon: 'GraduationCap',
     color: '#7C6BF0',
     items: [

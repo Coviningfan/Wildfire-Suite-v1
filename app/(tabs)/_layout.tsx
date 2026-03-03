@@ -1,13 +1,30 @@
-import React from 'react';
-import { Tabs, Redirect } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
+import { Tabs, Redirect, useRouter } from 'expo-router';
 import { Calculator, Lightbulb, User, Sparkles, BookOpen } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { useThemeColors } from '@/hooks/useTheme';
 import { Platform, View } from 'react-native';
+import { useShouldShowAppTour } from '@/hooks/useFirstLaunch';
 
 export default function TabLayout() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const colors = useThemeColors();
+  const router = useRouter();
+
+  const isDemo = user?.email === 'demo@example.com';
+  const [shouldShowTour, markTourSeen] = useShouldShowAppTour(user?.id, isDemo);
+  const hasTriggeredTour = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated && shouldShowTour && !hasTriggeredTour.current) {
+      hasTriggeredTour.current = true;
+      markTourSeen();
+      const timer = setTimeout(() => {
+        router.push('/resources/app-walkthrough' as any);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, shouldShowTour]);
 
   if (!isAuthenticated) {
     return <Redirect href={'/(auth)/welcome' as any} />;

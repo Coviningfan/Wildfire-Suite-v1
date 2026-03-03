@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { LogOut, ChevronRight, Fingerprint, FileDown, Shield, Calculator, Lightbulb, Mail, Phone, Globe, MapPin, Ruler, Moon, Sun, HelpCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Logo } from '@/components/ui/Logo';
-import { OnboardingModal } from '@/components/ui/OnboardingModal';
 
 import { useAuthStore } from '@/stores/auth-store';
 import { useLightingStore } from '@/stores/lighting-store';
@@ -134,14 +133,11 @@ export default function ProfileScreen() {
     }
   }, []);
 
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
-
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
   const safeCount = savedCalculations.filter(c => c.safetyLevel === 'safe').length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <OnboardingModal visible={showOnboarding} onDismiss={() => setShowOnboarding(false)} />
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <AnimatedSection index={0}>
           <View style={styles.profileSection}>
@@ -286,9 +282,9 @@ export default function ProfileScreen() {
               <MenuItem
                 icon={<HelpCircle size={16} color={colors.accent} />}
                 iconBg="rgba(124, 107, 240, 0.12)"
-                title="View Tutorial"
-                subtitle="Re-open the onboarding guide"
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowOnboarding(true); }}
+                title="Restart App Tour"
+                subtitle="Step-by-step walkthrough of the app"
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/resources/app-walkthrough' as any); }}
                 isLast
                 colors={colors}
               />

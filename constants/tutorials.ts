@@ -13,107 +13,257 @@ export interface Tutorial {
   color: string;
   readTime?: string;
   pdfUrl?: string;
+  category: 'tutorial' | 'knowledge';
   sections: TutorialSection[];
 }
 
 export const TUTORIALS: Tutorial[] = [
   {
     id: 'app-walkthrough',
-    title: 'Getting Started: Full App Tutorial',
-    subtitle: 'Learn the complete workflow from login to room simulation and saved setups',
+    title: 'Welcome to Wildfire Suite',
+    subtitle: 'A hands-on walkthrough of the complete app — from sign-in to saving your first UV design',
     icon: 'BookOpen',
     color: '#3B82F6',
-    readTime: '10 min',
+    readTime: '8 min',
+    category: 'tutorial',
     sections: [
       {
-        title: 'Welcome and Sign In',
-        content: 'Open the app and sign in with your account (or use the demo account). After login, you will land on the Calculator screen where all projects begin.'
+        title: 'What You Will Learn',
+        content: 'This walkthrough guides you through every major feature of the Wildfire Suite app. By the end, you will have completed a full UV lighting calculation, explored room simulation, saved a project, and reviewed AI-powered design insights.\n\nYou can revisit this tour anytime from the Docs tab or your Profile settings.'
       },
       {
-        title: 'Use the FLAME Workflow',
-        content: 'Complete each FLAME step in order: Fixture, Location, Angle, Material, and Effect. This ensures your calculation includes the key parameters needed for reliable UV planning.'
+        title: 'The Calculator Tab',
+        content: 'The Calculator is your starting point. It uses the FLAME workflow — Fixture, Location, Angle, Material, Effect — to gather the inputs needed for an accurate UV calculation.\n\nEach letter in FLAME represents a step: pick a fixture model (F), set the mounting height and distance (L), define the beam target area (A), choose the surface material (M), and select the intended visual effect (E).'
       },
       {
-        title: 'Run a Calculation',
-        content: 'Tap Calculate to generate irradiance, beam area, throw information, and safety level. Review the result card to confirm the setup matches your target.'
+        title: 'Running a Calculation',
+        content: 'Once all FLAME inputs are filled, tap the Calculate button. The app generates irradiance levels (mW/m²), beam coverage area, throw distance, and a safety classification.\n\nThe safety indicator uses four levels: Safe (green), Caution (yellow), Warning (orange), and Danger (red). Each level includes practical guidance for how to handle the UV exposure in that zone.'
       },
       {
-        title: 'Open Room Simulation',
-        content: 'Turn on Room Simulation to visualize fixture placement in the room. Enter room dimensions, add fixtures, and inspect coverage directly on the simulation canvas.'
+        title: 'Room Simulation',
+        content: 'After calculating, enable Room Simulation to visualize your setup in a virtual room. Enter the room dimensions (width, depth, ceiling height), then add one or more fixtures.\n\nYou can drag fixtures to reposition them, toggle the heatmap overlay to see UV intensity distribution, and switch between Floor, Back Wall, Left Wall, Right Wall, and Ceiling surfaces.'
       },
       {
-        title: 'Switch Views and Surfaces',
-        content: 'Use TOP, SIDE, and 3D view modes. Then switch between Floor, Back Wall, Left Wall, Right Wall, and Ceiling to verify how UV behaves on each surface.'
+        title: 'Views and Layout Tools',
+        content: 'Room Simulation offers three view modes: TOP (plan view), SIDE (elevation), and 3D (perspective). Each mode reveals different spatial relationships.\n\nUse Auto Layout presets — Line, Grid, or Perimeter — to generate structured fixture arrangements automatically. Fine-tune positions manually after applying a preset.'
       },
       {
-        title: 'Use Advanced Layout Tools',
-        content: 'Use Auto Layout presets (Line, Grid, Perimeter) to quickly generate structured fixture arrangements before doing final manual adjustments.'
+        title: 'Coverage Metrics',
+        content: 'While in Room Simulation, review the metrics bar: MAX (peak irradiance), AVG (average across the surface), SAFETY (worst-case exposure), and COVER (percentage of surface receiving usable UV).\n\nThese four numbers let you quickly validate whether your design delivers enough fluorescent punch while staying within safe operating limits.'
       },
       {
-        title: 'Tune and Validate',
-        content: 'Adjust fixture positions and compare MAX, AVG, SAFETY, and COVER values. Use these metrics to balance visual impact with safe operation.'
+        title: 'Saving Your Work',
+        content: 'Tap the Save button to store your calculation with a descriptive name — for example, "Main Stage UV Wash" or "Lobby Accent Wall." Saved entries appear in your Calculations history and can be reopened, compared, or exported later.\n\nUse clear, venue-specific names so you can find the right setup quickly during customer reviews.'
       },
       {
-        title: 'Save and Reuse',
-        content: 'Save your final setup with a clear name so you can reopen it later. Saved entries make future projects faster and keep your team consistent.'
+        title: 'The Fixtures Tab',
+        content: 'The Fixtures tab is your hardware reference. Browse the complete catalog of Wildfire fixtures with specifications, beam data, and coverage details.\n\nTap any fixture for a detail view showing electrical specs, photometric data, and mounting notes. You can also scan a fixture QR code from the Calculator tab to auto-populate inputs.'
       },
       {
-        title: 'Use AI Insights',
-        content: 'Generate AI insights after a calculation to receive practical optimization guidance for fixture selection, coverage, and safety tradeoffs.'
+        title: 'AI Insights',
+        content: 'The AI tab generates intelligent recommendations based on your latest calculation. It analyzes your fixture choice, coverage, safety levels, and room layout to suggest optimizations.\n\nUse AI Insights to get a second opinion on fixture placement, discover alternative fixtures, or identify potential safety concerns you may have missed.'
       },
       {
-        title: 'Next Steps',
-        content: 'After your first full run, explore Fixtures for hardware details, History for saved results, and Resources for deeper training content.'
+        title: 'Profile and Settings',
+        content: 'The Profile tab shows your account info, calculation stats, and app preferences. From here you can toggle between light and dark themes, switch measurement units (imperial / metric), enable biometric login, and export your calculation history.\n\nYou can also restart this app tour anytime from your profile.'
+      },
+      {
+        title: 'You Are Ready',
+        content: 'You now know how to build a complete UV design from start to finish. Here is the recommended workflow for customer demos:\n\n1. Open Calculator and complete a FLAME calculation\n2. Show Room Simulation with surface and view transitions\n3. Highlight the coverage metrics and safety levels\n4. Save the result and generate an AI Insight\n5. Walk through Fixtures for hardware credibility\n\nExplore the other tutorials in the Docs tab for deeper feature guides.'
       }
     ]
   },
   {
-    id: 'complete-app-walkthrough',
-    title: 'Complete App Walkthrough (Demo Ready)',
-    subtitle: 'Step-by-step guide from login to simulation, save, and AI insights',
-    icon: 'BookOpen',
-    color: '#3B82F6',
-    readTime: '12 min',
+    id: 'first-calculation',
+    title: 'Your First Calculation',
+    subtitle: 'Complete the FLAME workflow step by step and interpret your results',
+    icon: 'Calculator',
+    color: '#E8412A',
+    readTime: '5 min',
+    category: 'tutorial',
     sections: [
       {
-        title: '1) Quick Demo Goal (What success looks like)',
-        content: 'By the end of this walkthrough you will: (a) sign in, (b) run a full FLAME calculation, (c) open Room Simulation and change surface/view modes, (d) save the result, and (e) generate AI recommendations.\n\nDemo script target: complete this flow in 4-6 minutes with clear visual transitions and no dead ends.'
+        title: 'Open the Calculator',
+        content: 'Tap the Calculator tab at the bottom of the screen. This is where every UV design begins. The screen shows the FLAME progress indicator at the top — five letters that light up as you complete each step.'
       },
       {
-        title: '2) Start & Authentication (Welcome → Login)',
-        content: 'Open the app and tap Get Started. Use demo credentials if needed. After login, verify you land in the Calculator tab.\n\nPresenter tip: briefly explain that authentication is local/demo-safe for now and production auth can be swapped later.'
+        title: 'Step F — Choose a Fixture',
+        content: 'Tap the Fixture picker and select a Wildfire fixture model. Each model has different UV output characteristics, beam angles, and power levels.\n\nIf you have a physical fixture nearby, use the QR scanner icon to scan its label and auto-fill this step.'
       },
       {
-        title: '3) FLAME Step F + L (Fixture + Location)',
-        content: 'In Calculator, choose a fixture first. Then enter mounting height and/or horizontal distance.\n\nAnimation checkpoint: step progress bar should animate forward and the CTA glow should appear only after required progress is met.'
+        title: 'Step L — Set the Location',
+        content: 'Enter the vertical mounting height (distance from fixture to target surface) and, if applicable, the horizontal offset distance. These measurements determine how UV energy spreads by the time it reaches the surface.\n\nHigher mounts mean wider but weaker coverage. Closer mounts mean intense but narrow beams.'
       },
       {
-        title: '4) FLAME Step A + M + E (Angle, Material, Effect)',
-        content: 'Enter beam width/height target, then pick material and desired effect.\n\nDemo tip: call out that different materials/effects influence recommendations and safety interpretation.'
+        title: 'Step A — Define the Beam Area',
+        content: 'Set the beam width and height targets. These define the area you want the UV light to cover on the target surface.\n\nThe app uses these values together with the fixture specs and mounting distance to calculate the actual irradiance across the target zone.'
       },
       {
-        title: '5) Calculate & Interpret Results',
-        content: 'Tap Calculate. Review irradiance, beam diameter, throw distance, and safety status.\n\nTalk track: explain "safe / caution / warning / danger" as operational guidance, not just numbers.'
+        title: 'Step M — Pick the Material',
+        content: 'Select the surface material from the dropdown: Fluorescent Paint, UV Reactive Fabric, Body Paint, Scenic Elements, and more.\n\nDifferent materials have different fluorescent responses. The calculation adjusts its recommendations based on how efficiently each material converts UV into visible light.'
       },
       {
-        title: '6) Room Simulation (Top-to-Bottom)',
-        content: 'Enable Room Simulation and set room width/depth/ceiling. Add one or more fixtures, then: \n• Toggle Heatmap\n• Switch view mode (TOP, SIDE, 3D)\n• Tap Floor / Back Wall / Left Wall / Right Wall / Ceiling\n• Drag fixture positions in top view\n\nAnimation checkpoint: transitions and haptics should feel responsive; there should be no stutter or stuck state while switching surfaces/views.'
+        title: 'Step E — Select the Effect',
+        content: 'Choose the intended visual effect: Full Wash, Accent/Spot, Reveal/Transition, Ambient Glow, Blacklight Party, or others.\n\nThe effect selection helps the app calibrate its safety and intensity recommendations to match your creative intent.'
       },
       {
-        title: '7) AI Insight + Save Flow',
-        content: 'Generate AI insight from the latest calculation and summarize practical setup advice. Then save the result with a clear name and optional description/project.\n\nDemo tip: use names like "Venue A - UV Main Stage" so retrieval is obvious in front of customers.'
+        title: 'Tap Calculate',
+        content: 'With all five FLAME steps completed, tap the Calculate button. The app processes your inputs and displays a result card showing:\n\n• Irradiance (mW/m²) — UV power density at the surface\n• Beam area — the illuminated zone size\n• Throw distance — effective reach of the fixture\n• Safety level — color-coded exposure classification'
       },
       {
-        title: '8) History, Fixtures, and Resources Tabs',
-        content: 'Open Fixtures to show the model database, then Calculations/History to reload a saved run. Finish in Resources to show technical depth and training materials.\n\nPositioning line: "The app supports both fast field decisions and deeper engineering review."'
+        title: 'Reading Your Results',
+        content: 'The result card is your design summary. The irradiance number tells you how much UV energy hits the surface — higher values mean brighter fluorescence but also higher exposure risk.\n\nTap the safety badge to see detailed guidance for that exposure level, including PPE recommendations and access restrictions.\n\nFrom here, you can save the result, open Room Simulation, or generate AI Insights.'
+      }
+    ]
+  },
+  {
+    id: 'understanding-results',
+    title: 'Understanding Your Results',
+    subtitle: 'What irradiance, safety levels, and beam metrics actually mean for your design',
+    icon: 'Target',
+    color: '#7C6BF0',
+    readTime: '4 min',
+    category: 'tutorial',
+    sections: [
+      {
+        title: 'Irradiance Explained',
+        content: 'Irradiance is the amount of UV power hitting a surface per unit area, measured in milliwatts per square meter (mW/m²). Think of it as the "brightness" of the UV at the target.\n\nHigher irradiance means more intense fluorescence — but also more potential for UV exposure. The key is finding the sweet spot where your materials glow brilliantly without exceeding safe levels.'
       },
       {
-        title: '9) Live Presentation Checklist',
-        content: 'Preflight before customer meeting:\n• Device brightness > 70%\n• Correct theme mode for room lighting\n• One saved scenario preloaded\n• Network-independent fallback story prepared\n• Backup fixture choice ready\n\nIf anything fails live: return to Calculator, run a fresh result, open simulation, and narrate the recovery confidently.'
+        title: 'Safety Classifications',
+        content: 'The app uses four safety levels based on irradiance thresholds:\n\n• Safe (below 2,500 mW/m²) — No special precautions needed\n• Caution (2,500–10,000 mW/m²) — Limit prolonged exposure, consider UV eyewear\n• Warning (10,000–25,000 mW/m²) — UV eye protection mandatory, minimize skin exposure\n• Danger (above 25,000 mW/m²) — Full PPE required, restrict beam area access'
       },
       {
-        title: '10) Advanced Demo Variations (Optional)',
-        content: 'If time allows, run two variants: (1) high-intensity focal effect, (2) broad safe wash. Compare irradiance and coverage to show design tradeoffs.\n\nClose by asking: "Do you optimize for max pop, max safety margin, or balanced output?"'
+        title: 'Beam Area and Coverage',
+        content: 'Beam area shows the size of the illuminated zone on the target surface. A wider beam covers more area but with less intensity at any given point.\n\nWhen designing for large surfaces (stage backdrops, murals), you may need multiple fixtures to achieve uniform coverage. The Room Simulation tool helps visualize this.'
+      },
+      {
+        title: 'Throw Distance',
+        content: 'Throw distance is the effective distance the fixture can project usable UV. Beyond this distance, the irradiance drops below practical levels for fluorescent excitation.\n\nUse throw distance to quickly determine whether a fixture can reach your target surface from the intended mounting position.'
+      },
+      {
+        title: 'Balancing Impact and Safety',
+        content: 'The best UV designs maximize visual impact while respecting safety limits. Here are practical strategies:\n\n• Use multiple fixtures at moderate intensity instead of one fixture at maximum\n• Angle fixtures to avoid direct eye lines from the audience\n• Use the "Safe" zone for audience-facing surfaces and reserve higher levels for controlled scenic areas\n• Always check the coverage metrics in Room Simulation before finalizing a design'
+      }
+    ]
+  },
+  {
+    id: 'room-simulation-guide',
+    title: 'Room Simulation',
+    subtitle: 'Set up a virtual room, place fixtures, and analyze coverage across every surface',
+    icon: 'Layout',
+    color: '#10B981',
+    readTime: '6 min',
+    category: 'tutorial',
+    sections: [
+      {
+        title: 'Opening Room Simulation',
+        content: 'After running a calculation in the Calculator tab, toggle the Room Simulation switch to enable it. The simulation panel appears below your result card.\n\nYou can also access Room Simulation with a fresh setup — it will use your most recent fixture selection and calculation parameters.'
+      },
+      {
+        title: 'Setting Room Dimensions',
+        content: 'Enter the room width, depth, and ceiling height. These define the virtual space where your fixtures will operate.\n\nUse realistic measurements from the actual venue whenever possible. The accuracy of coverage predictions depends directly on how closely these dimensions match the real room.'
+      },
+      {
+        title: 'Adding and Positioning Fixtures',
+        content: 'Tap the Add Fixture button to place a fixture in the room. Each fixture appears as a draggable element in the top view.\n\nDrag fixtures to position them where you want them mounted. The simulation updates coverage calculations in real time as you move fixtures around.'
+      },
+      {
+        title: 'Switching Views',
+        content: 'Use the view mode selector to switch between three perspectives:\n\n• TOP — Plan view looking down at the floor. Best for positioning fixtures and checking floor coverage\n• SIDE — Elevation view showing fixture height and throw angles\n• 3D — Perspective view for overall spatial understanding\n\nEach view helps you catch different issues. Use TOP for layout, SIDE for height validation, and 3D for presentation.'
+      },
+      {
+        title: 'Switching Surfaces',
+        content: 'Tap the surface selector to switch between Floor, Back Wall, Left Wall, Right Wall, and Ceiling. Each surface shows its own coverage analysis.\n\nThis is critical for theatrical designs where fluorescent elements appear on walls and ceilings, not just the floor. Check every surface that has UV-reactive material.'
+      },
+      {
+        title: 'Using the Heatmap',
+        content: 'Toggle the heatmap overlay to see UV intensity distribution as a color gradient. Cool colors (blue/green) indicate lower irradiance, warm colors (yellow/red) indicate higher irradiance.\n\nThe heatmap instantly reveals hotspots, dead zones, and uneven coverage — issues that are nearly impossible to predict without simulation.'
+      },
+      {
+        title: 'Auto Layout Presets',
+        content: 'Use the Auto Layout feature to generate structured fixture arrangements:\n\n• Line — Evenly spaced fixtures in a row (ideal for stage washes)\n• Grid — Fixtures in a regular grid pattern (ideal for uniform room coverage)\n• Perimeter — Fixtures along the room edges (ideal for wall washes)\n\nApply a preset as a starting point, then drag individual fixtures to fine-tune the layout.'
+      },
+      {
+        title: 'Reading the Metrics',
+        content: 'The metrics bar shows four values updated in real time:\n\n• MAX — Peak irradiance anywhere on the current surface\n• AVG — Average irradiance across the surface\n• SAFETY — The highest exposure level detected\n• COVER — Percentage of the surface receiving usable UV\n\nAim for high COVER with a SAFETY level appropriate for the space. If MAX is too high, spread fixtures apart or raise them higher.'
+      }
+    ]
+  },
+  {
+    id: 'saving-and-projects',
+    title: 'Saving and Projects',
+    subtitle: 'Save your calculations, organize by project, and retrieve past work',
+    icon: 'Save',
+    color: '#F59E0B',
+    readTime: '3 min',
+    category: 'tutorial',
+    sections: [
+      {
+        title: 'Why Save Your Work',
+        content: 'Every calculation you run can be saved for future reference. Saved calculations preserve all your FLAME inputs, results, and room simulation settings so you can reopen them instantly.\n\nThis is essential for customer follow-ups, comparing design alternatives, and building a library of proven setups for different venue types.'
+      },
+      {
+        title: 'How to Save a Calculation',
+        content: 'After running a calculation, tap the Save icon. A modal appears asking for a name and optional notes.\n\nUse descriptive names that include the venue and purpose — for example, "Aria Stage - UV Wash" or "Corporate Lobby - Accent Wall." This makes retrieval fast when you are working across multiple projects.'
+      },
+      {
+        title: 'Viewing Saved Calculations',
+        content: 'Your saved calculations appear in the Calculations history. Each entry shows the fixture used, key results, safety level, and the date saved.\n\nTap any saved calculation to reload it into the Calculator with all original inputs restored. From there you can modify inputs and re-calculate to explore variations.'
+      },
+      {
+        title: 'Exporting Your Data',
+        content: 'From the Profile tab, you can export your entire calculation history as a CSV file. This is useful for sharing results with team members, creating project documentation, or importing data into spreadsheets for further analysis.\n\nThe export includes all FLAME inputs, calculated results, safety levels, and timestamps.'
+      }
+    ]
+  },
+  {
+    id: 'ai-insights-guide',
+    title: 'AI Insights',
+    subtitle: 'Generate intelligent design recommendations based on your calculations',
+    icon: 'Sparkles',
+    color: '#8B5CF6',
+    readTime: '3 min',
+    category: 'tutorial',
+    sections: [
+      {
+        title: 'What AI Insights Do',
+        content: 'The AI tab analyzes your most recent calculation and generates practical recommendations. It considers your fixture choice, coverage area, irradiance levels, safety classification, and intended effect to suggest optimizations.\n\nThink of it as a knowledgeable colleague reviewing your design and offering suggestions you might have missed.'
+      },
+      {
+        title: 'When to Use AI Insights',
+        content: 'Generate an AI Insight after completing a calculation, especially when:\n\n• You are unsure if your fixture choice is optimal for the space\n• The safety level is higher than you would like and you need alternatives\n• You want to maximize coverage without adding more fixtures\n• You are preparing a customer proposal and want professional talking points'
+      },
+      {
+        title: 'Reading the Recommendations',
+        content: 'AI Insights are structured as actionable suggestions. Each recommendation explains what to change, why it matters, and what outcome to expect.\n\nThe AI may suggest alternative fixture models, different mounting positions, beam angle adjustments, or multi-fixture strategies. It also highlights potential safety concerns and how to mitigate them.'
+      },
+      {
+        title: 'Using AI in Customer Demos',
+        content: 'AI Insights add credibility to customer presentations. After walking through a calculation and room simulation, generate an AI Insight to show that the design has been analyzed for optimization.\n\nCustomers appreciate seeing data-driven recommendations rather than guesswork. The AI output can also be shared as part of project documentation.'
+      }
+    ]
+  },
+  {
+    id: 'qr-scanner-guide',
+    title: 'QR Code Scanner',
+    subtitle: 'Scan fixture labels to auto-populate your calculation inputs',
+    icon: 'QrCode',
+    color: '#06B6D4',
+    readTime: '2 min',
+    category: 'tutorial',
+    sections: [
+      {
+        title: 'What the QR Scanner Does',
+        content: 'Wildfire fixtures include QR code labels with encoded product data. Scanning a QR code in the app automatically fills in the fixture selection step of the FLAME workflow, saving time and eliminating data entry errors.\n\nThis is especially useful when working on-site with physical fixtures already installed or available for evaluation.'
+      },
+      {
+        title: 'How to Scan',
+        content: 'From the Calculator tab, tap the QR scanner icon near the Fixture picker. The camera view opens with a targeting frame.\n\nPoint your device at the QR code on the fixture label. The scanner reads the code automatically — no need to tap a capture button. Once recognized, the fixture data populates instantly.'
+      },
+      {
+        title: 'After Scanning',
+        content: 'Once the fixture is identified, the Calculator updates the Fixture field and you can continue with the remaining FLAME steps (Location, Angle, Material, Effect).\n\nIf the QR code is not recognized, you can always select the fixture manually from the dropdown picker. The QR scanner is a convenience feature, not a requirement.'
       }
     ]
   },
@@ -123,6 +273,7 @@ export const TUTORIALS: Tutorial[] = [
     subtitle: 'Understanding ultraviolet light fundamentals',
     icon: 'Atom',
     color: '#7C6BF0',
+    category: 'knowledge',
     sections: [
       {
         title: 'What is Ultraviolet Light?',
@@ -152,6 +303,7 @@ export const TUTORIALS: Tutorial[] = [
     subtitle: 'The physics of light emission',
     icon: 'Lightbulb',
     color: '#10B981',
+    category: 'knowledge',
     sections: [
       {
         title: 'The Fluorescence Process',
@@ -181,6 +333,7 @@ export const TUTORIALS: Tutorial[] = [
     subtitle: 'Types and applications of light emission',
     icon: 'Sparkles',
     color: '#F59E0B',
+    category: 'knowledge',
     sections: [
       {
         title: 'What is Luminescence?',
@@ -210,6 +363,7 @@ export const TUTORIALS: Tutorial[] = [
     subtitle: 'Proprietary technology and visual impact',
     icon: 'Flame',
     color: '#E8412A',
+    category: 'knowledge',
     sections: [
       {
         title: 'What is the Wildfire Effect?',
@@ -239,6 +393,7 @@ export const TUTORIALS: Tutorial[] = [
     subtitle: 'Comparing UV light sources',
     icon: 'Zap',
     color: '#8B5CF6',
+    category: 'knowledge',
     sections: [
       {
         title: 'Mercury Vapor Lamps',
@@ -268,6 +423,7 @@ export const TUTORIALS: Tutorial[] = [
     subtitle: 'Quantifying fluorescent lighting performance',
     icon: 'Calculator',
     color: '#EF4444',
+    category: 'knowledge',
     sections: [
       {
         title: 'Introduction to FLAME',
@@ -297,6 +453,7 @@ export const TUTORIALS: Tutorial[] = [
     subtitle: 'Photography and videography techniques',
     icon: 'Camera',
     color: '#06B6D4',
+    category: 'knowledge',
     sections: [
       {
         title: 'Camera Settings for UV Effects',
