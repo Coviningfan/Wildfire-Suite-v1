@@ -389,6 +389,23 @@ const RoomSimulation = React.memo(
             const center = projectSurfacePoint(cell);
             const cellWidth = drawWidth / GRID_SIZE;
             const cellHeight = drawHeight / GRID_SIZE;
+        {[0.25, 0.5, 0.75].map((fraction) => (
+          <G key={`grid-${fraction}`}>
+            <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * fraction} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * fraction} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+            <Line x1={SVG_PADDING + drawWidth * fraction} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * fraction} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+          </G>
+        ))}
+
+        {showHeatmap && heatmapData.map((cell, index) => {
+          if (surfaceMode !== 'floor' && surfaceMode !== 'ceiling') {
+            // For walls we project X/Y into the rectangle
+            const projX = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? cell.z : cell.x;
+            const projY = cell.y;
+            const wallSpan = surfaceMode === 'leftWall' || surfaceMode === 'rightWall' ? roomDepth : roomWidth;
+            const svgX = SVG_PADDING + (projX / wallSpan) * drawWidth;
+            const svgY = SVG_PADDING + ((roomHeight - projY) / roomHeight) * drawHeight;
+            const sizeX = drawWidth / GRID_SIZE;
+            const sizeY = drawHeight / GRID_SIZE;
             return (
               <Rect
                 key={`heat-${index}`}
