@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start --tunnel",
-    "start-web": "expo start --web",
-    "start-web-dev": "DEBUG=expo* expo start --web",
+    "start-web": "expo start --web --port 5000 --host lan",
+    "start-web-dev": "DEBUG=expo* expo start --web --port 5000 --host lan",
+    "dev": "expo start --web --port 5000 --host lan",
     "ios": "expo start --ios",
     "android": "expo start --android",
     "lint": "expo lint"
