@@ -322,6 +322,26 @@ Give a quick practical insight about this setup - is the throw distance optimal,
     setZoneFixtures(prev => [...prev, newFixture]);
   }, []);
 
+  const handleAddCurrentToZone = useCallback(() => {
+    if (!selectedFixture || !beamWidth || !beamHeight) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Incomplete Setup', 'Select a fixture and enter beam width and height before adding to the zone.');
+      return;
+    }
+
+    const newFixture: ZoneFixture = {
+      id: `zone-from-calc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      fixture: selectedFixture,
+      verticalHeight: verticalHeight || '',
+      horizontalDistance: horizontalDistance || '',
+      beamWidth,
+      beamHeight,
+    };
+
+    setZoneFixtures(prev => [...prev, newFixture]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [selectedFixture, beamWidth, beamHeight, verticalHeight, horizontalDistance]);
+
   const removeZoneFixture = useCallback((id: string) => {
     setZoneFixtures(prev => prev.filter(f => f.id !== id));
   }, []);
@@ -675,6 +695,14 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                   <Save size={16} color="#fff" />
                   <Text style={styles.resultSaveText}>Save this setup</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.resultAddZoneBtn}
+                  onPress={handleAddCurrentToZone}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={14} color={colors.primary} />
+                  <Text style={styles.resultAddZoneText}>Add to zone</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -900,9 +928,11 @@ function createStyles(colors: ThemeColors) {
     resultSectionTitle: { fontSize: 16, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.2 },
     resultGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     resultItem: { backgroundColor: colors.surface, padding: 14, borderRadius: 14, alignItems: 'center' as const, borderWidth: 1, borderColor: colors.border },
-    resultActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
+    resultActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, gap: 8 },
     resultSaveBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.primary, gap: 6, shadowColor: colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
     resultSaveText: { fontSize: 13, fontWeight: '600' as const, color: '#fff' },
+    resultAddZoneBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, gap: 6 },
+    resultAddZoneText: { fontSize: 12, fontWeight: '600' as const, color: colors.textSecondary },
     safetyLabelRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
     resultLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' as const, letterSpacing: 0.8, marginBottom: 6 },
     resultValue: { fontSize: 24, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.5 },
