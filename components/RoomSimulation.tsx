@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder, Platform, GestureResponderHandlers } from 'react-native';
 import Svg, { Rect, Ellipse, Line, Defs, RadialGradient, Stop, G, Circle, Text as SvgText } from 'react-native-svg';
-import { Eye, Layers, RefreshCw, Target, LayoutGrid, Move } from 'lucide-react-native';
+import { Eye, RefreshCw, Target, LayoutGrid, Move, Layers } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
@@ -254,7 +254,7 @@ const RoomSimulation = React.memo(
 
     const toSvgX = useCallback((worldX: number): number => SVG_PADDING + (worldX / roomWidth) * drawWidth, [roomWidth, drawWidth]);
     const toSvgZ = useCallback((worldZ: number): number => SVG_PADDING + (worldZ / roomDepth) * drawHeight, [roomDepth, drawHeight]);
-    const toSvgY = useCallback((worldY: number): number => SVG_PADDING + ((roomHeight - worldY) / roomHeight) * drawHeight, [roomHeight, drawHeight]);
+    const toSvgY = useCallback((worldY: number): number => roomHeight > 0 ? SVG_PADDING + ((roomHeight - worldY) / roomHeight) * drawHeight : SVG_PADDING + drawHeight, [roomHeight, drawHeight]);
     const scaleX = useCallback((distance: number): number => (distance / roomWidth) * drawWidth, [roomWidth, drawWidth]);
 
     const panRespondersRef = useRef<Record<string, { panHandlers: GestureResponderHandlers }>>({});
@@ -654,21 +654,27 @@ const RoomSimulation = React.memo(
 
         {beamData.map((beam, index) => {
           const fixtureX = toSvgX(beam.xPos);
-          const fixtureY = SVG_PADDING + 2;
+          const mountHeight = Math.min(beam.verticalHeight, roomHeight);
+          const fixtureY = toSvgY(mountHeight);
           const floorY = SVG_PADDING + drawHeight;
           const beamHalfW = Math.max(scaleX(beam.beamDiamH / 2), 8);
+          const beamSpreadY = Math.max(floorY - fixtureY, 10);
           const isSelected = activeSelectionId === beam.id;
 
           return (
             <G key={`side-${beam.id}`}>
               <Line x1={fixtureX} y1={fixtureY} x2={fixtureX - beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
               <Line x1={fixtureX} y1={fixtureY} x2={fixtureX + beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
-              <Ellipse cx={fixtureX} cy={(fixtureY + floorY) / 2} rx={beamHalfW / 2} ry={(floorY - fixtureY) / 2} fill={`url(#side-grad-${index})`} opacity={isSelected ? 0.9 : 0.7} />
+              <Ellipse cx={fixtureX} cy={fixtureY + beamSpreadY / 2} rx={beamHalfW / 2} ry={beamSpreadY / 2} fill={`url(#side-grad-${index})`} opacity={isSelected ? 0.9 : 0.7} />
               <Line x1={fixtureX - beamHalfW} y1={floorY} x2={fixtureX + beamHalfW} y2={floorY} stroke={getSafetyColor(beam.irradiance)} strokeWidth={3} strokeLinecap="round" opacity={0.8} />
-              <Circle cx={fixtureX} cy={fixtureY + 6} r={6} fill={colors.surface} stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} />
-              <Circle cx={fixtureX} cy={fixtureY + 6} r={2.5} fill={beam.color} />
-              <SvgText x={fixtureX} y={fixtureY + 22} textAnchor="middle" fontSize="8" fill={beam.color} fontWeight="600">
+              <Line x1={fixtureX} y1={SVG_PADDING} x2={fixtureX} y2={fixtureY} stroke={colors.border} strokeWidth={1} strokeDasharray="3,3" opacity={0.4} />
+              <Circle cx={fixtureX} cy={fixtureY} r={6} fill={colors.surface} stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} />
+              <Circle cx={fixtureX} cy={fixtureY} r={2.5} fill={beam.color} />
+              <SvgText x={fixtureX} y={fixtureY - 10} textAnchor="middle" fontSize="8" fill={beam.color} fontWeight="600">
                 {beam.model}
+              </SvgText>
+              <SvgText x={fixtureX + 12} y={fixtureY + 4} fontSize="7" fill={colors.textTertiary}>
+                {mountHeight.toFixed(1)}{unitLabel}
               </SvgText>
             </G>
           );
@@ -782,11 +788,6 @@ const RoomSimulation = React.memo(
     return (
       <View style={styles.container} onLayout={onLayout}>
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Layers size={16} color={colors.accent} />
-            <Text style={styles.headerTitle}>Room Simulation</Text>
-          </View>
-
           <View style={styles.headerActions}>
             <TouchableOpacity testID="toggle-heatmap-button" style={styles.controlBtn} onPress={toggleHeatmap}>
               <Target size={14} color={showHeatmap ? colors.accent : colors.textTertiary} />
@@ -883,6 +884,18 @@ const RoomSimulation = React.memo(
               </View>
             </View>
 
+            {beamData.length > 1 && (
+              <View style={styles.legendRow}>
+                {beamData.map((beam) => (
+                  <View key={`legend-${beam.id}`} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: beam.color }]} />
+                    <Text style={styles.legendText} numberOfLines={1}>{beam.model}</Text>
+                    <Text style={[styles.legendIrr, { color: getSafetyColor(beam.irradiance) }]}>{Math.round(beam.irradiance)}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {!!peopleReadouts.length && (
               <View style={styles.peopleRow}>
                 {peopleReadouts.map((p) => (
@@ -919,22 +932,11 @@ function createStyles(colors: ThemeColors) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
-    },
-    headerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    headerTitle: {
-      fontSize: 13,
-      fontWeight: '700' as const,
-      color: colors.text,
-      letterSpacing: -0.1,
     },
     headerActions: {
       flexDirection: 'row',
@@ -1118,6 +1120,41 @@ function createStyles(colors: ThemeColors) {
       fontSize: 10,
       color: colors.textTertiary,
       marginTop: 2,
+    },
+    legendRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingVertical: 3,
+      paddingHorizontal: 8,
+      borderRadius: 6,
+      backgroundColor: colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.border,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendText: {
+      fontSize: 10,
+      fontWeight: '600' as const,
+      color: colors.textSecondary,
+      maxWidth: 80,
+    },
+    legendIrr: {
+      fontSize: 10,
+      fontWeight: '700' as const,
     },
   });
 }

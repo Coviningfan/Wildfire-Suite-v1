@@ -1,6 +1,6 @@
-import React, { useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Layers, Plus, Trash2, RotateCcw, Box } from 'lucide-react-native';
+import React, { useMemo, useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { Layers, Plus, Trash2, RotateCcw, Box, ChevronDown, ChevronUp } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/hooks/useTheme';
@@ -12,6 +12,10 @@ import { RoomSimulation } from '@/components/RoomSimulation';
 import { Input } from '@/components/ui/Input';
 import { Picker } from '@/components/ui/Picker';
 import { CalculationResponse } from '@/types/lighting';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export default function SimulateScreen() {
   const colors = useThemeColors();
@@ -35,7 +39,20 @@ export default function SimulateScreen() {
     setFixtures,
   } = useSimulationStore();
 
+  const [expandedFixtures, setExpandedFixtures] = useState<Record<string, boolean>>({});
+  const [showRoomDims, setShowRoomDims] = useState(false);
+
   const fixtureModels = useMemo(() => LightingCalculator.getFixtureModels(), []);
+
+  const toggleFixtureExpanded = useCallback((id: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedFixtures((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
+
+  const toggleRoomDims = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowRoomDims((prev) => !prev);
+  }, []);
 
   const handleClearAll = useCallback(() => {
     if (zoneFixtures.length === 0) return;
@@ -53,7 +70,9 @@ export default function SimulateScreen() {
   }, [zoneFixtures.length, clearFixtures]);
 
   const handleAddFixture = useCallback(() => {
-    addBlankFixture();
+    const newId = `zone-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    addBlankFixture(newId);
+    setExpandedFixtures((prev) => ({ ...prev, [newId]: true }));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [addBlankFixture]);
 
@@ -97,6 +116,12 @@ export default function SimulateScreen() {
     [setFixtures],
   );
 
+  const getFixtureSummary = useCallback((zf: typeof zoneFixtures[0]) => {
+    if (!zf.fixture) return 'No model selected';
+    const height = zf.verticalHeight ? `${zf.verticalHeight}${dUnit}` : '';
+    return [zf.fixture, height].filter(Boolean).join(' · ');
+  }, [dUnit]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topBar}>
@@ -134,122 +159,68 @@ export default function SimulateScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Room Dimensions</Text>
-          <View style={styles.roomDimsCard}>
-            <View style={styles.inputRow}>
-              <View style={styles.inputThird}>
-                <Input
-                  label="Width"
-                  value={roomWidth}
-                  onChangeText={setRoomWidth}
-                  keyboardType="decimal-pad"
-                  unit={dUnit}
-                  placeholder="12"
-                />
-              </View>
-              <View style={styles.inputThird}>
-                <Input
-                  label="Depth"
-                  value={roomDepth}
-                  onChangeText={setRoomDepth}
-                  keyboardType="decimal-pad"
-                  unit={dUnit}
-                  placeholder="8"
-                />
-              </View>
-              <View style={styles.inputThird}>
-                <Input
-                  label="Ceiling"
-                  value={roomCeiling}
-                  onChangeText={setRoomCeiling}
-                  keyboardType="decimal-pad"
-                  unit={dUnit}
-                  placeholder="4"
-                />
+          <TouchableOpacity style={styles.roomDimsHeader} onPress={toggleRoomDims} activeOpacity={0.7}>
+            <Text style={styles.sectionTitle}>Room Dimensions</Text>
+            <View style={styles.roomDimsSummary}>
+              {!showRoomDims && (
+                <Text style={styles.roomDimsSummaryText}>
+                  {roomWidth || '—'} × {roomDepth || '—'} × {roomCeiling || '—'} {dUnit}
+                </Text>
+              )}
+              {showRoomDims ? (
+                <ChevronUp size={16} color={colors.textTertiary} />
+              ) : (
+                <ChevronDown size={16} color={colors.textTertiary} />
+              )}
+            </View>
+          </TouchableOpacity>
+          {showRoomDims && (
+            <View style={styles.roomDimsCard}>
+              <View style={styles.inputRow}>
+                <View style={styles.inputThird}>
+                  <Input
+                    label="Width"
+                    value={roomWidth}
+                    onChangeText={setRoomWidth}
+                    keyboardType="decimal-pad"
+                    unit={dUnit}
+                    placeholder="12"
+                  />
+                </View>
+                <View style={styles.inputThird}>
+                  <Input
+                    label="Depth"
+                    value={roomDepth}
+                    onChangeText={setRoomDepth}
+                    keyboardType="decimal-pad"
+                    unit={dUnit}
+                    placeholder="8"
+                  />
+                </View>
+                <View style={styles.inputThird}>
+                  <Input
+                    label="Ceiling"
+                    value={roomCeiling}
+                    onChangeText={setRoomCeiling}
+                    keyboardType="decimal-pad"
+                    unit={dUnit}
+                    placeholder="4"
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          )}
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Fixtures</Text>
-            <TouchableOpacity style={styles.addBtn} onPress={handleAddFixture} activeOpacity={0.7}>
-              <Plus size={14} color={colors.primary} />
-              <Text style={styles.addBtnText}>Add Fixture</Text>
-            </TouchableOpacity>
-          </View>
-          {zoneFixtures.length === 0 && (
-            <View style={styles.emptyFixtures}>
-              <Layers size={24} color={colors.textTertiary} />
-              <Text style={styles.emptyFixturesText}>
-                No fixtures yet. Add fixtures manually or use "Add to Simulation" from the Calculator tab.
-              </Text>
-            </View>
-          )}
-          {zoneFixtures.map((zf, idx) => (
-            <View key={zf.id} style={styles.fixtureCard}>
-              <View style={styles.fixtureCardHeader}>
-                <Text style={styles.fixtureCardLabel}>Fixture {idx + 1}</Text>
-                <TouchableOpacity
-                  onPress={() => handleRemoveFixture(zf.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Trash2 size={14} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-              <Picker
-                label="Model"
-                value={zf.fixture}
-                options={fixtureModels}
-                onValueChange={(v) => updateFixture(zf.id, 'fixture', v)}
-              />
-              <View style={styles.inputRow}>
-                <View style={styles.inputHalf}>
-                  <Input
-                    label="Height"
-                    value={zf.verticalHeight}
-                    onChangeText={(v) => updateFixture(zf.id, 'verticalHeight', v)}
-                    keyboardType="decimal-pad"
-                    unit={dUnit}
-                    placeholder="0.0"
-                  />
-                </View>
-                <View style={styles.inputHalf}>
-                  <Input
-                    label="H. Dist"
-                    value={zf.horizontalDistance}
-                    onChangeText={(v) => updateFixture(zf.id, 'horizontalDistance', v)}
-                    keyboardType="decimal-pad"
-                    unit={dUnit}
-                    placeholder="0.0"
-                  />
-                </View>
-              </View>
-              <View style={styles.inputRow}>
-                <View style={styles.inputHalf}>
-                  <Input
-                    label="Beam Width"
-                    value={zf.beamWidth || ''}
-                    onChangeText={(v) => updateFixture(zf.id, 'beamWidth', v)}
-                    keyboardType="decimal-pad"
-                    unit={dUnit}
-                    placeholder="6.0"
-                  />
-                </View>
-                <View style={styles.inputHalf}>
-                  <Input
-                    label="Beam Height"
-                    value={zf.beamHeight || ''}
-                    onChangeText={(v) => updateFixture(zf.id, 'beamHeight', v)}
-                    keyboardType="decimal-pad"
-                    unit={dUnit}
-                    placeholder="3.0"
-                  />
-                </View>
-              </View>
-            </View>
-          ))}
+          <RoomSimulation
+            roomWidth={parseFloat(roomWidth) || 0}
+            roomDepth={parseFloat(roomDepth) || 0}
+            roomHeight={parseFloat(roomCeiling) || 0}
+            fixtures={zoneFixtures}
+            unitLabel={dUnit}
+            onPositionsChange={handlePositionsChange}
+          />
         </View>
 
         {zoneResults && (
@@ -283,14 +254,109 @@ export default function SimulateScreen() {
         )}
 
         <View style={styles.section}>
-          <RoomSimulation
-            roomWidth={parseFloat(roomWidth) || 0}
-            roomDepth={parseFloat(roomDepth) || 0}
-            roomHeight={parseFloat(roomCeiling) || 0}
-            fixtures={zoneFixtures}
-            unitLabel={dUnit}
-            onPositionsChange={handlePositionsChange}
-          />
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Fixtures</Text>
+            <TouchableOpacity style={styles.addBtn} onPress={handleAddFixture} activeOpacity={0.7}>
+              <Plus size={14} color={colors.primary} />
+              <Text style={styles.addBtnText}>Add Fixture</Text>
+            </TouchableOpacity>
+          </View>
+          {zoneFixtures.length === 0 && (
+            <View style={styles.emptyFixtures}>
+              <Layers size={24} color={colors.textTertiary} />
+              <Text style={styles.emptyFixturesText}>
+                No fixtures yet. Add fixtures manually or use "Add to Simulation" from the Calculator tab.
+              </Text>
+            </View>
+          )}
+          {zoneFixtures.map((zf, idx) => {
+            const isExpanded = expandedFixtures[zf.id] ?? false;
+            return (
+              <View key={zf.id} style={styles.fixtureCard}>
+                <View style={styles.fixtureCardHeader}>
+                  <TouchableOpacity
+                    style={styles.fixtureCardHeaderLeft}
+                    onPress={() => toggleFixtureExpanded(zf.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.fixtureColorDot, { backgroundColor: ['#E8412A', '#3B9FE8', '#22C55E', '#F5A623', '#7C6BF0', '#F97316'][idx % 6] }]} />
+                    <View style={styles.fixtureCardLabelWrap}>
+                      <Text style={styles.fixtureCardLabel}>Fixture {idx + 1}</Text>
+                      {!isExpanded && (
+                        <Text style={styles.fixtureCardSummary} numberOfLines={1}>{getFixtureSummary(zf)}</Text>
+                      )}
+                    </View>
+                    {isExpanded ? (
+                      <ChevronUp size={16} color={colors.textTertiary} />
+                    ) : (
+                      <ChevronDown size={16} color={colors.textTertiary} />
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveFixture(zf.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.deleteBtn}
+                  >
+                    <Trash2 size={13} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+                {isExpanded && (
+                  <View style={styles.fixtureCardBody}>
+                    <Picker
+                      label="Model"
+                      value={zf.fixture}
+                      options={fixtureModels}
+                      onValueChange={(v) => updateFixture(zf.id, 'fixture', v)}
+                    />
+                    <View style={styles.inputRow}>
+                      <View style={styles.inputHalf}>
+                        <Input
+                          label="Height"
+                          value={zf.verticalHeight}
+                          onChangeText={(v) => updateFixture(zf.id, 'verticalHeight', v)}
+                          keyboardType="decimal-pad"
+                          unit={dUnit}
+                          placeholder="0.0"
+                        />
+                      </View>
+                      <View style={styles.inputHalf}>
+                        <Input
+                          label="H. Dist"
+                          value={zf.horizontalDistance}
+                          onChangeText={(v) => updateFixture(zf.id, 'horizontalDistance', v)}
+                          keyboardType="decimal-pad"
+                          unit={dUnit}
+                          placeholder="0.0"
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.inputRow}>
+                      <View style={styles.inputHalf}>
+                        <Input
+                          label="Beam Width"
+                          value={zf.beamWidth || ''}
+                          onChangeText={(v) => updateFixture(zf.id, 'beamWidth', v)}
+                          keyboardType="decimal-pad"
+                          unit={dUnit}
+                          placeholder="6.0"
+                        />
+                      </View>
+                      <View style={styles.inputHalf}>
+                        <Input
+                          label="Beam Height"
+                          value={zf.beamHeight || ''}
+                          onChangeText={(v) => updateFixture(zf.id, 'beamHeight', v)}
+                          keyboardType="decimal-pad"
+                          unit={dUnit}
+                          placeholder="3.0"
+                        />
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
 
         <View style={{ height: 40 }} />
@@ -340,13 +406,28 @@ function createStyles(colors: ThemeColors) {
       fontSize: 15,
       fontWeight: '700',
       color: colors.text,
-      marginBottom: 10,
     },
     sectionHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       marginBottom: 10,
+    },
+    roomDimsHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    roomDimsSummary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    roomDimsSummaryText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: '500',
     },
     roomDimsCard: {
       backgroundColor: colors.surface,
@@ -389,18 +470,55 @@ function createStyles(colors: ThemeColors) {
     fixtureCard: {
       backgroundColor: colors.surface,
       borderRadius: 14,
-      padding: 14,
-      marginBottom: 10,
+      marginBottom: 8,
       borderWidth: 1,
       borderColor: colors.border,
+      overflow: 'hidden',
     },
     fixtureCardHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
     },
-    fixtureCardLabel: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+    fixtureCardHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      flex: 1,
+    },
+    fixtureCardLabelWrap: {
+      flex: 1,
+    },
+    fixtureColorDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    fixtureCardLabel: { fontSize: 13, fontWeight: '700', color: colors.text },
+    fixtureCardSummary: { fontSize: 11, color: colors.textTertiary, marginTop: 1, maxWidth: 200 },
+    fixtureCardHeaderRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    deleteBtn: {
+      width: 28,
+      height: 28,
+      borderRadius: 7,
+      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fixtureCardBody: {
+      paddingHorizontal: 14,
+      paddingBottom: 14,
+      gap: 8,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingTop: 12,
+    },
     zoneSummaryCard: {
       backgroundColor: colors.surfaceSecondary,
       borderRadius: 14,

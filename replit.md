@@ -34,7 +34,10 @@ assets/           - Images and static assets
 ## Key Features
 - **FLAME Calculator**: Fixture-Location-Angle-Material-Effect workflow for UV calculations
 - **Room Simulation**: Dedicated tab with 2D/3D room visualization, fixture placement, heatmaps, and auto-layout
-  - Moved from embedded scroll-view position to its own tab for better UX
+  - Layout: Room dims (collapsible) → Simulation viz → Zone summary → Fixture cards (collapsible)
+  - Fixture cards have color dots matching simulation colors, expand/collapse with summary line
+  - Side view renders fixtures at actual mounting height (not pinned to ceiling)
+  - Fixture legend with color-coded irradiance values appears when 2+ fixtures exist
   - Web drag support via pointer events; native drag via PanResponder
   - State managed by `stores/simulation-store.ts` (persisted via AsyncStorage)
   - Calculator "Add to Simulation" CTA pushes fixtures to sim store

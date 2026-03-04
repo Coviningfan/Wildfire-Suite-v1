@@ -27,7 +27,7 @@ interface SimulationState {
   setRoomDepth: (depth: string) => void;
   setRoomCeiling: (ceiling: string) => void;
   clearFixtures: () => void;
-  addBlankFixture: () => void;
+  addBlankFixture: (id?: string) => void;
   setFixtures: (fixtures: SimFixture[]) => void;
 }
 
@@ -65,12 +65,12 @@ export const useSimulationStore = create<SimulationState>()(
 
       clearFixtures: () => set({ zoneFixtures: [] }),
 
-      addBlankFixture: () =>
+      addBlankFixture: (id?: string) =>
         set((s) => ({
           zoneFixtures: [
             ...s.zoneFixtures,
             {
-              id: `zone-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              id: id ?? `zone-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               fixture: '',
               verticalHeight: '',
               horizontalDistance: '',
