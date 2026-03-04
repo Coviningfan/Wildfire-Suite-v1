@@ -1,43 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { Tabs, Redirect } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
+import { Tabs, Redirect, useRouter } from 'expo-router';
 import { Calculator, Lightbulb, User, Sparkles, BookOpen, Box } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { useThemeColors } from '@/hooks/useTheme';
 import { Platform, View } from 'react-native';
 import { useShouldShowAppTour } from '@/hooks/useFirstLaunch';
-import { OnboardingModal } from '@/components/ui/OnboardingModal';
 
 export default function TabLayout() {
   const { isAuthenticated, user } = useAuthStore();
   const colors = useThemeColors();
+  const router = useRouter();
 
   const isDemo = user?.email === 'demo@example.com';
   const [shouldShowTour, markTourSeen] = useShouldShowAppTour(user?.id, isDemo);
-  const [tourVisible, setTourVisible] = useState(false);
-  const tourTriggered = React.useRef(false);
+  const hasTriggeredTour = useRef(false);
 
   useEffect(() => {
-    if (isAuthenticated && shouldShowTour && !tourTriggered.current) {
-      tourTriggered.current = true;
+    if (isAuthenticated && shouldShowTour && !hasTriggeredTour.current) {
+      hasTriggeredTour.current = true;
+      markTourSeen();
       const timer = setTimeout(() => {
-        setTourVisible(true);
-      }, 600);
+        try {
+          router.navigate('/resources/app-walkthrough' as any);
+        } catch {
+          router.push('/resources/app-walkthrough' as any);
+        }
+      }, 1200);
       return () => clearTimeout(timer);
     }
   }, [isAuthenticated, shouldShowTour]);
-
-  const handleDismissTour = () => {
-    setTourVisible(false);
-    markTourSeen();
-  };
 
   if (!isAuthenticated) {
     return <Redirect href={'/(auth)/welcome' as any} />;
   }
 
   return (
-    <>
-    <OnboardingModal visible={tourVisible} onDismiss={handleDismissTour} />
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
@@ -121,6 +118,5 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-    </>
   );
 }
