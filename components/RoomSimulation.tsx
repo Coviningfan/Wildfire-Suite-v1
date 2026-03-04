@@ -286,7 +286,7 @@ const RoomSimulation = React.memo(
             if (!beam || drawWidth < 1 || drawHeight < 1 || roomWidth <= 0 || roomDepth <= 0) return;
 
             const movedX = dragStartRef.current.x + (gestureState.dx / drawWidth) * roomWidth;
-            const movedZ = dragStartRef.current.z - (gestureState.dy / drawHeight) * roomDepth;
+            const movedZ = dragStartRef.current.z + (gestureState.dy / drawHeight) * roomDepth;
 
             const nextX = Math.max(beam.beamDiamH / 2, Math.min(movedX, roomWidth - beam.beamDiamH / 2));
             const nextZ = Math.max(beam.beamDiamV / 2, Math.min(movedZ, roomDepth - beam.beamDiamV / 2));
@@ -333,7 +333,7 @@ const RoomSimulation = React.memo(
           if (!currentBeam || drawWidth < 1 || drawHeight < 1 || roomWidth <= 0 || roomDepth <= 0) return;
 
           const movedX = dragStartRef.current.x + (dx / drawWidth) * roomWidth;
-          const movedZ = dragStartRef.current.z - (dy / drawHeight) * roomDepth;
+          const movedZ = dragStartRef.current.z + (dy / drawHeight) * roomDepth;
 
           const nextX = Math.max(currentBeam.beamDiamH / 2, Math.min(movedX, roomWidth - currentBeam.beamDiamH / 2));
           const nextZ = Math.max(currentBeam.beamDiamV / 2, Math.min(movedZ, roomDepth - currentBeam.beamDiamV / 2));
@@ -478,9 +478,12 @@ const RoomSimulation = React.memo(
         const worldSurfaceX = isHorizontalSurface ? point.x : isSideWall ? point.z : point.x;
         const worldSurfaceY = isHorizontalSurface ? point.z : point.y;
 
+        const invertY = !isHorizontalSurface;
         return {
           x: SVG_PADDING + (worldSurfaceX / spanX) * drawWidth,
-          y: SVG_PADDING + ((spanY - worldSurfaceY) / spanY) * drawHeight,
+          y: invertY
+            ? SVG_PADDING + ((spanY - worldSurfaceY) / spanY) * drawHeight
+            : SVG_PADDING + (worldSurfaceY / spanY) * drawHeight,
         };
       };
 
