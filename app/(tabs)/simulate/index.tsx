@@ -32,11 +32,11 @@ export default function SimulateScreen() {
     addBlankFixture,
     removeFixture,
     updateFixture,
+    updateFixturePosition,
     setRoomWidth,
     setRoomDepth,
     setRoomCeiling,
     clearFixtures,
-    setFixtures,
   } = useSimulationStore();
 
   const [expandedFixtures, setExpandedFixtures] = useState<Record<string, boolean>>({});
@@ -108,13 +108,6 @@ export default function SimulateScreen() {
     const maxIrradiance = Math.max(...results.map((r) => r.irradiance_report.irradiance_mWm2));
     return { count: results.length, totalArea, avgIrradiance, maxIrradiance };
   }, [zoneFixtures]);
-
-  const handlePositionsChange = useCallback(
-    (updatedFixtures: typeof zoneFixtures) => {
-      setFixtures(updatedFixtures);
-    },
-    [setFixtures],
-  );
 
   const getFixtureSummary = useCallback((zf: typeof zoneFixtures[0]) => {
     if (!zf.fixture) return 'No model selected';
@@ -216,7 +209,7 @@ export default function SimulateScreen() {
             roomHeight={parseFloat(roomCeiling) || 0}
             fixtures={zoneFixtures}
             unitLabel={dUnit}
-            onPositionsChange={handlePositionsChange}
+            onFixturePositionChange={updateFixturePosition}
           />
         </View>
 

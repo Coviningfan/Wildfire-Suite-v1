@@ -39,7 +39,7 @@ interface RoomSimulationProps {
   roomHeight: number;
   fixtures: SimFixture[];
   unitLabel: string;
-  onPositionsChange?: (updatedFixtures: SimFixture[]) => void;
+  onFixturePositionChange?: (fixtureId: string, xPos: number, zPos: number) => void;
   selectedFixtureId?: string;
   onFixtureTap?: (fixtureId: string) => void;
   calibrationFactor?: number;
@@ -106,7 +106,7 @@ const RoomSimulation = React.memo(
     roomHeight,
     fixtures,
     unitLabel,
-    onPositionsChange,
+    onFixturePositionChange,
     selectedFixtureId,
     onFixtureTap,
     calibrationFactor = 1,
@@ -293,11 +293,8 @@ const RoomSimulation = React.memo(
 
             setFixturePositions((previous) => ({ ...previous, [fixtureId]: { x: nextX, z: nextZ } }));
 
-            if (onPositionsChange) {
-              const updatedFixtures = fixtures.map((f) =>
-                f.id === fixtureId ? { ...f, xPos: nextX, zPos: nextZ } : f,
-              );
-              onPositionsChange(updatedFixtures);
+            if (onFixturePositionChange) {
+              onFixturePositionChange(fixtureId, nextX, nextZ);
             }
           },
           onPanResponderRelease: () => {
@@ -309,7 +306,7 @@ const RoomSimulation = React.memo(
       });
 
       panRespondersRef.current = responders;
-    }, [fixtureIdsKey, drawWidth, drawHeight, roomWidth, roomDepth, onPositionsChange, onFixtureTap]);
+    }, [fixtureIdsKey, drawWidth, drawHeight, roomWidth, roomDepth, onFixturePositionChange, onFixtureTap]);
 
     const handleWebPointerDown = useCallback(
       (fixtureId: string, e: any) => {
@@ -343,9 +340,8 @@ const RoomSimulation = React.memo(
 
           setFixturePositions((prev) => ({ ...prev, [fixtureId]: { x: nextX, z: nextZ } }));
 
-          if (onPositionsChange) {
-            const updated = fixtures.map((f) => (f.id === fixtureId ? { ...f, xPos: nextX, zPos: nextZ } : f));
-            onPositionsChange(updated);
+          if (onFixturePositionChange) {
+            onFixturePositionChange(fixtureId, nextX, nextZ);
           }
         };
 
@@ -358,7 +354,7 @@ const RoomSimulation = React.memo(
         document.addEventListener('pointermove', handleMove);
         document.addEventListener('pointerup', handleUp);
       },
-      [beamData, drawWidth, drawHeight, roomWidth, roomDepth, onPositionsChange, onFixtureTap, fixtures],
+      [beamData, drawWidth, drawHeight, roomWidth, roomDepth, onFixturePositionChange, onFixtureTap],
     );
 
     const toggleView = useCallback(() => {
@@ -429,17 +425,15 @@ const RoomSimulation = React.memo(
 
         setFixturePositions((previous) => ({ ...previous, ...nextPositions }));
 
-        if (onPositionsChange) {
-          const updatedFixtures = fixtures.map((fixture) => {
-            const next = nextPositions[fixture.id];
-            return next ? { ...fixture, xPos: next.x, zPos: next.z } : fixture;
+        if (onFixturePositionChange) {
+          Object.entries(nextPositions).forEach(([id, pos]) => {
+            onFixturePositionChange(id, pos.x, pos.z);
           });
-          onPositionsChange(updatedFixtures);
         }
 
         Haptics.selectionAsync();
       },
-      [fixtures, roomDepth, roomWidth, onPositionsChange],
+      [fixtures, roomDepth, roomWidth, onFixturePositionChange],
     );
 
     const hasData = beamData.length > 0 && roomWidth > 0 && roomDepth > 0;
