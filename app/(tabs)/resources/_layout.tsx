@@ -6,7 +6,7 @@ export default function ResourcesLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen
         name="[tutorialId]"
-        getId={({ params }) => String(params?.tutorialId ?? 'tutorial')}
+        dangerouslySingular={({ params }) => String(params?.tutorialId ?? 'tutorial')}
       />
     </Stack>
   );
