@@ -203,7 +203,7 @@ function createStyles(colors: ThemeColors) {
     },
     input: {
       flex: 1,
-      paddingHorizontal: 14,
+      paddingHorizontal: 12,
       paddingVertical: 11,
       fontSize: 15,
       color: colors.text,
@@ -220,7 +220,7 @@ function createStyles(colors: ThemeColors) {
     },
     unitContainer: {
       backgroundColor: colors.surfaceElevated,
-      paddingHorizontal: 12,
+      paddingHorizontal: 8,
       paddingVertical: 11,
       borderTopRightRadius: 12,
       borderBottomRightRadius: 12,
