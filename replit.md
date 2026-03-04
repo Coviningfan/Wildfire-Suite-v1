@@ -16,23 +16,28 @@ Expo React Native app (web) for Wildfire Lighting. Features UV lighting calculat
 app/              - Expo Router pages
   (auth)/         - Auth screens (welcome, login, register)
   (tabs)/         - Main app tabs
-    (home)/       - Calculator tab
+    (home)/       - Calculator tab (FLAME workflow)
+    simulate/     - Room Simulation tab (dedicated screen)
     fixtures/     - Fixture catalog
     ai/           - AI insights
-    calculations/ - Saved calculations (hidden tab)
+    calculations/ - Saved calculations (hidden tab, accessible from code)
     resources/    - Docs tab (tutorials, knowledge base, PDF resources)
     profile/      - User profile and settings
 components/       - Reusable UI components
 constants/        - App constants (colors, theme, tutorials, resources)
 hooks/            - Custom React hooks
-stores/           - Zustand stores (auth, lighting, settings)
+stores/           - Zustand stores (auth, lighting, settings, simulation)
 utils/            - Utility functions
 assets/           - Images and static assets
 ```
 
 ## Key Features
 - **FLAME Calculator**: Fixture-Location-Angle-Material-Effect workflow for UV calculations
-- **Room Simulation**: 2D/3D room visualization with fixture placement and heatmaps
+- **Room Simulation**: Dedicated tab with 2D/3D room visualization, fixture placement, heatmaps, and auto-layout
+  - Moved from embedded scroll-view position to its own tab for better UX
+  - Web drag support via pointer events; native drag via PanResponder
+  - State managed by `stores/simulation-store.ts` (persisted via AsyncStorage)
+  - Calculator "Add to Simulation" CTA pushes fixtures to sim store
 - **Tutorials System**: Two categories:
   - App Tutorials: Step-by-step guides tied to app features (7 tutorials)
   - Knowledge Base: Educational articles about UV science (7 articles)

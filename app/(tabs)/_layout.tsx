@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Tabs, Redirect, useRouter } from 'expo-router';
-import { Calculator, Lightbulb, User, Sparkles, BookOpen } from 'lucide-react-native';
+import { Calculator, Lightbulb, User, Sparkles, BookOpen, Box } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
 import { useThemeColors } from '@/hooks/useTheme';
 import { Platform, View } from 'react-native';
@@ -75,6 +75,13 @@ export default function TabLayout() {
         options={{
           title: 'Fixtures',
           tabBarIcon: ({ color, size }) => <Lightbulb size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
+        }}
+      />
+      <Tabs.Screen
+        name="simulate"
+        options={{
+          title: 'Simulate',
+          tabBarIcon: ({ color, size }) => <Box size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />
       <Tabs.Screen

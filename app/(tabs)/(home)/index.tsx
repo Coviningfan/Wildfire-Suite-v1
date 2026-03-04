@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Animated, Easing, Dimensions, Modal, Pressable } from 'react-native';
-import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check, Info, Plus, Trash2, AlertCircle } from 'lucide-react-native';
+import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check, Info, Plus, AlertCircle, Box } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useLightingStore } from '@/stores/lighting-store';
+import { useSimulationStore } from '@/stores/simulation-store';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { Input } from '@/components/ui/Input';
 import { Picker } from '@/components/ui/Picker';
@@ -11,13 +13,11 @@ import { CalculationPreview } from '@/components/CalculationPreview';
 import { QRScanner } from '@/components/QRScanner';
 import { SaveCalculationModal } from '@/components/SaveCalculationModal';
 import { LightSensorCard } from '@/components/LightSensorCard';
-import { RoomSimulation } from '@/components/RoomSimulation';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { generateText } from '@rork-ai/toolkit-sdk';
 import { useSettingsStore, convertDistance, convertArea, distanceUnit, areaUnit } from '@/stores/settings-store';
-import { CalculationResponse } from '@/types/lighting';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const RESULT_ITEM_WIDTH = (SCREEN_WIDTH - 48 - 8) / 2;
@@ -45,14 +45,6 @@ const SAFETY_EXPLANATIONS: Record<string, { title: string; threshold: string; ac
   },
 };
 
-interface ZoneFixture {
-  id: string;
-  fixture: string;
-  verticalHeight: string;
-  horizontalDistance: string;
-  beamWidth: string;
-  beamHeight: string;
-}
 
 const MATERIAL_OPTIONS = [
   'Fluorescent Paint',
@@ -81,6 +73,7 @@ type FlameLetter = 'F' | 'L' | 'A' | 'M' | 'E';
 export default function CalculatorScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
 
   const {
     selectedFixture, verticalHeight, horizontalDistance,
@@ -90,6 +83,8 @@ export default function CalculatorScreen() {
     setBeamWidth, setBeamHeight, setRectHeight, setRectWidth, setRectDepth,
     calculate, resetInputs, openQRScanner, saveCalculation, getSafetyLevel, clearResult,
   } = useLightingStore();
+
+  const { addFixture: addToSimulation, zoneFixtures } = useSimulationStore();
 
   const { unitSystem } = useSettingsStore();
   const dUnit = distanceUnit(unitSystem);
@@ -104,11 +99,6 @@ export default function CalculatorScreen() {
   const [activeStep, setActiveStep] = useState<number>(0);
   const [showSafetyModal, setShowSafetyModal] = useState<boolean>(false);
   const [safetyModalLevel, setSafetyModalLevel] = useState<string>('safe');
-  const [zoneFixtures, setZoneFixtures] = useState<ZoneFixture[]>([]);
-  const [roomWidth, setRoomWidth] = useState<string>('12');
-  const [roomDepth, setRoomDepth] = useState<string>('8');
-  const [roomCeiling, setRoomCeiling] = useState<string>('4');
-  const [showSimulation, setShowSimulation] = useState<boolean>(true);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const resultFadeAnim = useRef(new Animated.Value(0)).current;
@@ -310,69 +300,27 @@ Give a quick practical insight about this setup - is the throw distance optimal,
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  const addZoneFixture = useCallback(() => {
-    const newFixture: ZoneFixture = {
-      id: `zone-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      fixture: '',
-      verticalHeight: '',
-      horizontalDistance: '',
-      beamWidth: '',
-      beamHeight: '',
-    };
-    setZoneFixtures(prev => [...prev, newFixture]);
-  }, []);
-
-  const handleAddCurrentToZone = useCallback(() => {
+  const handleAddToSimulation = useCallback(() => {
     if (!selectedFixture || !beamWidth || !beamHeight) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Incomplete Setup', 'Select a fixture and enter beam width and height before adding to the zone.');
+      Alert.alert('Incomplete Setup', 'Select a fixture and enter beam dimensions before adding to the simulation.');
       return;
     }
 
-    const newFixture: ZoneFixture = {
-      id: `zone-from-calc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    addToSimulation({
+      id: `sim-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       fixture: selectedFixture,
       verticalHeight: verticalHeight || '',
       horizontalDistance: horizontalDistance || '',
       beamWidth,
       beamHeight,
-    };
-
-    setZoneFixtures(prev => [...prev, newFixture]);
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [selectedFixture, beamWidth, beamHeight, verticalHeight, horizontalDistance]);
-
-  const removeZoneFixture = useCallback((id: string) => {
-    setZoneFixtures(prev => prev.filter(f => f.id !== id));
-  }, []);
-
-  const updateZoneFixture = useCallback((id: string, field: keyof ZoneFixture, value: string) => {
-    setZoneFixtures(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
-  }, []);
-
-  const zoneResults = useMemo(() => {
-    if (zoneFixtures.length === 0) return null;
-    const calc = new LightingCalculator();
-    const results: Exclude<CalculationResponse, { error: string }>[] = [];
-    for (const zf of zoneFixtures) {
-      if (!zf.fixture) continue;
-      const result = calc.calculateRadiometricData(
-        zf.fixture,
-        parseFloat(zf.verticalHeight) || 0,
-        parseFloat(zf.horizontalDistance) || 0,
-        parseFloat(zf.beamWidth) || 12,
-        parseFloat(zf.beamHeight) || 12,
-      );
-      if (!('error' in result)) {
-        results.push(result);
-      }
-    }
-    if (results.length === 0) return null;
-    const totalArea = results.reduce((s, r) => s + r.irradiance_report.beam_area_m2, 0);
-    const avgIrradiance = results.reduce((s, r) => s + r.irradiance_report.irradiance_mWm2, 0) / results.length;
-    const maxIrradiance = Math.max(...results.map(r => r.irradiance_report.irradiance_mWm2));
-    return { count: results.length, totalArea, avgIrradiance, maxIrradiance };
-  }, [zoneFixtures]);
+    Alert.alert('Added to Simulation', `${selectedFixture} added. Go to the Simulate tab to visualize your room layout.`, [
+      { text: 'Stay Here', style: 'cancel' },
+      { text: 'Open Simulation', onPress: () => router.push('/(tabs)/simulate' as any) },
+    ]);
+  }, [selectedFixture, beamWidth, beamHeight, verticalHeight, horizontalDistance, addToSimulation, router]);
 
   const canSave = lastCalculation != null && !('error' in lastCalculation);
   const hasResult = lastCalculation != null && !('error' in lastCalculation);
@@ -697,11 +645,11 @@ Give a quick practical insight about this setup - is the throw distance optimal,
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.resultAddZoneBtn}
-                  onPress={handleAddCurrentToZone}
+                  onPress={handleAddToSimulation}
                   activeOpacity={0.7}
                 >
-                  <Plus size={14} color={colors.primary} />
-                  <Text style={styles.resultAddZoneText}>Add to zone</Text>
+                  <Box size={14} color={colors.accent} />
+                  <Text style={styles.resultAddZoneText}>Add to Simulation</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -732,100 +680,26 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           </Animated.View>
         )}
 
-        <View style={styles.zoneSection}>
-          <View style={styles.zoneSectionHeader}>
-            <Text style={styles.zoneSectionTitle}>Multi-Fixture Zone</Text>
-            <TouchableOpacity style={styles.zoneAddBtn} onPress={addZoneFixture} activeOpacity={0.7}>
-              <Plus size={14} color={colors.primary} />
-              <Text style={styles.zoneAddBtnText}>Add Fixture</Text>
-            </TouchableOpacity>
-          </View>
-          {zoneFixtures.length > 0 && (
-            <Text style={styles.zoneHint}>Add multiple fixtures to calculate combined coverage for a zone</Text>
-          )}
-          {zoneFixtures.map((zf, idx) => (
-            <View key={zf.id} style={styles.zoneFixtureCard}>
-              <View style={styles.zoneFixtureHeader}>
-                <Text style={styles.zoneFixtureLabel}>Fixture {idx + 1}</Text>
-                <TouchableOpacity onPress={() => removeZoneFixture(zf.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Trash2 size={14} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-              <Picker label="Model" value={zf.fixture} options={fixtureModels} onValueChange={(v) => updateZoneFixture(zf.id, 'fixture', v)} />
-              <View style={styles.inputRow}>
-                <View style={styles.inputHalf}>
-                  <Input label="Height" value={zf.verticalHeight} onChangeText={(v) => updateZoneFixture(zf.id, 'verticalHeight', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="0.0" />
-                </View>
-                <View style={styles.inputHalf}>
-                  <Input label="H. Dist" value={zf.horizontalDistance} onChangeText={(v) => updateZoneFixture(zf.id, 'horizontalDistance', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="0.0" />
-                </View>
-              </View>
-              <View style={styles.inputRow}>
-                <View style={styles.inputHalf}>
-                  <Input label="Width" value={zf.beamWidth} onChangeText={(v) => updateZoneFixture(zf.id, 'beamWidth', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="6.0" />
-                </View>
-                <View style={styles.inputHalf}>
-                  <Input label="Height" value={zf.beamHeight} onChangeText={(v) => updateZoneFixture(zf.id, 'beamHeight', v)} keyboardType="decimal-pad" unit={dUnit} placeholder="3.0" />
-                </View>
-              </View>
+        <TouchableOpacity
+          style={styles.simCta}
+          onPress={() => router.push('/(tabs)/simulate' as any)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.simCtaLeft}>
+            <View style={styles.simCtaIcon}>
+              <Box size={18} color={colors.accent} />
             </View>
-          ))}
-          {zoneResults && (
-            <View style={styles.zoneResultCard}>
-              <Text style={styles.zoneResultTitle}>Zone Summary ({zoneResults.count} fixture{zoneResults.count !== 1 ? 's' : ''})</Text>
-              <View style={styles.zoneResultRow}>
-                <View style={styles.zoneResultStat}>
-                  <Text style={styles.zoneResultValue}>{convertArea(zoneResults.totalArea, unitSystem).toFixed(1)}</Text>
-                  <Text style={styles.zoneResultLabel}>Total Area ({aUnit})</Text>
-                </View>
-                <View style={styles.zoneResultStat}>
-                  <Text style={styles.zoneResultValue}>{zoneResults.avgIrradiance.toFixed(0)}</Text>
-                  <Text style={styles.zoneResultLabel}>Avg mW/m²</Text>
-                </View>
-                <View style={styles.zoneResultStat}>
-                  <Text style={styles.zoneResultValue}>{zoneResults.maxIrradiance.toFixed(0)}</Text>
-                  <Text style={styles.zoneResultLabel}>Peak mW/m²</Text>
-                </View>
-              </View>
+            <View style={styles.simCtaTextWrap}>
+              <Text style={styles.simCtaTitle}>Room Simulation</Text>
+              <Text style={styles.simCtaSubtitle}>
+                {zoneFixtures.length === 0
+                  ? 'Visualize multi-fixture layouts'
+                  : `${zoneFixtures.length} fixture${zoneFixtures.length !== 1 ? 's' : ''} in simulation`}
+              </Text>
             </View>
-          )}
-
-          <View style={styles.simSection}>
-            <TouchableOpacity
-              style={styles.simToggle}
-              onPress={() => { Haptics.selectionAsync(); setShowSimulation(!showSimulation); }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.simToggleTitle}>Room Simulation</Text>
-              <Text style={styles.simToggleHint}>{showSimulation ? 'Hide' : 'Show'} beam visualization</Text>
-            </TouchableOpacity>
-            {showSimulation && (
-              <>
-                <View style={styles.roomDimsCard}>
-                  <Text style={styles.roomDimsLabel}>Room Dimensions</Text>
-                  <View style={styles.inputRow}>
-                    <View style={styles.inputThird}>
-                      <Input label="Width" value={roomWidth} onChangeText={setRoomWidth} keyboardType="decimal-pad" unit={dUnit} placeholder="12" />
-                    </View>
-                    <View style={styles.inputThird}>
-                      <Input label="Depth" value={roomDepth} onChangeText={setRoomDepth} keyboardType="decimal-pad" unit={dUnit} placeholder="8" />
-                    </View>
-                    <View style={styles.inputThird}>
-                      <Input label="Ceiling" value={roomCeiling} onChangeText={setRoomCeiling} keyboardType="decimal-pad" unit={dUnit} placeholder="4" />
-                    </View>
-                  </View>
-                </View>
-                <RoomSimulation
-                  roomWidth={parseFloat(roomWidth) || 0}
-                  roomDepth={parseFloat(roomDepth) || 0}
-                  roomHeight={parseFloat(roomCeiling) || 0}
-                  fixtures={zoneFixtures}
-                  unitLabel={dUnit}
-                />
-              </>
-            )}
           </View>
-        </View>
+          <ChevronDown size={16} color={colors.textTertiary} style={{ transform: [{ rotate: '-90deg' }] }} />
+        </TouchableOpacity>
 
         <LightSensorCard />
 
@@ -931,8 +805,8 @@ function createStyles(colors: ThemeColors) {
     resultActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, gap: 8 },
     resultSaveBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.primary, gap: 6, shadowColor: colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 },
     resultSaveText: { fontSize: 13, fontWeight: '600' as const, color: '#fff' },
-    resultAddZoneBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, gap: 6 },
-    resultAddZoneText: { fontSize: 12, fontWeight: '600' as const, color: colors.textSecondary },
+    resultAddZoneBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(124, 107, 240, 0.08)', borderWidth: 1, borderColor: 'rgba(124, 107, 240, 0.2)', gap: 6 },
+    resultAddZoneText: { fontSize: 12, fontWeight: '600' as const, color: colors.accent },
     safetyLabelRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
     resultLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' as const, letterSpacing: 0.8, marginBottom: 6 },
     resultValue: { fontSize: 24, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.5 },
@@ -961,26 +835,11 @@ function createStyles(colors: ThemeColors) {
     safetyModalAction: { fontSize: 14, lineHeight: 22, marginBottom: 20 },
     safetyModalClose: { paddingVertical: 12, borderRadius: 12, alignItems: 'center' as const },
     safetyModalCloseText: { fontSize: 14, fontWeight: '600' as const },
-    zoneSection: { paddingHorizontal: 16, marginTop: 16, marginBottom: 8 },
-    zoneSectionHeader: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, marginBottom: 8 },
-    zoneSectionTitle: { fontSize: 15, fontWeight: '700' as const, color: colors.text },
-    zoneAddBtn: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.glow, borderWidth: 1, borderColor: 'rgba(232, 65, 42, 0.2)' },
-    zoneAddBtnText: { fontSize: 12, fontWeight: '600' as const, color: colors.primary },
-    zoneHint: { fontSize: 12, color: colors.textTertiary, marginBottom: 10, lineHeight: 17 },
-    zoneFixtureCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
-    zoneFixtureHeader: { flexDirection: 'row' as const, justifyContent: 'space-between' as const, alignItems: 'center' as const, marginBottom: 10 },
-    zoneFixtureLabel: { fontSize: 13, fontWeight: '700' as const, color: colors.textSecondary },
-    zoneResultCard: { backgroundColor: colors.surfaceSecondary, borderRadius: 14, padding: 14, marginTop: 4, borderWidth: 1, borderColor: colors.border },
-    zoneResultTitle: { fontSize: 13, fontWeight: '700' as const, color: colors.text, marginBottom: 10 },
-    zoneResultRow: { flexDirection: 'row' as const, gap: 8 },
-    zoneResultStat: { flex: 1, alignItems: 'center' as const },
-    zoneResultValue: { fontSize: 18, fontWeight: '800' as const, color: colors.text },
-    zoneResultLabel: { fontSize: 10, color: colors.textTertiary, marginTop: 2, textAlign: 'center' as const },
-    simSection: { marginTop: 12 },
-    simToggle: { marginBottom: 8 },
-    simToggleTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.text, marginBottom: 2 },
-    simToggleHint: { fontSize: 11, color: colors.textTertiary },
-    roomDimsCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 4, borderWidth: 1, borderColor: colors.border },
-    roomDimsLabel: { fontSize: 12, fontWeight: '600' as const, color: colors.textSecondary, marginBottom: 10 },
+    simCta: { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'space-between' as const, marginHorizontal: 16, marginTop: 16, marginBottom: 8, paddingVertical: 14, paddingHorizontal: 16, backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(124, 107, 240, 0.2)' },
+    simCtaLeft: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, flex: 1 },
+    simCtaIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(124, 107, 240, 0.1)', justifyContent: 'center' as const, alignItems: 'center' as const },
+    simCtaTextWrap: { flex: 1 },
+    simCtaTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.text },
+    simCtaSubtitle: { fontSize: 12, color: colors.textTertiary, marginTop: 2 },
   });
 }

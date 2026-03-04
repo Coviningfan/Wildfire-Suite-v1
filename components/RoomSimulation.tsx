@@ -1,18 +1,17 @@
-import React, { useMemo, useEffect, useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder, Platform } from 'react-native';
+import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder, Platform, GestureResponderHandlers } from 'react-native';
 import Svg, { Rect, Ellipse, Line, Defs, RadialGradient, Stop, G, Circle, Text as SvgText } from 'react-native-svg';
-import { Eye, Layers, RefreshCw, Target, LayoutGrid } from 'lucide-react-native';
+import { Eye, Layers, RefreshCw, Target, LayoutGrid, Move } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const SVG_PADDING = 28;
 const FIXTURE_COLORS = ['#E8412A', '#3B9FE8', '#22C55E', '#F5A623', '#7C6BF0', '#F97316'];
 const GRID_SIZE = 10;
 
-interface SimFixture {
+export interface SimFixture {
   id: string;
   fixture: string;
   verticalHeight: string;
@@ -41,13 +40,9 @@ interface RoomSimulationProps {
   fixtures: SimFixture[];
   unitLabel: string;
   onPositionsChange?: (updatedFixtures: SimFixture[]) => void;
-  /** Optional external selection id controlled by the parent UI. */
   selectedFixtureId?: string;
-  /** Fired when the user taps or starts dragging a fixture circle. */
   onFixtureTap?: (fixtureId: string) => void;
-  /** Calibration factor applied to simulated irradiance (1.0 = raw math). */
   calibrationFactor?: number;
-  /** Optional markers for people / operators used for dose readouts. */
   people?: PersonMarker[];
 }
 
@@ -88,12 +83,20 @@ function getSafetyLabel(irradiance: number): string {
 }
 
 function computeDoseMJcm2(irradiance_mWm2: number, minutes: number): number {
-  // mW/m² → W/m², then J/m² over time, then mJ/cm²
   const wattsPerM2 = irradiance_mWm2 / 1000;
   const seconds = minutes * 60;
   const joulesPerM2 = wattsPerM2 * seconds;
-  const mJPerCm2 = (joulesPerM2 / 10); // 1 J/m² = 0.1 mJ/cm²
+  const mJPerCm2 = joulesPerM2 / 10;
   return mJPerCm2;
+}
+
+function useContainerWidth() {
+  const [width, setWidth] = useState(Dimensions.get('window').width - 32);
+  const onLayout = useCallback((e: any) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setWidth(w);
+  }, []);
+  return { containerWidth: width, onLayout };
 }
 
 const RoomSimulation = React.memo(
@@ -112,17 +115,23 @@ const RoomSimulation = React.memo(
     const colors = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const calc = useMemo(() => new LightingCalculator(), []);
+    const { containerWidth, onLayout } = useContainerWidth();
 
     const [viewMode, setViewMode] = useState<'top' | 'side' | 'iso'>('top');
     const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('floor');
     const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
     const [selectedFixtureInternal, setSelectedFixtureInternal] = useState<string | null>(null);
     const [fixturePositions, setFixturePositions] = useState<Record<string, { x: number; z: number }>>({});
+    const [draggingId, setDraggingId] = useState<string | null>(null);
 
-    const svgWidth = SCREEN_WIDTH - 32;
-    const svgHeight = viewMode === 'top' ? svgWidth * 0.8 : (viewMode === 'iso' ? svgWidth * 0.72 : svgWidth * 0.6);
+    const svgWidth = containerWidth;
+    const svgHeight = viewMode === 'top' ? svgWidth * 0.8 : viewMode === 'iso' ? svgWidth * 0.72 : svgWidth * 0.6;
     const drawWidth = svgWidth - SVG_PADDING * 2;
     const drawHeight = svgHeight - SVG_PADDING * 2;
+
+    const svgRef = useRef<View>(null);
+    const dragStartRef = useRef<{ x: number; z: number }>({ x: 0, z: 0 });
+    const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
     useEffect(() => {
       const pendingPositions: Record<string, { x: number; z: number }> = {};
@@ -139,12 +148,12 @@ const RoomSimulation = React.memo(
       if (Object.keys(pendingPositions).length > 0) {
         setFixturePositions((previous) => ({ ...previous, ...pendingPositions }));
       }
-    }, [fixtures, roomWidth, roomDepth, fixturePositions]);
+    }, [fixtures, roomWidth, roomDepth]);
 
     const beamData = useMemo<FixtureBeamData[]>(() => {
       if (roomWidth <= 0 || roomDepth <= 0) return [];
 
-      const values = fixtures
+      return fixtures
         .map((fixture, index) => {
           if (!fixture.fixture) return null;
 
@@ -152,9 +161,7 @@ const RoomSimulation = React.memo(
           const horizontalDistance = parseFloat(fixture.horizontalDistance) || 0;
           const result = calc.calculateRadiometricData(fixture.fixture, verticalHeight, horizontalDistance);
 
-          if ('error' in result || !result.irradiance_report) {
-            return null;
-          }
+          if ('error' in result || !result.irradiance_report) return null;
 
           const report = result.irradiance_report;
           const basePosition = fixturePositions[fixture.id] ?? {
@@ -162,8 +169,14 @@ const RoomSimulation = React.memo(
             z: fixture.zPos ?? roomDepth / 2,
           };
 
-          const clampedX = Math.max(report.beam_diameter_h_m / 2, Math.min(basePosition.x, roomWidth - report.beam_diameter_h_m / 2));
-          const clampedZ = Math.max(report.beam_diameter_v_m / 2, Math.min(basePosition.z, roomDepth - report.beam_diameter_v_m / 2));
+          const clampedX = Math.max(
+            report.beam_diameter_h_m / 2,
+            Math.min(basePosition.x, roomWidth - report.beam_diameter_h_m / 2),
+          );
+          const clampedZ = Math.max(
+            report.beam_diameter_v_m / 2,
+            Math.min(basePosition.z, roomDepth - report.beam_diameter_v_m / 2),
+          );
 
           const calibratedIrr = report.irradiance_mWm2 * calibrationFactor;
 
@@ -183,8 +196,6 @@ const RoomSimulation = React.memo(
           };
         })
         .filter(Boolean) as FixtureBeamData[];
-
-      return values;
     }, [fixtures, fixturePositions, roomWidth, roomDepth, roomHeight, calc, calibrationFactor]);
 
     const sampleSurfaceCells = useCallback((): HeatmapCell[] => {
@@ -213,7 +224,6 @@ const RoomSimulation = React.memo(
             worldY = ((iz + 0.5) / GRID_SIZE) * roomHeight;
             worldX = 0;
           } else {
-            // rightWall
             worldZ = ((ix + 0.5) / GRID_SIZE) * roomDepth;
             worldY = ((iz + 0.5) / GRID_SIZE) * roomHeight;
             worldX = roomWidth;
@@ -230,7 +240,7 @@ const RoomSimulation = React.memo(
             const distance3D = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
             if (distance3D > 0.01) {
-              totalIrr += fixtureData.peak_irradiance_mWm2 * calibrationFactor / (distance3D * distance3D);
+              totalIrr += (fixtureData.peak_irradiance_mWm2 * calibrationFactor) / (distance3D * distance3D);
             }
           });
 
@@ -247,49 +257,109 @@ const RoomSimulation = React.memo(
     const toSvgY = useCallback((worldY: number): number => SVG_PADDING + ((roomHeight - worldY) / roomHeight) * drawHeight, [roomHeight, drawHeight]);
     const scaleX = useCallback((distance: number): number => (distance / roomWidth) * drawWidth, [roomWidth, drawWidth]);
 
-    const createPanResponder = (fixtureId: string) => {
-      let startX = 0;
-      let startZ = 0;
+    const panRespondersRef = useRef<Record<string, { panHandlers: GestureResponderHandlers }>>({});
+    const beamDataRef = useRef(beamData);
+    beamDataRef.current = beamData;
 
-      return PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          const beam = beamData.find((entry) => entry.id === fixtureId);
-          if (beam) {
-            startX = beam.xPos;
-            startZ = beam.zPos;
-          }
-          setSelectedFixtureInternal(fixtureId);
-          if (onFixtureTap) {
-            onFixtureTap(fixtureId);
-          }
-        },
-        onPanResponderMove: (_, gestureState) => {
-          const beam = beamData.find((entry) => entry.id === fixtureId);
-          if (!beam || drawWidth <= 0 || drawHeight <= 0) return;
+    const fixtureIdsKey = fixtures.map((f) => f.id).join(',');
 
-          const movedX = startX + (gestureState.dx / drawWidth) * roomWidth;
-          const movedZ = startZ + (gestureState.dy / drawHeight) * roomDepth;
+    useEffect(() => {
+      const responders: Record<string, { panHandlers: GestureResponderHandlers }> = {};
 
-          const nextX = Math.max(beam.beamDiamH / 2, Math.min(movedX, roomWidth - beam.beamDiamH / 2));
-          const nextZ = Math.max(beam.beamDiamV / 2, Math.min(movedZ, roomDepth - beam.beamDiamV / 2));
+      fixtures.forEach((fixture) => {
+        const fixtureId = fixture.id;
+        const responder = PanResponder.create({
+          onStartShouldSetPanResponder: () => true,
+          onMoveShouldSetPanResponder: () => true,
+          onPanResponderGrant: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            const beam = beamDataRef.current.find((entry) => entry.id === fixtureId);
+            if (beam) {
+              dragStartRef.current = { x: beam.xPos, z: beam.zPos };
+            }
+            setSelectedFixtureInternal(fixtureId);
+            setDraggingId(fixtureId);
+            if (onFixtureTap) onFixtureTap(fixtureId);
+          },
+          onPanResponderMove: (_, gestureState) => {
+            const beam = beamDataRef.current.find((entry) => entry.id === fixtureId);
+            if (!beam || drawWidth < 1 || drawHeight < 1 || roomWidth <= 0 || roomDepth <= 0) return;
 
-          setFixturePositions((previous) => ({ ...previous, [fixtureId]: { x: nextX, z: nextZ } }));
+            const movedX = dragStartRef.current.x + (gestureState.dx / drawWidth) * roomWidth;
+            const movedZ = dragStartRef.current.z + (gestureState.dy / drawHeight) * roomDepth;
+
+            const nextX = Math.max(beam.beamDiamH / 2, Math.min(movedX, roomWidth - beam.beamDiamH / 2));
+            const nextZ = Math.max(beam.beamDiamV / 2, Math.min(movedZ, roomDepth - beam.beamDiamV / 2));
+
+            setFixturePositions((previous) => ({ ...previous, [fixtureId]: { x: nextX, z: nextZ } }));
+
+            if (onPositionsChange) {
+              const updatedFixtures = fixtures.map((f) =>
+                f.id === fixtureId ? { ...f, xPos: nextX, zPos: nextZ } : f,
+              );
+              onPositionsChange(updatedFixtures);
+            }
+          },
+          onPanResponderRelease: () => {
+            setDraggingId(null);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        });
+        responders[fixtureId] = responder;
+      });
+
+      panRespondersRef.current = responders;
+    }, [fixtureIdsKey, drawWidth, drawHeight, roomWidth, roomDepth, onPositionsChange, onFixtureTap]);
+
+    const handleWebPointerDown = useCallback(
+      (fixtureId: string, e: any) => {
+        e.preventDefault?.();
+        e.stopPropagation?.();
+
+        const beam = beamData.find((b) => b.id === fixtureId);
+        if (!beam) return;
+
+        dragStartRef.current = { x: beam.xPos, z: beam.zPos };
+        dragOffsetRef.current = { x: e.clientX || e.pageX || 0, y: e.clientY || e.pageY || 0 };
+        setSelectedFixtureInternal(fixtureId);
+        setDraggingId(fixtureId);
+        if (onFixtureTap) onFixtureTap(fixtureId);
+
+        const handleMove = (moveEvent: any) => {
+          moveEvent.preventDefault?.();
+          const clientX = moveEvent.clientX || moveEvent.pageX || 0;
+          const clientY = moveEvent.clientY || moveEvent.pageY || 0;
+          const dx = clientX - dragOffsetRef.current.x;
+          const dy = clientY - dragOffsetRef.current.y;
+
+          const currentBeam = beamDataRef.current.find((b) => b.id === fixtureId);
+          if (!currentBeam || drawWidth < 1 || drawHeight < 1 || roomWidth <= 0 || roomDepth <= 0) return;
+
+          const movedX = dragStartRef.current.x + (dx / drawWidth) * roomWidth;
+          const movedZ = dragStartRef.current.z + (dy / drawHeight) * roomDepth;
+
+          const nextX = Math.max(currentBeam.beamDiamH / 2, Math.min(movedX, roomWidth - currentBeam.beamDiamH / 2));
+          const nextZ = Math.max(currentBeam.beamDiamV / 2, Math.min(movedZ, roomDepth - currentBeam.beamDiamV / 2));
+
+          setFixturePositions((prev) => ({ ...prev, [fixtureId]: { x: nextX, z: nextZ } }));
 
           if (onPositionsChange) {
-            const updatedFixtures = fixtures.map((fixture) => (
-              fixture.id === fixtureId ? { ...fixture, xPos: nextX, zPos: nextZ } : fixture
-            ));
-            onPositionsChange(updatedFixtures);
+            const updated = fixtures.map((f) => (f.id === fixtureId ? { ...f, xPos: nextX, zPos: nextZ } : f));
+            onPositionsChange(updated);
           }
-        },
-        onPanResponderRelease: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        },
-      });
-    };
+        };
+
+        const handleUp = () => {
+          setDraggingId(null);
+          document.removeEventListener('pointermove', handleMove);
+          document.removeEventListener('pointerup', handleUp);
+        };
+
+        document.addEventListener('pointermove', handleMove);
+        document.addEventListener('pointerup', handleUp);
+      },
+      [beamData, drawWidth, drawHeight, roomWidth, roomDepth, onPositionsChange, onFixtureTap, fixtures],
+    );
 
     const toggleView = useCallback(() => {
       Haptics.selectionAsync();
@@ -310,102 +380,108 @@ const RoomSimulation = React.memo(
       setFixturePositions({});
     }, []);
 
-    const handleSurfaceModeChange = useCallback((mode: SurfaceMode) => {
-      Haptics.selectionAsync();
-      setSurfaceMode(mode);
-      if (viewMode !== 'top') {
-        setViewMode('top');
-      }
-    }, [viewMode]);
+    const handleSurfaceModeChange = useCallback(
+      (mode: SurfaceMode) => {
+        Haptics.selectionAsync();
+        setSurfaceMode(mode);
+        if (viewMode !== 'top') setViewMode('top');
+      },
+      [viewMode],
+    );
 
+    const applyAutoLayout = useCallback(
+      (mode: 'line' | 'grid' | 'perimeter') => {
+        if (!fixtures.length || roomWidth <= 0 || roomDepth <= 0) return;
 
-    const applyAutoLayout = useCallback((mode: 'line' | 'grid' | 'perimeter') => {
-      if (!fixtures.length || roomWidth <= 0 || roomDepth <= 0) return;
-
-      const nextPositions: Record<string, { x: number; z: number }> = {};
-      const clampPos = (x: number, z: number) => ({
-        x: Math.max(0.2, Math.min(x, roomWidth - 0.2)),
-        z: Math.max(0.2, Math.min(z, roomDepth - 0.2)),
-      });
-
-      if (mode === 'line') {
-        const spacing = roomWidth / (fixtures.length + 1);
-        fixtures.forEach((fixture, index) => {
-          nextPositions[fixture.id] = clampPos(spacing * (index + 1), roomDepth / 2);
+        const nextPositions: Record<string, { x: number; z: number }> = {};
+        const clampPos = (x: number, z: number) => ({
+          x: Math.max(0.2, Math.min(x, roomWidth - 0.2)),
+          z: Math.max(0.2, Math.min(z, roomDepth - 0.2)),
         });
-      } else if (mode === 'grid') {
-        const cols = Math.max(1, Math.ceil(Math.sqrt(fixtures.length)));
-        const rows = Math.max(1, Math.ceil(fixtures.length / cols));
-        fixtures.forEach((fixture, index) => {
-          const col = index % cols;
-          const row = Math.floor(index / cols);
-          const x = ((col + 1) / (cols + 1)) * roomWidth;
-          const z = ((row + 1) / (rows + 1)) * roomDepth;
-          nextPositions[fixture.id] = clampPos(x, z);
-        });
-      } else {
-        const cx = roomWidth / 2;
-        const cz = roomDepth / 2;
-        const rx = Math.max(roomWidth * 0.42, 0.6);
-        const rz = Math.max(roomDepth * 0.42, 0.6);
-        fixtures.forEach((fixture, index) => {
-          const angle = (index / Math.max(fixtures.length, 1)) * Math.PI * 2;
-          const x = cx + Math.cos(angle) * rx;
-          const z = cz + Math.sin(angle) * rz;
-          nextPositions[fixture.id] = clampPos(x, z);
-        });
-      }
 
-      setFixturePositions((previous) => ({ ...previous, ...nextPositions }));
+        if (mode === 'line') {
+          const spacing = roomWidth / (fixtures.length + 1);
+          fixtures.forEach((fixture, index) => {
+            nextPositions[fixture.id] = clampPos(spacing * (index + 1), roomDepth / 2);
+          });
+        } else if (mode === 'grid') {
+          const cols = Math.max(1, Math.ceil(Math.sqrt(fixtures.length)));
+          const rows = Math.max(1, Math.ceil(fixtures.length / cols));
+          fixtures.forEach((fixture, index) => {
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+            const x = ((col + 1) / (cols + 1)) * roomWidth;
+            const z = ((row + 1) / (rows + 1)) * roomDepth;
+            nextPositions[fixture.id] = clampPos(x, z);
+          });
+        } else {
+          const cx = roomWidth / 2;
+          const cz = roomDepth / 2;
+          const rx = Math.max(roomWidth * 0.42, 0.6);
+          const rz = Math.max(roomDepth * 0.42, 0.6);
+          fixtures.forEach((fixture, index) => {
+            const angle = (index / Math.max(fixtures.length, 1)) * Math.PI * 2;
+            const x = cx + Math.cos(angle) * rx;
+            const z = cz + Math.sin(angle) * rz;
+            nextPositions[fixture.id] = clampPos(x, z);
+          });
+        }
 
-      if (onPositionsChange) {
-        const updatedFixtures = fixtures.map((fixture) => {
-          const next = nextPositions[fixture.id];
-          return next ? { ...fixture, xPos: next.x, zPos: next.z } : fixture;
-        });
-        onPositionsChange(updatedFixtures);
-      }
+        setFixturePositions((previous) => ({ ...previous, ...nextPositions }));
 
-      Haptics.selectionAsync();
-    }, [fixtures, roomDepth, roomWidth, onPositionsChange]);
+        if (onPositionsChange) {
+          const updatedFixtures = fixtures.map((fixture) => {
+            const next = nextPositions[fixture.id];
+            return next ? { ...fixture, xPos: next.x, zPos: next.z } : fixture;
+          });
+          onPositionsChange(updatedFixtures);
+        }
+
+        Haptics.selectionAsync();
+      },
+      [fixtures, roomDepth, roomWidth, onPositionsChange],
+    );
 
     const hasData = beamData.length > 0 && roomWidth > 0 && roomDepth > 0;
 
     const stats = useMemo(() => {
-      if (!hasData) {
-        return { maxIrr: 0, avgIrr: 0, safety: 'SAFE', coverage: 0 };
-      }
+      if (!hasData) return { maxIrr: 0, avgIrr: 0, safety: 'SAFE', coverage: 0 };
 
       const irradiances = beamData.map((entry) => entry.irradiance);
       const maxIrr = Math.max(...irradiances);
       const avgIrr = irradiances.reduce((sum, current) => sum + current, 0) / irradiances.length;
       const coverage = heatmapData.length
-        ? Math.min(
-            98,
-            Math.round(
-              (heatmapData.filter((cell) => cell.totalIrr >= 2500).length / heatmapData.length) * 100,
-            ),
-          )
+        ? Math.min(98, Math.round((heatmapData.filter((cell) => cell.totalIrr >= 2500).length / heatmapData.length) * 100))
         : 0;
 
-      return {
-        maxIrr: Math.round(maxIrr),
-        avgIrr: Math.round(avgIrr),
-        safety: getSafetyLabel(maxIrr),
-        coverage,
-      };
+      return { maxIrr: Math.round(maxIrr), avgIrr: Math.round(avgIrr), safety: getSafetyLabel(maxIrr), coverage };
     }, [beamData, hasData, heatmapData]);
 
     const activeSelectionId = selectedFixtureId ?? selectedFixtureInternal;
 
+    const isHorizontalSurface = surfaceMode === 'floor' || surfaceMode === 'ceiling';
+
+    const getFixtureHandlers = useCallback(
+      (fixtureId: string): any => {
+        if (!isHorizontalSurface) return {};
+        if (Platform.OS === 'web') {
+          return {
+            onPointerDown: (e: any) => handleWebPointerDown(fixtureId, e),
+            style: { cursor: draggingId === fixtureId ? 'grabbing' : 'grab', touchAction: 'none' },
+          };
+        }
+        return panRespondersRef.current[fixtureId]?.panHandlers ?? {};
+      },
+      [isHorizontalSurface, handleWebPointerDown, draggingId],
+    );
+
     const renderTopView = () => {
-      const isHorizontalSurface = surfaceMode === 'floor' || surfaceMode === 'ceiling';
       const isSideWall = surfaceMode === 'leftWall' || surfaceMode === 'rightWall';
-      const spanX = isHorizontalSurface ? roomWidth : (isSideWall ? roomDepth : roomWidth);
+      const spanX = isHorizontalSurface ? roomWidth : isSideWall ? roomDepth : roomWidth;
       const spanY = isHorizontalSurface ? roomDepth : roomHeight;
 
       const projectSurfacePoint = (point: { x: number; y: number; z: number }) => {
-        const worldSurfaceX = isHorizontalSurface ? point.x : (isSideWall ? point.z : point.x);
+        const worldSurfaceX = isHorizontalSurface ? point.x : isSideWall ? point.z : point.x;
         const worldSurfaceY = isHorizontalSurface ? point.z : point.y;
 
         return {
@@ -414,37 +490,41 @@ const RoomSimulation = React.memo(
         };
       };
 
-      const heatmapRects = showHeatmap ? heatmapData.map((cell, index) => {
-        const center = projectSurfacePoint(cell);
-        const cellWidth = drawWidth / GRID_SIZE;
-        const cellHeight = drawHeight / GRID_SIZE;
+      const heatmapRects = showHeatmap
+        ? heatmapData.map((cell, index) => {
+            const center = projectSurfacePoint(cell);
+            const cellWidth = drawWidth / GRID_SIZE;
+            const cellHeight = drawHeight / GRID_SIZE;
 
-        return (
-          <Rect
-            key={`heat-${index}`}
-            x={center.x - cellWidth / 2}
-            y={center.y - cellHeight / 2}
-            width={cellWidth}
-            height={cellHeight}
-            fill={getSafetyColor(cell.totalIrr)}
-            opacity={Math.min(0.65, cell.totalIrr / 35000)}
-          />
-        );
-      }) : null;
+            return (
+              <Rect
+                key={`heat-${index}`}
+                x={center.x - cellWidth / 2}
+                y={center.y - cellHeight / 2}
+                width={cellWidth}
+                height={cellHeight}
+                fill={getSafetyColor(cell.totalIrr)}
+                opacity={Math.min(0.65, cell.totalIrr / 35000)}
+              />
+            );
+          })
+        : null;
 
       const beamEllipses = beamData.map((beam, index) => {
         const sourcePoint = {
           x: beam.xPos,
           z: beam.zPos,
           y: isHorizontalSurface
-            ? (surfaceMode === 'ceiling' ? roomHeight : 0)
+            ? surfaceMode === 'ceiling'
+              ? roomHeight
+              : 0
             : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
         };
         const center = projectSurfacePoint(sourcePoint);
         const beamWidthWorld = isSideWall ? beam.beamDiamV : beam.beamDiamH;
         const beamHeightWorld = isHorizontalSurface ? beam.beamDiamV : Math.min(roomHeight, Math.max(0.8, beam.beamDiamV));
-        const radiusX = Math.max((beamWidthWorld / spanX) * drawWidth / 2, 8);
-        const radiusY = Math.max((beamHeightWorld / spanY) * drawHeight / 2, 8);
+        const radiusX = Math.max((beamWidthWorld / spanX) * (drawWidth / 2), 8);
+        const radiusY = Math.max((beamHeightWorld / spanY) * (drawHeight / 2), 8);
         const isSelected = activeSelectionId === beam.id;
 
         return (
@@ -460,64 +540,100 @@ const RoomSimulation = React.memo(
           x: beam.xPos,
           z: beam.zPos,
           y: isHorizontalSurface
-            ? (surfaceMode === 'ceiling' ? roomHeight : 0)
+            ? surfaceMode === 'ceiling'
+              ? roomHeight
+              : 0
             : Math.min(roomHeight, Math.max(0, beam.verticalHeight)),
         });
-        const panResponder = createPanResponder(beam.id);
-        const panHandlers = Platform.OS === 'web' || !isHorizontalSurface ? {} : panResponder.panHandlers;
+        const handlers = getFixtureHandlers(beam.id);
         const isSelected = activeSelectionId === beam.id;
+        const isDragging = draggingId === beam.id;
 
         return (
-          <G key={`fixture-${beam.id}`} {...panHandlers}>
+          <G key={`fixture-${beam.id}`} {...(Platform.OS !== 'web' ? handlers : {})}>
+            {isDragging && isHorizontalSurface && (
+              <Circle cx={center.x} cy={center.y} r={16} fill={beam.color} opacity={0.15} />
+            )}
             <Circle cx={center.x} cy={center.y} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
             <Circle cx={center.x} cy={center.y} r={4} fill={beam.color} />
             <SvgText x={center.x} y={center.y - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
               {beam.model}
             </SvgText>
+            {isHorizontalSurface && (
+              <SvgText x={center.x} y={center.y + 22} textAnchor="middle" fontSize="7" fill={colors.textTertiary}>
+                {beam.xPos.toFixed(1)}, {beam.zPos.toFixed(1)}
+              </SvgText>
+            )}
           </G>
         );
       });
 
       return (
-        <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
-          <Defs>
-            {beamData.map((beam, index) => (
-              <RadialGradient key={`grad-${beam.id}`} id={`beam-grad-${index}`} cx="50%" cy="50%" rx="50%" ry="50%">
-                <Stop offset="0%" stopColor={beam.color} stopOpacity="0.55" />
-                <Stop offset="45%" stopColor={beam.color} stopOpacity="0.28" />
-                <Stop offset="80%" stopColor={beam.color} stopOpacity="0.08" />
-                <Stop offset="100%" stopColor={beam.color} stopOpacity="0" />
-              </RadialGradient>
+        <View ref={svgRef} {...(Platform.OS === 'web' ? { style: { touchAction: 'none' } as any } : {})}>
+          <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+            <Defs>
+              {beamData.map((beam, index) => (
+                <RadialGradient key={`grad-${beam.id}`} id={`beam-grad-${index}`} cx="50%" cy="50%" rx="50%" ry="50%">
+                  <Stop offset="0%" stopColor={beam.color} stopOpacity="0.55" />
+                  <Stop offset="45%" stopColor={beam.color} stopOpacity="0.28" />
+                  <Stop offset="80%" stopColor={beam.color} stopOpacity="0.08" />
+                  <Stop offset="100%" stopColor={beam.color} stopOpacity="0" />
+                </RadialGradient>
+              ))}
+            </Defs>
+
+            <Rect x={SVG_PADDING} y={SVG_PADDING} width={drawWidth} height={drawHeight} fill={colors.surfaceSecondary} stroke={colors.border} strokeWidth={2} rx={6} />
+
+            {[0.25, 0.5, 0.75].map((fraction) => (
+              <G key={`grid-${fraction}`}>
+                <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * fraction} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * fraction} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+                <Line x1={SVG_PADDING + drawWidth * fraction} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * fraction} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
+              </G>
             ))}
-          </Defs>
 
-          <Rect x={SVG_PADDING} y={SVG_PADDING} width={drawWidth} height={drawHeight} fill={colors.surfaceSecondary} stroke={colors.border} strokeWidth={2} rx={6} />
+            {heatmapRects}
+            {beamEllipses}
+            {fixtureMarkers}
 
-          {[0.25, 0.5, 0.75].map((fraction) => (
-            <G key={`grid-${fraction}`}>
-              <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * fraction} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * fraction} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
-              <Line x1={SVG_PADDING + drawWidth * fraction} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * fraction} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
-            </G>
-          ))}
+            {!isHorizontalSurface && (
+              <SvgText x={SVG_PADDING + 8} y={SVG_PADDING + 14} fontSize="9" fontWeight="700" fill={colors.textSecondary}>
+                Elevation View ({surfaceMode === 'backWall' ? 'Back Wall' : surfaceMode === 'leftWall' ? 'Left Wall' : 'Right Wall'})
+              </SvgText>
+            )}
 
-          {heatmapRects}
-
-          {beamEllipses}
-
-          {fixtureMarkers}
-
-          {!isHorizontalSurface && (
-            <SvgText x={SVG_PADDING + 8} y={SVG_PADDING + 14} fontSize="9" fontWeight="700" fill={colors.textSecondary}>
-              Elevation View ({surfaceMode === 'backWall' ? 'Back Wall' : surfaceMode === 'leftWall' ? 'Left Wall' : 'Right Wall'})
+            <SvgText x={svgWidth / 2} y={svgHeight - 4} textAnchor="middle" fontSize="9" fill={colors.textTertiary}>
+              {isHorizontalSurface
+                ? `${roomWidth.toFixed(1)} × ${roomDepth.toFixed(1)} ${unitLabel}`
+                : `${spanX.toFixed(1)} ${unitLabel} width × ${roomHeight.toFixed(1)} ${unitLabel} height`}
             </SvgText>
-          )}
-
-          <SvgText x={svgWidth / 2} y={svgHeight - 4} textAnchor="middle" fontSize="9" fill={colors.textTertiary}>
-            {isHorizontalSurface
-              ? `${roomWidth.toFixed(1)} × ${roomDepth.toFixed(1)} ${unitLabel}`
-              : `${spanX.toFixed(1)} ${unitLabel} width × ${roomHeight.toFixed(1)} ${unitLabel} height`}
-          </SvgText>
-        </Svg>
+          </Svg>
+          {Platform.OS === 'web' &&
+            isHorizontalSurface &&
+            beamData.map((beam) => {
+              const center = projectSurfacePoint({
+                x: beam.xPos,
+                z: beam.zPos,
+                y: surfaceMode === 'ceiling' ? roomHeight : 0,
+              });
+              return (
+                <View
+                  key={`web-handle-${beam.id}`}
+                  onPointerDown={(e: any) => handleWebPointerDown(beam.id, e)}
+                  style={{
+                    position: 'absolute',
+                    left: center.x - 14,
+                    top: center.y - 14,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
+                    // @ts-ignore web-only cursor style
+                    cursor: draggingId === beam.id ? 'grabbing' : 'grab',
+                    zIndex: 10,
+                  } as any}
+                />
+              );
+            })}
+        </View>
       );
     };
 
@@ -548,24 +664,24 @@ const RoomSimulation = React.memo(
               <Line x1={fixtureX} y1={fixtureY} x2={fixtureX - beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
               <Line x1={fixtureX} y1={fixtureY} x2={fixtureX + beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
               <Ellipse cx={fixtureX} cy={(fixtureY + floorY) / 2} rx={beamHalfW / 2} ry={(floorY - fixtureY) / 2} fill={`url(#side-grad-${index})`} opacity={isSelected ? 0.9 : 0.7} />
-              <Line
-                x1={fixtureX - beamHalfW}
-                y1={floorY}
-                x2={fixtureX + beamHalfW}
-                y2={floorY}
-                stroke={getSafetyColor(beam.irradiance)}
-                strokeWidth={3}
-                strokeLinecap="round"
-                opacity={0.8}
-              />
+              <Line x1={fixtureX - beamHalfW} y1={floorY} x2={fixtureX + beamHalfW} y2={floorY} stroke={getSafetyColor(beam.irradiance)} strokeWidth={3} strokeLinecap="round" opacity={0.8} />
               <Circle cx={fixtureX} cy={fixtureY + 6} r={6} fill={colors.surface} stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} />
               <Circle cx={fixtureX} cy={fixtureY + 6} r={2.5} fill={beam.color} />
+              <SvgText x={fixtureX} y={fixtureY + 22} textAnchor="middle" fontSize="8" fill={beam.color} fontWeight="600">
+                {beam.model}
+              </SvgText>
             </G>
           );
         })}
+
+        <SvgText x={SVG_PADDING + 8} y={SVG_PADDING + 14} fontSize="9" fontWeight="700" fill={colors.textSecondary}>
+          Side View
+        </SvgText>
+        <SvgText x={svgWidth / 2} y={svgHeight - 4} textAnchor="middle" fontSize="9" fill={colors.textTertiary}>
+          {roomWidth.toFixed(1)} {unitLabel} width × {roomHeight.toFixed(1)} {unitLabel} height
+        </SvgText>
       </Svg>
     );
-
 
     const renderIsometricView = () => {
       const projectIso = (x: number, y: number, z: number) => {
@@ -654,7 +770,7 @@ const RoomSimulation = React.memo(
           const dy = p.heightM - beam.verticalHeight;
           const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
           if (dist > 0.01) {
-            const irr = fixtureData.peak_irradiance_mWm2 * calibrationFactor / (dist * dist);
+            const irr = (fixtureData.peak_irradiance_mWm2 * calibrationFactor) / (dist * dist);
             if (irr > maxIrr) maxIrr = irr;
           }
         });
@@ -664,7 +780,7 @@ const RoomSimulation = React.memo(
     }, [beamData, calibrationFactor, people]);
 
     return (
-      <View style={styles.container}>
+      <View style={styles.container} onLayout={onLayout}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Layers size={16} color={colors.accent} />
@@ -680,7 +796,7 @@ const RoomSimulation = React.memo(
             </TouchableOpacity>
             <TouchableOpacity testID="toggle-view-button" style={styles.viewToggle} onPress={toggleView}>
               <Eye size={13} color={colors.primary} />
-              <Text style={styles.viewToggleText}>{viewMode === 'top' ? 'TOP' : (viewMode === 'side' ? 'SIDE' : '3D')}</Text>
+              <Text style={styles.viewToggleText}>{viewMode === 'top' ? 'TOP' : viewMode === 'side' ? 'SIDE' : '3D'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -697,12 +813,7 @@ const RoomSimulation = React.memo(
           ).map((tab) => {
             const active = surfaceMode === tab.id;
             return (
-              <TouchableOpacity
-                key={tab.id}
-                style={[styles.surfaceTab, active && styles.surfaceTabActive]}
-                onPress={() => handleSurfaceModeChange(tab.id)}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity key={tab.id} style={[styles.surfaceTab, active && styles.surfaceTabActive]} onPress={() => handleSurfaceModeChange(tab.id)} activeOpacity={0.7}>
                 <Text style={[styles.surfaceTabText, active && styles.surfaceTabTextActive]}>{tab.label}</Text>
               </TouchableOpacity>
             );
@@ -731,25 +842,45 @@ const RoomSimulation = React.memo(
           <View style={styles.emptyState}>
             <Layers size={32} color={colors.textTertiary} />
             <Text style={styles.emptyTitle}>Add fixtures to begin simulation</Text>
+            {isHorizontalSurface && (
+              <View style={styles.dragHint}>
+                <Move size={12} color={colors.textTertiary} />
+                <Text style={styles.dragHintText}>Drag fixtures to reposition in top view</Text>
+              </View>
+            )}
           </View>
         ) : (
           <>
-            <View style={styles.svgContainer}>{viewMode === 'top' ? renderTopView() : (viewMode === 'side' ? renderSideView() : renderIsometricView())}</View>
+            <View style={styles.svgContainer}>
+              {viewMode === 'top' ? renderTopView() : viewMode === 'side' ? renderSideView() : renderIsometricView()}
+            </View>
+
+            {isHorizontalSurface && viewMode === 'top' && (
+              <View style={styles.dragHint}>
+                <Move size={12} color={colors.textTertiary} />
+                <Text style={styles.dragHintText}>Drag fixtures to reposition</Text>
+              </View>
+            )}
 
             <View style={styles.statsBar}>
-              <Text style={styles.statsLabel}>MAX</Text>
-              <Text style={[styles.statsValue, { color: getSafetyColor(stats.maxIrr) }]}>{stats.maxIrr}</Text>
-              <Text style={styles.statsUnit}>mW/m²</Text>
-
-              <Text style={styles.statsLabel}>AVG</Text>
-              <Text style={styles.statsValue}>{stats.avgIrr}</Text>
-              <Text style={styles.statsUnit}>mW/m²</Text>
-
-              <Text style={styles.statsLabel}>SAFETY</Text>
-              <Text style={[styles.statsValue, { color: getSafetyColor(stats.maxIrr) }]}>{stats.safety}</Text>
-
-              <Text style={styles.statsLabel}>COVER</Text>
-              <Text style={styles.statsValue}>{stats.coverage}%</Text>
+              <View style={styles.statItem}>
+                <Text style={styles.statsLabel}>MAX</Text>
+                <Text style={[styles.statsValue, { color: getSafetyColor(stats.maxIrr) }]}>{stats.maxIrr}</Text>
+                <Text style={styles.statsUnit}>mW/m²</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statsLabel}>AVG</Text>
+                <Text style={styles.statsValue}>{stats.avgIrr}</Text>
+                <Text style={styles.statsUnit}>mW/m²</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statsLabel}>SAFETY</Text>
+                <Text style={[styles.statsValue, { color: getSafetyColor(stats.maxIrr) }]}>{stats.safety}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={styles.statsLabel}>COVER</Text>
+                <Text style={styles.statsValue}>{stats.coverage}%</Text>
+              </View>
             </View>
 
             {!!peopleReadouts.length && (
@@ -784,7 +915,6 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       overflow: 'hidden',
-      marginTop: 12,
     },
     header: {
       flexDirection: 'row',
@@ -903,6 +1033,7 @@ function createStyles(colors: ThemeColors) {
     svgContainer: {
       alignItems: 'center',
       paddingVertical: 8,
+      position: 'relative' as const,
     },
     emptyState: {
       alignItems: 'center',
@@ -914,6 +1045,19 @@ function createStyles(colors: ThemeColors) {
       fontWeight: '600' as const,
       color: colors.textSecondary,
     },
+    dragHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+    },
+    dragHintText: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      fontWeight: '500' as const,
+    },
     statsBar: {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
@@ -923,6 +1067,10 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: 12,
       paddingVertical: 10,
       backgroundColor: colors.surfaceSecondary,
+    },
+    statItem: {
+      alignItems: 'center',
+      gap: 2,
     },
     statsLabel: {
       fontSize: 10,
@@ -937,7 +1085,6 @@ function createStyles(colors: ThemeColors) {
     statsUnit: {
       fontSize: 10,
       color: colors.textTertiary,
-      marginRight: 8,
     },
     peopleRow: {
       flexDirection: 'row',
