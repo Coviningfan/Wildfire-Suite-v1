@@ -179,31 +179,28 @@ export default function SimulateScreen() {
               <View style={styles.inputRow}>
                 <View style={styles.inputThird}>
                   <Input
-                    label="Width"
+                    label={`Width (${dUnit})`}
                     value={roomWidth}
                     onChangeText={setRoomWidth}
                     keyboardType="decimal-pad"
-                    unit={dUnit}
                     placeholder="12"
                   />
                 </View>
                 <View style={styles.inputThird}>
                   <Input
-                    label="Depth"
+                    label={`Depth (${dUnit})`}
                     value={roomDepth}
                     onChangeText={setRoomDepth}
                     keyboardType="decimal-pad"
-                    unit={dUnit}
                     placeholder="8"
                   />
                 </View>
                 <View style={styles.inputThird}>
                   <Input
-                    label="Ceiling"
+                    label={`Ceiling (${dUnit})`}
                     value={roomCeiling}
                     onChangeText={setRoomCeiling}
                     keyboardType="decimal-pad"
-                    unit={dUnit}
                     placeholder="4"
                   />
                 </View>
