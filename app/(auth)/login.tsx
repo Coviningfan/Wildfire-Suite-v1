@@ -77,9 +77,8 @@ export default function LoginScreen() {
   }, [login]);
 
   const handleDemoLogin = useCallback(() => {
-    setPendingDemoLogin(true);
-    setShowOnboarding(true);
-  }, []);
+    executeDemoLogin();
+  }, [executeDemoLogin]);
 
   const handleDismissOnboarding = useCallback(() => {
     const shouldRunDemoLogin = pendingDemoLogin;
