@@ -47,6 +47,11 @@ assets/           - Images and static assets
 - **Auto App Tour**: First-time users see the app walkthrough automatically
   - Demo accounts: Tour shown every login
   - Registered users: Tour shown once, can restart from Profile or Docs tab
+- **Saved Calculations**: History screen accessible via:
+  - History button (clock icon with badge) in Calculator top bar
+  - Tappable "Calculations" stat card on Profile screen
+  - Hidden from tab bar (`href: null`), navigated to via `router.push`
+  - Back button returns to previous screen
 - **QR Scanner**: Scan fixture labels to auto-populate calculator inputs
 
 ## Running the App

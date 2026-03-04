@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, Alert, Platform, Animated, Easing } from 'react-native';
-import { History, Filter, Trash2, X, Zap, FileDown, ChevronRight, Share2, Sparkles, FolderOpen, List } from 'lucide-react-native';
+import { History, Filter, Trash2, X, Zap, FileDown, ChevronRight, Share2, Sparkles, FolderOpen, List, ArrowLeft } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useLightingStore, SavedCalculation } from '@/stores/lighting-store';
 import { ResultCard } from '@/components/ResultCard';
@@ -36,6 +37,7 @@ const AnimatedCalcCard = React.memo(({ children, index }: { children: React.Reac
 export default function CalculationsScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const router = useRouter();
 
   const { savedCalculations, deleteCalculation, loadCalculation } = useLightingStore();
   const { unitSystem } = useSettingsStore();
@@ -301,11 +303,19 @@ export default function CalculationsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
+          <TouchableOpacity
+            style={styles.backNavBtn}
+            onPress={() => { try { router.back(); } catch { router.replace('/(tabs)/(home)' as any); } }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <ArrowLeft size={20} color={colors.text} />
+          </TouchableOpacity>
           <View style={styles.titleIcon}>
             <History size={16} color={colors.secondary} />
           </View>
           <View>
-            <Text style={styles.screenTitle}>History</Text>
+            <Text style={styles.screenTitle}>Saved Calculations</Text>
             <Text style={styles.screenSub}>{savedCalculations.length} calculation{savedCalculations.length !== 1 ? 's' : ''}</Text>
           </View>
         </View>
@@ -401,6 +411,7 @@ function createStyles(colors: ThemeColors) {
     scrollContent: { paddingBottom: 40 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
     topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    backNavBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surface, justifyContent: 'center' as const, alignItems: 'center' as const, borderWidth: 1, borderColor: colors.border },
     titleIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(245, 166, 35, 0.12)', justifyContent: 'center', alignItems: 'center' },
     screenTitle: { fontSize: 18, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3 },
     screenSub: { fontSize: 12, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 1 },

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Animated, Easing, Dimensions, Modal, Pressable } from 'react-native';
-import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check, Info, Plus, AlertCircle, Box } from 'lucide-react-native';
+import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check, Info, Plus, AlertCircle, Box, History } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useLightingStore } from '@/stores/lighting-store';
@@ -78,7 +78,7 @@ export default function CalculatorScreen() {
   const {
     selectedFixture, verticalHeight, horizontalDistance,
     beamWidth, beamHeight, rectHeight, rectWidth, rectDepth,
-    isCalculating, lastCalculation, showingPreview, isQRScannerOpen,
+    isCalculating, lastCalculation, showingPreview, isQRScannerOpen, savedCalculations,
     setSelectedFixture, setVerticalHeight, setHorizontalDistance,
     setBeamWidth, setBeamHeight, setRectHeight, setRectWidth, setRectDepth,
     calculate, resetInputs, openQRScanner, saveCalculation, getSafetyLevel, clearResult,
@@ -346,6 +346,19 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           </View>
         </View>
         <View style={styles.topBarRight}>
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/calculations' as any); }}
+            style={styles.topBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <History size={17} color={colors.textTertiary} />
+            {savedCalculations.length > 0 && (
+              <View style={styles.historyBadge}>
+                <Text style={styles.historyBadgeText}>{savedCalculations.length > 99 ? '99+' : savedCalculations.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
           {(filledCount > 0 || hasResult) && (
             <TouchableOpacity onPress={handleReset} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.7}>
               <RotateCcw size={17} color={colors.textTertiary} />
@@ -748,7 +761,9 @@ function createStyles(colors: ThemeColors) {
     topTitle: { fontSize: 17, fontWeight: '800' as const, color: colors.text, letterSpacing: -0.3 },
     topSubtitle: { fontSize: 12, color: colors.textTertiary, marginTop: 1 },
     topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    topBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+    topBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, position: 'relative' as const },
+    historyBadge: { position: 'absolute' as const, top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.primary, justifyContent: 'center' as const, alignItems: 'center' as const, paddingHorizontal: 3 },
+    historyBadgeText: { fontSize: 9, fontWeight: '700' as const, color: '#fff' },
     progressBarWrap: { paddingHorizontal: 16, paddingBottom: 10 },
     progressBarBg: { height: 3, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
     progressBarFill: { height: '100%', borderRadius: 2, backgroundColor: colors.primary },

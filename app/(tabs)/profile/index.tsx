@@ -162,13 +162,18 @@ export default function ProfileScreen() {
 
         <AnimatedSection index={1}>
           <View style={styles.statsRow}>
-            <View style={styles.statCard}>
+            <TouchableOpacity
+              style={styles.statCard}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/calculations' as any); }}
+              activeOpacity={0.7}
+            >
               <View style={[styles.statIcon, { backgroundColor: colors.glow }]}>
                 <Calculator size={15} color={colors.primary} />
               </View>
               <Text style={styles.statValue}>{savedCalculations.length}</Text>
               <Text style={styles.statLabel}>Calculations</Text>
-            </View>
+              <ChevronRight size={12} color={colors.textTertiary} style={{ position: 'absolute', top: 8, right: 8 }} />
+            </TouchableOpacity>
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
                 <Lightbulb size={15} color={colors.accent} />
@@ -426,7 +431,7 @@ function createStyles(colors: ThemeColors) {
     userName: { fontSize: 22, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.3 },
     userEmail: { fontSize: 14, color: colors.textSecondary, marginTop: 3 },
     statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 24 },
-    statCard: { flex: 1, alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border },
+    statCard: { flex: 1, alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, position: 'relative' as const },
     statIcon: { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
     statValue: { fontSize: 20, fontWeight: '800' as const, color: colors.text },
     statLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 2, letterSpacing: 0.3 },
