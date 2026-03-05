@@ -56,19 +56,32 @@ assets/           - Images and static assets
   - Tappable "Calculations" stat card on Profile screen
   - Hidden from tab bar (`href: null`), navigated to via `router.push`
   - Capped at 200 entries with FIFO eviction
-  - `loadCalculation` now sets `showingPreview: true` so result card appears
+  - `loadCalculation` sets `showingPreview: true` and auto-navigates to Calculator tab
   - `lastCalculation` is persisted across app kills
 - **QR Scanner**: Scan fixture labels to auto-populate calculator inputs
   - Uses `useThemeColors()` for dynamic theme support
   - Safe area aware (`insets.top + 16`)
   - Proper setTimeout cleanup on unmount
+- **Fixture Comparison**: Compare up to 3 fixtures side-by-side
+  - Uses active calculator throw distance (from verticalHeight), fallback 3m
+  - EM-44V/EM-43E correctly show DMX 512/RDM control type
 
-## Security
+## Authentication & Security
+- **Splash Screen**: Waits for Zustand persist hydration before hiding; prevents login flash
+- **Route Protection**: Tab layout redirects to auth if not authenticated; auth layout redirects to home if authenticated
 - **Password Storage**: SHA256 hashed via `expo-crypto` (never stored in plaintext)
 - **Apple Sign In**: Accounts flagged with `authProvider: 'apple'`, excluded from password login
-- **User IDs**: Generated via `crypto.randomUUID()` (UUID v4)
-- **Calculation IDs**: Generated via `crypto.randomUUID()` (UUID v4)
+- **Biometric Login**: Requires successful authentication challenge before enabling
+- **User IDs**: Generated via `Crypto.randomUUID()` from `expo-crypto`
+- **Calculation IDs**: Generated via `Crypto.randomUUID()` from `expo-crypto`
+- **Registration Validation**: Email regex, 8-char minimum password, confirm password toggle
 - **Admin**: Client-side only, cosmetic — not meaningful access control
+
+## Theme System
+- Auth screens use `useThemeColors()` for dynamic light/dark support
+- Dark mode `warning` color (`#EAB308`) distinct from `secondary` (`#F5A623`) for safety visibility
+- Settings store defaults to OS theme on first launch via `Appearance.getColorScheme()`
+- UB series color uses theme `focus` (`#3B82F6`) instead of hardcoded hex
 
 ## Safety Thresholds (Single Source of Truth)
 All safety threshold logic imports from `types/lighting.ts`:
@@ -80,11 +93,18 @@ All safety threshold logic imports from `types/lighting.ts`:
 - All tab layouts wrapped in `<ErrorBoundary>` with contextual fallback messages
 - AsyncStorage read failures in hooks default to showing onboarding/tour
 - File exports properly `await` file creation and writes before sharing
+- Resource external links show error alert on failure instead of silent catch
 
 ## File Exports
 - Text reports and CSV exports include unit-aware labels (metric/imperial)
+- Share text uses unit-converted values (not always meters)
 - EM-44V and EM-43E correctly listed as DMX 512/RDM control type
 - BLB lamp models have correct manual and store URLs
+
+## Profile
+- Fixture count stat card dynamically reads from `LightingCalculator.getFixtureModels().length`
+- Debug console.log gated behind `__DEV__`
+- Demo credentials extracted to constants
 
 ## App Configuration
 - **Bundle ID (iOS)**: `com.wildfirelighting.suite`

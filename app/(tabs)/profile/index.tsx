@@ -10,7 +10,8 @@ import { useLightingStore } from '@/stores/lighting-store';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { isBiometricAvailable, getBiometricType } from '@/utils/biometric-auth';
+import { isBiometricAvailable, getBiometricType, authenticateWithBiometric } from '@/utils/biometric-auth';
+import { LightingCalculator } from '@/utils/lighting-calculator';
 import { exportCalculationAsCSV } from '@/utils/file-helpers';
 import { useSettingsStore } from '@/stores/settings-store';
 
@@ -75,16 +76,14 @@ export default function ProfileScreen() {
     ]);
   }, [logout]);
 
-  const handleToggleBiometric = useCallback((value: boolean) => {
+  const handleToggleBiometric = useCallback(async (value: boolean) => {
     if (value) {
-      Alert.alert(
-        `Enable ${biometricType}`,
-        `Use ${biometricType} for quick sign-in next time?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Enable', onPress: () => setBiometricEnabled(true) },
-        ],
-      );
+      const result = await authenticateWithBiometric(`Authenticate to enable ${biometricType}`);
+      if (result.success) {
+        setBiometricEnabled(true);
+      } else {
+        Alert.alert('Authentication Failed', result.error ?? `${biometricType} authentication failed. Please try again.`);
+      }
     } else {
       setBiometricEnabled(false);
     }
@@ -179,7 +178,7 @@ export default function ProfileScreen() {
               <View style={[styles.statIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
                 <Lightbulb size={15} color={colors.accent} />
               </View>
-              <Text style={styles.statValue}>23</Text>
+              <Text style={styles.statValue}>{LightingCalculator.getFixtureModels().length}</Text>
               <Text style={styles.statLabel}>Fixtures</Text>
             </View>
             <View style={styles.statCard}>

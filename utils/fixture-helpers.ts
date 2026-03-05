@@ -33,6 +33,7 @@ export function getFixtureSeries(model: string): string {
 
 export function getFixtureControlType(model: string): string {
   if (model.startsWith('VSP')) return 'DMX / RDM';
+  if (model === 'EM-44V' || model === 'EM-43E') return 'DMX 512 / RDM';
   return 'On/Off (Mains)';
 }
 

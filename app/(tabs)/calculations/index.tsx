@@ -149,20 +149,20 @@ export default function CalculationsScreen() {
               </Text>
             </View>
           </View>
-          {hasReport && (
+          {hasReport && 'irradiance_report' in item.result && (
             <View style={styles.quickStats}>
               <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{convertDistance((item.result as any).irradiance_report.throw_distance_m, unitSystem).toFixed(1)}{dUnit}</Text>
+                <Text style={styles.quickStatValue}>{convertDistance(item.result.irradiance_report.throw_distance_m, unitSystem).toFixed(1)}{dUnit}</Text>
                 <Text style={styles.quickStatLabel}>throw</Text>
               </View>
               <View style={styles.quickStatDivider} />
               <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{(item.result as any).irradiance_report.irradiance_mWm2.toFixed(0)}</Text>
+                <Text style={styles.quickStatValue}>{item.result.irradiance_report.irradiance_mWm2.toFixed(0)}</Text>
                 <Text style={styles.quickStatLabel}>mW/m²</Text>
               </View>
               <View style={styles.quickStatDivider} />
               <View style={styles.quickStat}>
-                <Text style={styles.quickStatValue}>{convertArea((item.result as any).irradiance_report.beam_area_m2, unitSystem).toFixed(1)}{aUnit}</Text>
+                <Text style={styles.quickStatValue}>{convertArea(item.result.irradiance_report.beam_area_m2, unitSystem).toFixed(1)}{aUnit}</Text>
                 <Text style={styles.quickStatLabel}>area</Text>
               </View>
             </View>
@@ -177,7 +177,7 @@ export default function CalculationsScreen() {
             <TouchableOpacity style={styles.actionChip} onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               loadCalculation(item.id);
-              Alert.alert('Loaded', 'Switch to Calculator tab to see the result.');
+              router.push('/(tabs)/(home)' as any);
             }} activeOpacity={0.7}>
               <Zap size={13} color={colors.secondary} />
               <Text style={[styles.actionChipText, { color: colors.secondary }]}>Load</Text>
@@ -196,7 +196,8 @@ export default function CalculationsScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionChip} onPress={async () => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              const shareText = `${item.name}\nFixture: ${item.fixture}\nSafety: ${item.safetyLevel}${hasReport ? `\nThrow: ${(item.result as any).irradiance_report.throw_distance_m.toFixed(1)}m\nIrradiance: ${(item.result as any).irradiance_report.irradiance_mWm2.toFixed(0)} mW/m²` : ''}`;
+              const reportData = hasReport && 'irradiance_report' in item.result ? item.result.irradiance_report : null;
+              const shareText = `${item.name}\nFixture: ${item.fixture}\nSafety: ${item.safetyLevel}${reportData ? `\nThrow: ${convertDistance(reportData.throw_distance_m, unitSystem).toFixed(1)}${dUnit}\nIrradiance: ${reportData.irradiance_mWm2.toFixed(0)} mW/m²` : ''}`;
               if (Platform.OS === 'web') {
                 try { await navigator.clipboard.writeText(shareText); Alert.alert('Copied', 'Calculation details copied to clipboard.'); } catch { Alert.alert('Share', shareText); }
               } else {

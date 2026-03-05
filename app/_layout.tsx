@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -29,11 +30,25 @@ function RootLayoutNav() {
 export default function RootLayout() {
   const { initializeAuth } = useAuthStore();
   const themeMode = useSettingsStore(s => s.themeMode);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    initializeAuth();
-    SplashScreen.hideAsync();
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
+      initializeAuth();
+      setAuthReady(true);
+      SplashScreen.hideAsync();
+    });
+    if (useAuthStore.persist.hasHydrated()) {
+      initializeAuth();
+      setAuthReady(true);
+      SplashScreen.hideAsync();
+    }
+    return unsub;
   }, [initializeAuth]);
+
+  if (!authReady) {
+    return <View style={{ flex: 1, backgroundColor: '#09090B' }} />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

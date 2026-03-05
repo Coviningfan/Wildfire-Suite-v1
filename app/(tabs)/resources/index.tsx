@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BookOpen, ChevronRight, ExternalLink, GraduationCap } from 'lucide-react-native';
 import * as LucideIcons from 'lucide-react-native';
@@ -139,7 +139,7 @@ export default function ResourcesScreen() {
                 style={styles.rowCard}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  Linking.openURL(item.url).catch(() => {});
+                  Linking.openURL(item.url).catch(() => Alert.alert('Could not open link', item.url));
                 }}
                 activeOpacity={0.7}
               >

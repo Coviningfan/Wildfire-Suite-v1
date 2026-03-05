@@ -18,7 +18,7 @@ const isSmallPhone = SCREEN_WIDTH < 380;
 const SERIES_COLORS: Record<string, string> = {
   VSP: '#E8412A',
   EM: '#F5A623',
-  UB: '#3B9FE8',
+  UB: '#3B82F6',
   UR: '#22C55E',
   L: '#7C6BF0',
 };
@@ -40,7 +40,7 @@ export default function FixtureLibraryScreen() {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const { selectedFixture, setSelectedFixture } = useLightingStore();
+  const { selectedFixture, setSelectedFixture, verticalHeight } = useLightingStore();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedSeries, setSelectedSeries] = useState<string>('');
   const [detailFixture, setDetailFixture] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export default function FixtureLibraryScreen() {
 
   const compareData = useMemo(() => {
     if (compareFixtures.length < 2) return null;
-    const throwDist = 3;
+    const throwDist = parseFloat(verticalHeight) || 3;
     const calc = new LightingCalculator();
     return compareFixtures.map(model => {
       const data = LightingCalculator.getFixtureData(model);
@@ -108,7 +108,7 @@ export default function FixtureLibraryScreen() {
         control: getFixtureControlType(model),
       };
     });
-  }, [compareFixtures]);
+  }, [compareFixtures, verticalHeight]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -292,7 +292,7 @@ export default function FixtureLibraryScreen() {
                 <X size={20} color={colors.textTertiary} />
               </TouchableOpacity>
             </View>
-            <Text style={[styles.compareSheetSub, { color: colors.textTertiary }]}>At 3m throw distance, 6×3m target</Text>
+            <Text style={[styles.compareSheetSub, { color: colors.textTertiary }]}>At {(parseFloat(verticalHeight) || 3).toFixed(1)}m throw distance, 6×3m target</Text>
             <ScrollView showsVerticalScrollIndicator={false} style={styles.compareScrollContent}>
               {compareData && (
                 <View style={styles.compareTable}>
