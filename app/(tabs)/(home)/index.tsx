@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Animated, Easing, Dimensions, Modal, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, Animated, Easing, Dimensions, Modal, Pressable, Platform } from 'react-native';
 import { Calculator, QrCode, Sparkles, ChevronDown, RotateCcw, Save, Flame, Target, MapPin, Move, Palette, Wand2, X, Check, Info, Plus, AlertCircle, Box, History } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -602,7 +602,8 @@ Give a quick practical insight about this setup - is the throw distance optimal,
             </View>
             <View style={styles.resultGrid}>
               {(() => {
-                const r = (lastCalculation as any).irradiance_report;
+                const r = ('irradiance_report' in lastCalculation) ? lastCalculation.irradiance_report : null;
+                if (!r) return null;
                 const safety = getSafetyLevel(lastCalculation);
                 const safetyColorMap: Record<string, string> = {
                   safe: colors.success,
@@ -714,7 +715,7 @@ Give a quick practical insight about this setup - is the throw distance optimal,
           <ChevronDown size={16} color={colors.textTertiary} style={{ transform: [{ rotate: '-90deg' }] }} />
         </TouchableOpacity>
 
-        <LightSensorCard />
+        {Platform.OS === 'android' && <LightSensorCard />}
 
         <View style={{ height: 40 }} />
       </ScrollView>

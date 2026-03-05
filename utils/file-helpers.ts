@@ -1,4 +1,8 @@
 import { Platform } from 'react-native';
+import { convertDistance, convertArea, convertVolume, distanceUnit, areaUnit, volumeUnit } from '@/stores/settings-store';
+import { SAFETY_THRESHOLDS, SAFETY_LABELS } from '@/types/lighting';
+
+type UnitSystem = 'metric' | 'imperial';
 
 interface ExportResult {
   success: boolean;
@@ -12,10 +16,11 @@ export async function exportCalculationAsText(
   inputs: Record<string, string>,
   result: Record<string, any>,
   safetyLevel: string,
+  unitSystem: UnitSystem = 'metric',
 ): Promise<ExportResult> {
   if (Platform.OS === 'web') {
     try {
-      const content = buildCalculationReport(name, fixture, inputs, result, safetyLevel);
+      const content = buildCalculationReport(name, fixture, inputs, result, safetyLevel, unitSystem);
       const blob = new Blob([content], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -32,11 +37,11 @@ export async function exportCalculationAsText(
 
   try {
     const { File, Paths } = await import('expo-file-system');
-    const content = buildCalculationReport(name, fixture, inputs, result, safetyLevel);
+    const content = buildCalculationReport(name, fixture, inputs, result, safetyLevel, unitSystem);
     const fileName = `${name.replace(/\s+/g, '_')}_report.txt`;
     const file = new File(Paths.cache, fileName);
-    file.create({ overwrite: true });
-    file.write(content);
+    await file.create({ overwrite: true });
+    await file.write(content);
     console.log('[FileHelpers] File saved to:', file.uri);
 
     try {
@@ -68,12 +73,15 @@ export async function exportCalculationAsCSV(
     inputs: Record<string, string>;
     result: Record<string, any>;
   }[],
+  unitSystem: UnitSystem = 'metric',
 ): Promise<ExportResult> {
+  const dU = distanceUnit(unitSystem);
+  const aU = areaUnit(unitSystem);
   const headers = [
     'Name', 'Fixture', 'Date', 'Safety Level',
-    'Vertical Height (m)', 'Horizontal Distance (m)',
-    'Beam Width (m)', 'Beam Height (m)',
-    'Throw Distance (m)', 'Irradiance (mW/m²)', 'Beam Area (m²)',
+    `Vertical Height (${dU})`, `Horizontal Distance (${dU})`,
+    `Beam Width (${dU})`, `Beam Height (${dU})`,
+    `Throw Distance (${dU})`, 'Irradiance (mW/m²)', `Beam Area (${aU})`,
   ].join(',');
 
   const rows = calculations.map(calc => {
@@ -83,13 +91,13 @@ export async function exportCalculationAsCSV(
       `"${calc.fixture}"`,
       `"${new Date(calc.timestamp).toLocaleDateString()}"`,
       `"${calc.safetyLevel}"`,
-      calc.inputs.verticalHeight ?? '',
-      calc.inputs.horizontalDistance ?? '',
-      calc.inputs.beamWidth ?? '',
-      calc.inputs.beamHeight ?? '',
-      irr?.throw_distance_m?.toFixed(2) ?? '',
+      calc.inputs.verticalHeight != null ? convertDistance(parseFloat(calc.inputs.verticalHeight), unitSystem).toFixed(2) : '',
+      calc.inputs.horizontalDistance != null ? convertDistance(parseFloat(calc.inputs.horizontalDistance), unitSystem).toFixed(2) : '',
+      calc.inputs.beamWidth != null ? convertDistance(parseFloat(calc.inputs.beamWidth), unitSystem).toFixed(2) : '',
+      calc.inputs.beamHeight != null ? convertDistance(parseFloat(calc.inputs.beamHeight), unitSystem).toFixed(2) : '',
+      irr?.throw_distance_m != null ? convertDistance(irr.throw_distance_m, unitSystem).toFixed(2) : '',
       irr?.irradiance_mWm2?.toFixed(2) ?? '',
-      irr?.beam_area_m2?.toFixed(2) ?? '',
+      irr?.beam_area_m2 != null ? convertArea(irr.beam_area_m2, unitSystem).toFixed(2) : '',
     ].join(',');
   });
 
@@ -113,8 +121,8 @@ export async function exportCalculationAsCSV(
   try {
     const { File, Paths } = await import('expo-file-system');
     const file = new File(Paths.cache, 'calculations_export.csv');
-    file.create({ overwrite: true });
-    file.write(csv);
+    await file.create({ overwrite: true });
+    await file.write(csv);
 
     try {
       const Sharing = await import('expo-sharing');
@@ -142,7 +150,16 @@ function buildCalculationReport(
   inputs: Record<string, string>,
   result: Record<string, any>,
   safetyLevel: string,
+  unitSystem: UnitSystem = 'metric',
 ): string {
+  const dU = distanceUnit(unitSystem);
+  const aU = areaUnit(unitSystem);
+  const vU = volumeUnit(unitSystem);
+  const fmtDist = (v: number | undefined | null) => v != null ? convertDistance(v, unitSystem).toFixed(3) : '—';
+  const fmtArea = (v: number | undefined | null) => v != null ? convertArea(v, unitSystem).toFixed(3) : '—';
+  const fmtVol = (v: number | undefined | null) => v != null ? convertVolume(v, unitSystem).toFixed(3) : '—';
+  const fmtInputDist = (v: string | undefined) => v != null ? convertDistance(parseFloat(v), unitSystem).toFixed(3) : '—';
+
   const divider = '═'.repeat(50);
   const lines: string[] = [
     divider,
@@ -155,13 +172,13 @@ function buildCalculationReport(
     `Generated:        ${new Date().toLocaleString()}`,
     '',
     '─── INPUT PARAMETERS ───',
-    `Vertical Height:      ${inputs.verticalHeight ?? '—'} m`,
-    `Horizontal Distance:  ${inputs.horizontalDistance ?? '—'} m`,
-    `Beam Width:           ${inputs.beamWidth ?? '—'} m`,
-    `Beam Height:          ${inputs.beamHeight ?? '—'} m`,
-    `Rect Height:          ${inputs.rectHeight ?? '—'} m`,
-    `Rect Width:           ${inputs.rectWidth ?? '—'} m`,
-    `Rect Depth:           ${inputs.rectDepth ?? '—'} m`,
+    `Vertical Height:      ${fmtInputDist(inputs.verticalHeight)} ${dU}`,
+    `Horizontal Distance:  ${fmtInputDist(inputs.horizontalDistance)} ${dU}`,
+    `Beam Width:           ${fmtInputDist(inputs.beamWidth)} ${dU}`,
+    `Beam Height:          ${fmtInputDist(inputs.beamHeight)} ${dU}`,
+    `Rect Height:          ${fmtInputDist(inputs.rectHeight)} ${dU}`,
+    `Rect Width:           ${fmtInputDist(inputs.rectWidth)} ${dU}`,
+    `Rect Depth:           ${fmtInputDist(inputs.rectDepth)} ${dU}`,
     '',
   ];
 
@@ -169,10 +186,10 @@ function buildCalculationReport(
     const irr = result.irradiance_report;
     lines.push(
       '─── IRRADIANCE REPORT ───',
-      `Throw Distance:       ${irr.throw_distance_m?.toFixed(3) ?? '—'} m  (${irr.throw_distance_ft?.toFixed(2) ?? '—'} ft)`,
-      `Beam Diameter (H):    ${irr.beam_diameter_h_m?.toFixed(3) ?? '—'} m`,
-      `Beam Diameter (V):    ${irr.beam_diameter_v_m?.toFixed(3) ?? '—'} m`,
-      `Beam Area:            ${irr.beam_area_m2?.toFixed(3) ?? '—'} m²`,
+      `Throw Distance:       ${fmtDist(irr.throw_distance_m)} ${dU}  (${irr.throw_distance_ft?.toFixed(2) ?? '—'} ft)`,
+      `Beam Diameter (H):    ${fmtDist(irr.beam_diameter_h_m)} ${dU}`,
+      `Beam Diameter (V):    ${fmtDist(irr.beam_diameter_v_m)} ${dU}`,
+      `Beam Area:            ${fmtArea(irr.beam_area_m2)} ${aU}`,
       `Irradiance:           ${irr.irradiance_mWm2?.toFixed(3) ?? '—'} mW/m²`,
       `                      ${irr.irradiance_uWcm2?.toFixed(3) ?? '—'} µW/cm²`,
       `                      ${irr.irradiance_Wm2?.toFixed(6) ?? '—'} W/m²`,
@@ -184,12 +201,12 @@ function buildCalculationReport(
     if (beam) {
       lines.push(
         '─── BEAM CALCULATORS ───',
-        `Throw Required:       ${beam.throw_distance_required_m?.toFixed(3) ?? '—'} m`,
+        `Throw Required:       ${fmtDist(beam.throw_distance_required_m)} ${dU}`,
         `Beam Angle (H):       ${beam.beam_angle_h_deg?.toFixed(2) ?? '—'}°`,
         `Beam Angle (V):       ${beam.beam_angle_v_deg?.toFixed(2) ?? '—'}°`,
         `Multiplying Factor:   ${beam.multiplying_factor?.toFixed(4) ?? '—'}`,
-        `Beam Spread:          ${beam.beam_spread_m?.toFixed(3) ?? '—'} m`,
-        `Rectangular Volume:   ${beam.rectangular_volume_m3?.toFixed(3) ?? '—'} m³`,
+        `Beam Spread:          ${fmtDist(beam.beam_spread_m)} ${dU}`,
+        `Rectangular Volume:   ${fmtVol(beam.rectangular_volume_m3)} ${vU}`,
         '',
       );
     }
@@ -224,6 +241,10 @@ const MANUAL_URLS: Record<string, string> = {
   'UR-46': 'https://wildfirelighting.com/products/ultraray-series/',
   'UR-22': 'https://wildfirelighting.com/products/ultraray-series/',
   'UR-12': 'https://wildfirelighting.com/products/ultraray-series/',
+  'L15T8/BLB': 'https://wildfirelighting.com/products/sablelux-sableled-lamps/',
+  'L9T8/BLB': 'https://wildfirelighting.com/products/sablelux-sableled-lamps/',
+  'L30T9/BLB': 'https://wildfirelighting.com/products/sablelux-sableled-lamps/',
+  'L15T9/BLB': 'https://wildfirelighting.com/products/sablelux-sableled-lamps/',
 };
 
 export async function getFixtureManualUrl(model: string): Promise<string | null> {
@@ -257,6 +278,10 @@ const STORE_URLS: Record<string, string> = {
   'UR-46': 'https://store.wildfirelighting.com/lighting/',
   'UR-22': 'https://store.wildfirelighting.com/lighting/',
   'UR-12': 'https://store.wildfirelighting.com/lighting/',
+  'L15T8/BLB': 'https://store.wildfirelighting.com/sableled-led-blb-lamps/',
+  'L9T8/BLB': 'https://store.wildfirelighting.com/sableled-led-blb-lamps/',
+  'L30T9/BLB': 'https://store.wildfirelighting.com/sableled-led-blb-lamps/',
+  'L15T9/BLB': 'https://store.wildfirelighting.com/sableled-led-blb-lamps/',
 };
 
 export function getFixtureStoreUrl(model: string): string | null {
@@ -328,9 +353,10 @@ export function getFixtureTechSheetContent(model: string): string {
       '',
     );
   } else if (model.startsWith('EM')) {
+    const isDMX = model === 'EM-44V' || model === 'EM-43E';
     lines.push(
       'Series: Effects Master',
-      'Control: On/Off (Mains)',
+      `Control: ${isDMX ? 'DMX 512 / RDM' : 'On/Off (Mains)'}`,
       'Wavelength: 365-370nm (UV-A)',
       'Input Voltage: 120-250VAC Universal',
       '',
@@ -355,10 +381,10 @@ export function getFixtureTechSheetContent(model: string): string {
   lines.push(
     '─── SAFETY INFORMATION ───',
     'UV-A (365nm) Safety Guidelines:',
-    '  0 - 2,500 mW/m²:     SAFE — Normal operation',
-    '  2,501 - 10,000 mW/m²: CAUTION — Limit exposure to 5 min',
-    '  10,001 - 25,000 mW/m²: WARNING — Max 1 min, full PPE',
-    '  > 25,000 mW/m²:       DANGER — Immediate evacuation',
+    `  ${SAFETY_LABELS.safe}`,
+    `  ${SAFETY_LABELS.caution}`,
+    `  ${SAFETY_LABELS.warning}`,
+    `  ${SAFETY_LABELS.danger}`,
     '',
     divider,
     '  For full documentation visit wildfirelighting.com',
@@ -389,8 +415,8 @@ export async function exportTechSheet(model: string): Promise<ExportResult> {
   try {
     const { File, Paths } = await import('expo-file-system');
     const file = new File(Paths.cache, `${model}_tech_sheet.txt`);
-    file.create({ overwrite: true });
-    file.write(content);
+    await file.create({ overwrite: true });
+    await file.write(content);
 
     try {
       const Sharing = await import('expo-sharing');

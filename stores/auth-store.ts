@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 
 interface User {
   id: string;
@@ -8,6 +9,17 @@ interface User {
   email: string;
   createdAt: string;
   role?: string;
+  authProvider?: 'local' | 'apple';
+}
+
+interface StoredUser {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  createdAt: string;
+  authProvider: 'local' | 'apple';
 }
 
 interface AuthState {
@@ -25,42 +37,63 @@ interface AuthState {
   setBiometricEnabled: (enabled: boolean) => void;
 }
 
-const localUsers: Array<{
-  id: string;
-  name: string;
-  email: string;
-  password: string;
-  role: string;
-  createdAt: string;
-}> = [
-  {
-    id: "1",
-    name: "Demo User",
-    email: "demo@example.com",
-    password: "password123",
-    role: "user",
-    createdAt: "2024-01-01T00:00:00.000Z",
-  },
-  {
-    id: "2",
-    name: "Admin User",
-    email: "admin@example.com",
-    password: "admin123",
-    role: "admin",
-    createdAt: "2024-01-01T00:00:00.000Z",
-  },
-];
+const hashPassword = async (password: string): Promise<string> => {
+  return await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    password
+  );
+};
 
-const getUsersFromStorage = async (): Promise<typeof localUsers> => {
+const initDefaultUsers = async (): Promise<StoredUser[]> => {
+  const pw1 = await hashPassword('password123');
+  const pw2 = await hashPassword('admin123');
+  return [
+    {
+      id: Crypto.randomUUID(),
+      name: "Demo User",
+      email: "demo@example.com",
+      password: pw1,
+      role: "user",
+      authProvider: "local",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    },
+    {
+      id: Crypto.randomUUID(),
+      name: "Admin User",
+      email: "admin@example.com",
+      password: pw2,
+      role: "admin",
+      authProvider: "local",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    },
+  ];
+};
+
+const getUsersFromStorage = async (): Promise<StoredUser[]> => {
   try {
     const stored = await AsyncStorage.getItem('local-users');
-    return stored ? JSON.parse(stored) : localUsers;
+    if (stored) {
+      const users: StoredUser[] = JSON.parse(stored);
+      const needsMigration = users.some(u => !u.authProvider);
+      if (needsMigration) {
+        const migrated = users.map(u => ({
+          ...u,
+          authProvider: (u.authProvider || 'local') as 'local' | 'apple',
+        }));
+        await saveUsersToStorage(migrated);
+        return migrated;
+      }
+      return users;
+    }
+    const defaults = await initDefaultUsers();
+    await saveUsersToStorage(defaults);
+    return defaults;
   } catch {
-    return localUsers;
+    return initDefaultUsers();
   }
 };
 
-const saveUsersToStorage = async (users: typeof localUsers): Promise<void> => {
+const saveUsersToStorage = async (users: StoredUser[]): Promise<void> => {
   try {
     await AsyncStorage.setItem('local-users', JSON.stringify(users));
   } catch (error) {
@@ -81,7 +114,12 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const users = await getUsersFromStorage();
-          const user = users.find(u => u.email === email && u.password === password);
+          const hashedPassword = await hashPassword(password);
+          const user = users.find(u =>
+            u.email === email &&
+            u.authProvider === 'local' &&
+            u.password === hashedPassword
+          );
           if (user) {
             const isAdmin = user.role === 'admin';
             const { password: _pw, ...userWithoutPassword } = user;
@@ -107,11 +145,12 @@ export const useAuthStore = create<AuthState>()(
             let existingUser = users.find(u => u.email === result.user!.email);
             if (!existingUser) {
               existingUser = {
-                id: result.user.id,
+                id: Crypto.randomUUID(),
                 name: result.user.name,
                 email: result.user.email,
                 password: '',
                 role: 'user',
+                authProvider: 'apple',
                 createdAt: new Date().toISOString(),
               };
               await saveUsersToStorage([...users, existingUser]);
@@ -159,12 +198,14 @@ export const useAuthStore = create<AuthState>()(
             set({ isLoading: false });
             return false;
           }
-          const newUser = {
-            id: (users.length + 1).toString(),
+          const hashedPassword = await hashPassword(password);
+          const newUser: StoredUser = {
+            id: Crypto.randomUUID(),
             name,
             email,
-            password,
+            password: hashedPassword,
             role: "user",
+            authProvider: "local",
             createdAt: new Date().toISOString(),
           };
           await saveUsersToStorage([...users, newUser]);

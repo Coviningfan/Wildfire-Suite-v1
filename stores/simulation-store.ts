@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 
 export interface SimFixture {
   id: string;
@@ -21,7 +22,7 @@ interface SimulationState {
 
   addFixture: (fixture: SimFixture) => void;
   removeFixture: (id: string) => void;
-  updateFixture: (id: string, field: keyof SimFixture, value: string) => void;
+  updateFixture: (id: string, field: Exclude<keyof SimFixture, 'id' | 'xPos' | 'zPos'>, value: string) => void;
   updateFixturePosition: (id: string, xPos: number, zPos: number) => void;
   setRoomWidth: (width: string) => void;
   setRoomDepth: (depth: string) => void;
@@ -45,12 +46,15 @@ export const useSimulationStore = create<SimulationState>()(
       removeFixture: (id) =>
         set((s) => ({ zoneFixtures: s.zoneFixtures.filter((f) => f.id !== id) })),
 
-      updateFixture: (id, field, value) =>
+      updateFixture: (id, field, value) => {
+        const blocked: string[] = ['id', 'xPos', 'zPos'];
+        if (blocked.includes(field)) return;
         set((s) => ({
           zoneFixtures: s.zoneFixtures.map((f) =>
             f.id === id ? { ...f, [field]: value } : f,
           ),
-        })),
+        }));
+      },
 
       updateFixturePosition: (id, xPos, zPos) =>
         set((s) => ({
@@ -66,19 +70,25 @@ export const useSimulationStore = create<SimulationState>()(
       clearFixtures: () => set({ zoneFixtures: [] }),
 
       addBlankFixture: (id?: string) =>
-        set((s) => ({
-          zoneFixtures: [
-            ...s.zoneFixtures,
-            {
-              id: id ?? `zone-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              fixture: '',
-              verticalHeight: '',
-              horizontalDistance: '',
-              beamWidth: '',
-              beamHeight: '',
-            },
-          ],
-        })),
+        set((s) => {
+          const centerX = parseFloat(s.roomWidth) / 2 || 6;
+          const centerZ = parseFloat(s.roomDepth) / 2 || 4;
+          return {
+            zoneFixtures: [
+              ...s.zoneFixtures,
+              {
+                id: id ?? Crypto.randomUUID(),
+                fixture: '',
+                verticalHeight: '',
+                horizontalDistance: '',
+                beamWidth: '',
+                beamHeight: '',
+                xPos: centerX,
+                zPos: centerZ,
+              },
+            ],
+          };
+        }),
 
       setFixtures: (fixtures) => set({ zoneFixtures: fixtures }),
     }),

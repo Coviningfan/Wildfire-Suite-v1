@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Appearance } from 'react-native';
 
 type UnitSystem = 'metric' | 'imperial';
 type ThemeMode = 'dark' | 'light';
@@ -14,11 +15,16 @@ interface SettingsState {
   toggleThemeMode: () => void;
 }
 
+const getDefaultTheme = (): ThemeMode => {
+  const osTheme = Appearance.getColorScheme();
+  return osTheme === 'light' ? 'light' : 'dark';
+};
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
       unitSystem: 'metric',
-      themeMode: 'dark',
+      themeMode: getDefaultTheme(),
 
       setUnitSystem: (system: UnitSystem) => {
         set({ unitSystem: system });
@@ -49,10 +55,6 @@ export const M_TO_FT = 3.28084;
 export const FT_TO_M = 1 / M_TO_FT;
 export const M2_TO_FT2 = 10.7639;
 export const M3_TO_FT3 = 35.3147;
-
-export function convertToMetric(value: number, from: UnitSystem): number {
-  return from === 'imperial' ? value * FT_TO_M : value;
-}
 
 export function convertDistance(value: number, to: UnitSystem): number {
   return to === 'imperial' ? value * M_TO_FT : value;

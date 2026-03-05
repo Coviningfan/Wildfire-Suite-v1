@@ -105,7 +105,8 @@ export default function ProfileScreen() {
           safetyLevel: c.safetyLevel,
           inputs: c.inputs,
           result: c.result as Record<string, any>,
-        }))
+        })),
+        unitSystem,
       );
       if (result.success) {
         Alert.alert('Exported', 'All calculations exported as CSV.');

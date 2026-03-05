@@ -51,7 +51,7 @@ export default function TabLayout() {
               shadowRadius: 16,
             },
             android: {
-              elevation: 16,
+              elevation: 8,
             },
             default: {},
           }),
@@ -70,7 +70,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(home)"
         options={{
-          title: 'Calculator',
+          title: 'Calc',
           tabBarIcon: ({ color, size }) => <Calculator size={size - 2} color={color} strokeWidth={color === colors.primary ? 2.5 : 1.8} />,
         }}
       />

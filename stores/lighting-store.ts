@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { LightingCalculator } from '@/utils/lighting-calculator';
-import { CalculationResponse } from '@/types/lighting';
+import { CalculationResponse, SAFETY_THRESHOLDS } from '@/types/lighting';
 import { FT_TO_M } from '@/stores/settings-store';
 
 export interface SavedCalculation {
@@ -151,7 +152,7 @@ export const useLightingStore = create<LightingState>()(
         }
         const timestamp = Date.now();
         const calculation: SavedCalculation = {
-          id: `${timestamp}-${Math.floor(Math.random() * 100000)}`,
+          id: Crypto.randomUUID(),
           name,
           description,
           timestamp,
@@ -170,7 +171,10 @@ export const useLightingStore = create<LightingState>()(
           safetyLevel: state.getSafetyLevel(state.lastCalculation),
           aiInsight: aiInsight || undefined,
         };
-        set(s => ({ savedCalculations: [calculation, ...s.savedCalculations] }));
+        const MAX_SAVED = 200;
+        set(s => ({
+          savedCalculations: [calculation, ...s.savedCalculations].slice(0, MAX_SAVED),
+        }));
         console.log('saveCalculation success:', calculation.id, calculation.name);
         return true;
       },
@@ -193,6 +197,7 @@ export const useLightingStore = create<LightingState>()(
             rectWidth: calc.inputs.rectWidth,
             rectDepth: calc.inputs.rectDepth,
             lastCalculation: calc.result,
+            showingPreview: true,
           });
         }
       },
@@ -200,9 +205,9 @@ export const useLightingStore = create<LightingState>()(
       getSafetyLevel: (result: CalculationResponse) => {
         if ('error' in result) return 'safe';
         const irr = result.irradiance_report.irradiance_mWm2;
-        if (irr > 25000) return 'danger';
-        if (irr > 10000) return 'warning';
-        if (irr > 2500) return 'caution';
+        if (irr > SAFETY_THRESHOLDS.danger) return 'danger';
+        if (irr > SAFETY_THRESHOLDS.warning) return 'warning';
+        if (irr > SAFETY_THRESHOLDS.caution) return 'caution';
         return 'safe';
       },
     }),
@@ -211,6 +216,7 @@ export const useLightingStore = create<LightingState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         savedCalculations: state.savedCalculations,
+        lastCalculation: state.lastCalculation,
         selectedFixture: state.selectedFixture,
         verticalHeight: state.verticalHeight,
         horizontalDistance: state.horizontalDistance,

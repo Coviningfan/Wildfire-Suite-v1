@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY = '@wildfire_onboarded_v1';
@@ -7,9 +7,11 @@ export function useFirstLaunch(): [boolean, () => void] {
   const [isFirst, setIsFirst] = useState<boolean>(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY).then(val => {
-      if (val === null) setIsFirst(true);
-    });
+    AsyncStorage.getItem(KEY)
+      .then(val => {
+        if (val === null) setIsFirst(true);
+      })
+      .catch(() => setIsFirst(true));
   }, []);
 
   const markSeen = () => {
@@ -24,21 +26,33 @@ const TOUR_KEY_PREFIX = '@wildfire_app_tour_seen_';
 
 export function useShouldShowAppTour(userId: string | undefined, isDemo: boolean): [boolean, () => void] {
   const [shouldShow, setShouldShow] = useState<boolean>(false);
+  const hasFiredRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (isDemo) {
-      setShouldShow(true);
+      if (!hasFiredRef.current) {
+        hasFiredRef.current = true;
+        setShouldShow(true);
+      }
       return;
     }
 
     if (!userId) return;
 
     const key = TOUR_KEY_PREFIX + userId;
-    AsyncStorage.getItem(key).then(val => {
-      if (val === null) {
-        setShouldShow(true);
-      }
-    });
+    AsyncStorage.getItem(key)
+      .then(val => {
+        if (val === null && !hasFiredRef.current) {
+          hasFiredRef.current = true;
+          setShouldShow(true);
+        }
+      })
+      .catch(() => {
+        if (!hasFiredRef.current) {
+          hasFiredRef.current = true;
+          setShouldShow(true);
+        }
+      });
   }, [userId, isDemo]);
 
   const markTourSeen = () => {

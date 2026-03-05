@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { LightingCalculator } from '@/utils/lighting-calculator';
+import { SAFETY_THRESHOLDS } from '@/types/lighting';
 import { theme } from '@/constants/theme';
 
 interface Props {
@@ -34,15 +35,15 @@ export function FixtureCoverageCard({ model, throwDistanceM }: Props) {
   if (data == null || calc == null) return null;
 
   const safetyColor =
-    calc.irradianceMWm2 > 25000 ? '#E74C3C'
-    : calc.irradianceMWm2 > 10000 ? '#F97316'
-    : calc.irradianceMWm2 > 2500 ? '#F5A623'
+    calc.irradianceMWm2 > SAFETY_THRESHOLDS.danger ? '#E74C3C'
+    : calc.irradianceMWm2 > SAFETY_THRESHOLDS.warning ? '#F97316'
+    : calc.irradianceMWm2 > SAFETY_THRESHOLDS.caution ? '#F5A623'
     : '#22C55E';
 
   const safetyLabel =
-    calc.irradianceMWm2 > 25000 ? 'DANGER'
-    : calc.irradianceMWm2 > 10000 ? 'WARNING'
-    : calc.irradianceMWm2 > 2500 ? 'CAUTION'
+    calc.irradianceMWm2 > SAFETY_THRESHOLDS.danger ? 'DANGER'
+    : calc.irradianceMWm2 > SAFETY_THRESHOLDS.warning ? 'WARNING'
+    : calc.irradianceMWm2 > SAFETY_THRESHOLDS.caution ? 'CAUTION'
     : 'SAFE';
 
   const MAX_ANGLE = 165;

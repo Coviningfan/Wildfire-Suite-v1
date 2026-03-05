@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Wildfire App Demo",
-    "slug": "wildfire-app-demo",
+    "name": "Wildfire Suite",
+    "slug": "wildfire-suite",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rork-app",
+    "scheme": "wildfire-suite",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -16,14 +16,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.rork.wildfire-app-demo"
+      "bundleIdentifier": "com.wildfirelighting.suite"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.wildfire_app_demo"
+      "package": "com.wildfirelighting.suite"
     },
     "web": {
       "favicon": "./assets/images/favicon.png",
@@ -33,11 +33,23 @@
       [
         "expo-router",
         {
-          "origin": "https://rork.com/"
+          "origin": "https://wildfirelighting.com/"
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Wildfire uses the camera to scan fixture QR codes."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Wildfire uses Face ID to securely sign you in."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

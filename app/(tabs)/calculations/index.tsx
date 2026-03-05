@@ -186,7 +186,7 @@ export default function CalculationsScreen() {
               if (hasReport) {
                 const result = await exportCalculationAsText(
                   item.name, item.fixture, item.inputs,
-                  item.result as Record<string, any>, item.safetyLevel,
+                  item.result as Record<string, any>, item.safetyLevel, unitSystem,
                 );
                 if (!result.success) Alert.alert('Error', result.error ?? 'Export failed');
               }
@@ -206,8 +206,8 @@ export default function CalculationsScreen() {
                   if (available) {
                     const { File, Paths } = await import('expo-file-system');
                     const file = new File(Paths.cache, `${item.name.replace(/\s+/g, '_')}.txt`);
-                    file.create({ overwrite: true });
-                    file.write(shareText);
+                    await file.create({ overwrite: true });
+                    await file.write(shareText);
                     await Sharing.shareAsync(file.uri, { mimeType: 'text/plain' });
                   }
                 } catch { Alert.alert('Share', shareText); }
@@ -250,6 +250,7 @@ export default function CalculationsScreen() {
                   selectedCalculation.inputs,
                   selectedCalculation.result as Record<string, any>,
                   selectedCalculation.safetyLevel,
+                  unitSystem,
                 );
                 if (result.success) Alert.alert('Exported', 'Report exported successfully.');
                 else Alert.alert('Error', result.error ?? 'Export failed');

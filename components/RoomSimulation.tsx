@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { LightingCalculator } from '@/utils/lighting-calculator';
+import { SAFETY_THRESHOLDS } from '@/types/lighting';
 
 const SVG_PADDING = 28;
 const FIXTURE_COLORS = ['#E8412A', '#3B9FE8', '#22C55E', '#F5A623', '#7C6BF0', '#F97316'];
@@ -69,16 +70,16 @@ interface HeatmapCell {
 }
 
 function getSafetyColor(irradiance: number): string {
-  if (irradiance > 25000) return '#EF4444';
-  if (irradiance > 10000) return '#F97316';
-  if (irradiance > 2500) return '#F5A623';
+  if (irradiance > SAFETY_THRESHOLDS.danger) return '#EF4444';
+  if (irradiance > SAFETY_THRESHOLDS.warning) return '#F97316';
+  if (irradiance > SAFETY_THRESHOLDS.caution) return '#F5A623';
   return '#22C55E';
 }
 
 function getSafetyLabel(irradiance: number): string {
-  if (irradiance > 25000) return 'DANGER';
-  if (irradiance > 10000) return 'WARNING';
-  if (irradiance > 2500) return 'CAUTION';
+  if (irradiance > SAFETY_THRESHOLDS.danger) return 'DANGER';
+  if (irradiance > SAFETY_THRESHOLDS.warning) return 'WARNING';
+  if (irradiance > SAFETY_THRESHOLDS.caution) return 'CAUTION';
   return 'SAFE';
 }
 
