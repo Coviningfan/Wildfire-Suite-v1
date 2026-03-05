@@ -1,11 +1,9 @@
-import type { Express } from "express";
+import type { Router } from "express";
 import { authStorage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
 
-// Register auth-specific routes
-export function registerAuthRoutes(app: Express): void {
-  // Get current authenticated user
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+export function registerAuthRoutes(apiRouter: Router): void {
+  apiRouter.get("/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await authStorage.getUser(userId);

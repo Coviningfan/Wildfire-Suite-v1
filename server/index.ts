@@ -6,21 +6,28 @@ const app = express();
 const PORT = 5000;
 const EXPO_PORT = 3000;
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const apiRouter = express.Router();
+apiRouter.use(express.json());
+apiRouter.use(express.urlencoded({ extended: true }));
 
 async function start() {
-  await setupAuth(app);
-  registerAuthRoutes(app);
+  await setupAuth(app, apiRouter);
+  registerAuthRoutes(apiRouter);
 
-  app.get("/api/health", (_req, res) => {
+  apiRouter.get("/health", (_req, res) => {
     res.json({ status: "ok" });
   });
 
-  app.use((req, res) => {
-    const target = `http://localhost:${EXPO_PORT}${req.originalUrl}`;
+  app.use("/api", apiRouter);
+
+  const server = http.createServer((req, res) => {
+    if (req.url?.startsWith("/api")) {
+      app(req, res);
+      return;
+    }
+
     const proxyReq = http.request(
-      target,
+      `http://localhost:${EXPO_PORT}${req.url}`,
       {
         method: req.method,
         headers: {
@@ -34,14 +41,13 @@ async function start() {
       }
     );
 
-    proxyReq.on("error", (_err) => {
-      res.status(502).json({ message: "Expo dev server not available yet" });
+    proxyReq.on("error", () => {
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ message: "Expo dev server not available yet" }));
     });
 
     req.pipe(proxyReq, { end: true });
   });
-
-  const server = http.createServer(app);
 
   server.on("upgrade", (req, socket, head) => {
     const proxyReq = http.request(
@@ -77,7 +83,7 @@ async function start() {
 
   server.listen(PORT, "0.0.0.0", () => {
     console.log(`Express API server running on port ${PORT}`);
-    console.log(`Proxying to Expo dev server on port ${EXPO_PORT}`);
+    console.log(`Proxying non-API requests to Expo on port ${EXPO_PORT}`);
   });
 }
 
