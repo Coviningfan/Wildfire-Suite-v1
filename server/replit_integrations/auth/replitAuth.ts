@@ -34,8 +34,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production" || process.env.REPL_ID !== undefined,
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none" as const,
       maxAge: sessionTtl,
     },
   });
@@ -111,20 +111,31 @@ export async function setupAuth(app: Express, apiRouter: Router) {
     })(req, res, next);
   });
 
+  function getAppOrigin(req: any): string {
+    const host = req.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:5000';
+    }
+    const appHost = host.replace(/-3001\./, '-00-').replace(/:3001$/, '');
+    return `${req.protocol}://${appHost}`;
+  }
+
   apiRouter.get("/callback", (req, res, next) => {
     ensureStrategy(req.hostname);
+    const appOrigin = getAppOrigin(req);
     passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
+      successReturnToOrRedirect: appOrigin,
       failureRedirect: "/api/login",
     })(req, res, next);
   });
 
   apiRouter.get("/logout", (req, res) => {
+    const appOrigin = getAppOrigin(req);
     req.logout(() => {
       res.redirect(
         client.buildEndSessionUrl(config, {
           client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+          post_logout_redirect_uri: appOrigin,
         }).href
       );
     });

@@ -3,6 +3,16 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+function getApiBase(): string {
+  if (Platform.OS !== 'web') return '';
+  const host = window.location.hostname;
+  const proto = window.location.protocol;
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+  return `${proto}//${host.replace(/\.replit\.dev$/, '-3001.replit.dev').replace(/\.repl\.co$/, '-3001.repl.co')}`;
+}
+
 interface User {
   id: string;
   email: string | null;
@@ -35,7 +45,7 @@ export const useAuthStore = create<AuthState>()(
 
       login: () => {
         if (Platform.OS === 'web') {
-          window.location.href = '/api/login';
+          window.location.href = `${getApiBase()}/api/login`;
         }
       },
 
@@ -63,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         set({ user: null, isAuthenticated: false });
         if (Platform.OS === 'web') {
-          window.location.href = '/api/logout';
+          window.location.href = `${getApiBase()}/api/logout`;
         }
       },
 
@@ -74,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
       initializeAuth: async () => {
         set({ isLoading: true });
         try {
-          const response = await fetch('/api/auth/user', {
+          const response = await fetch(`${getApiBase()}/api/auth/user`, {
             credentials: 'include',
           });
           if (response.ok) {
