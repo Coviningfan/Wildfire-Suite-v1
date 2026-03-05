@@ -6,6 +6,7 @@ import {
 import { X, Lightbulb, Radio, Zap, Activity, Info, FileDown, ExternalLink, ShoppingCart, Calculator, Share2, Shield, BarChart3, Globe, HelpCircle } from 'lucide-react-native';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { FixtureCoverageCard } from '@/components/fixtures/FixtureCoverageCard';
+import { useLightingStore } from '@/stores/lighting-store';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import {
@@ -58,6 +59,8 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const specSt = useMemo(() => createSpecStyles(colors), [colors]);
+  const verticalHeight = useLightingStore(s => s.verticalHeight);
+  const throwDistanceM = parseFloat(verticalHeight) > 0 ? parseFloat(verticalHeight) : 3;
 
   const data = LightingCalculator.getFixtureData(model);
   const controlType = getFixtureControlType(model);
@@ -142,7 +145,7 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
               </View>
             </View>
 
-            <FixtureCoverageCard model={model} throwDistanceM={3} />
+            <FixtureCoverageCard model={model} throwDistanceM={throwDistanceM} />
 
             {data != null && (
               <View style={styles.section}>

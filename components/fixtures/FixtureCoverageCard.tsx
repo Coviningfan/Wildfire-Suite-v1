@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { LightingCalculator } from '@/utils/lighting-calculator';
 import { SAFETY_THRESHOLDS } from '@/types/lighting';
-import { theme } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
 
 interface Props {
   model: string;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function FixtureCoverageCard({ model, throwDistanceM }: Props) {
+  const colors = useThemeColors();
   const data = LightingCalculator.getFixtureData(model);
   const { width: screenWidth } = useWindowDimensions();
   const coneMaxWidth = screenWidth - 80;
@@ -31,6 +33,9 @@ export function FixtureCoverageCard({ model, throwDistanceM }: Props) {
     const degradPct = (1 - irradianceMWm2 / data.peak_irradiance_mWm2) * 100;
     return { D, beamDiaM, beamDiaFt, beamAreaM2, beamAreaFt2, fieldDiaM, fieldDiaFt, fieldAreaM2, fieldAreaFt2, irradianceMWm2, irradianceUWcm2, degradPct };
   }, [data, throwDistanceM]);
+
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const sStyles = useMemo(() => createStatStyles(colors), [colors]);
 
   if (data == null || calc == null) return null;
 
@@ -78,10 +83,10 @@ export function FixtureCoverageCard({ model, throwDistanceM }: Props) {
       </View>
 
       <View style={styles.grid}>
-        <StatBox label="Beam dia" valueM={`${calc.beamDiaM.toFixed(2)}m`} valueFt={`${calc.beamDiaFt.toFixed(2)}ft`} />
-        <StatBox label="Beam Area" valueM={`${calc.beamAreaM2.toFixed(2)}m²`} valueFt={`${calc.beamAreaFt2.toFixed(1)}ft²`} />
+        <StatBox label="Beam dia" valueM={`${calc.beamDiaM.toFixed(2)}m`} valueFt={`${calc.beamDiaFt.toFixed(2)}ft`} styles={sStyles} />
+        <StatBox label="Beam Area" valueM={`${calc.beamAreaM2.toFixed(2)}m²`} valueFt={`${calc.beamAreaFt2.toFixed(1)}ft²`} styles={sStyles} />
         {calc.fieldDiaM != null && calc.fieldDiaFt != null && (
-          <StatBox label="Field dia" valueM={`${calc.fieldDiaM.toFixed(2)}m`} valueFt={`${calc.fieldDiaFt.toFixed(2)}ft`} />
+          <StatBox label="Field dia" valueM={`${calc.fieldDiaM.toFixed(2)}m`} valueFt={`${calc.fieldDiaFt.toFixed(2)}ft`} styles={sStyles} />
         )}
       </View>
 
@@ -98,60 +103,59 @@ export function FixtureCoverageCard({ model, throwDistanceM }: Props) {
   );
 }
 
-function StatBox({ label, valueM, valueFt }: { label: string; valueM: string; valueFt: string }) {
+function StatBox({ label, valueM, valueFt, styles }: { label: string; valueM: string; valueFt: string; styles: ReturnType<typeof createStatStyles> }) {
   return (
-    <View style={statStyles.box}>
-      <Text style={statStyles.label}>{label}</Text>
-      <Text style={statStyles.valM}>{valueM}</Text>
-      <Text style={statStyles.valFt}>{valueFt}</Text>
+    <View style={styles.box}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.valM}>{valueM}</Text>
+      <Text style={styles.valFt}>{valueFt}</Text>
     </View>
   );
 }
 
-const statStyles = StyleSheet.create({
-  box: {
-    flex: 1, backgroundColor: theme.colors.background, borderRadius: 10, padding: 10, alignItems: 'center', minWidth: 80,
-    borderWidth: 1, borderColor: theme.colors.border,
-  },
-  label: { fontSize: 10, color: theme.colors.textTertiary, marginBottom: 2, fontWeight: '500' as const },
-  valM: { fontSize: 13, fontWeight: '700' as const, color: theme.colors.text },
-  valFt: { fontSize: 11, color: theme.colors.textSecondary },
-});
+function createStatStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    box: {
+      flex: 1, backgroundColor: colors.background, borderRadius: 10, padding: 10, alignItems: 'center', minWidth: 80,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    label: { fontSize: 10, color: colors.textTertiary, marginBottom: 2, fontWeight: '500' as const },
+    valM: { fontSize: 13, fontWeight: '700' as const, color: colors.text },
+    valFt: { fontSize: 11, color: colors.textSecondary },
+  });
+}
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  title: { fontSize: 14, fontWeight: '700' as const, color: theme.colors.text, marginBottom: 14, letterSpacing: -0.1 },
-  coneWrap: { height: 80, alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14, position: 'relative' },
-  cone: {
-    position: 'absolute',
-    bottom: 0,
-    height: 65,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomWidth: 65,
-  },
-  fixturePoint: {
-    position: 'absolute', top: 0, width: 10, height: 10, borderRadius: 5,
-    backgroundColor: theme.colors.primary,
-    shadowColor: theme.colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  coneLabel: { position: 'absolute', bottom: 2, fontSize: 10, color: theme.colors.textTertiary },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 },
-  irradRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  safetyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
-  safetyLabel: { fontSize: 11, fontWeight: '800' as const },
-  irradValues: { flex: 1 },
-  irradMain: { fontSize: 15, fontWeight: '700' as const, color: theme.colors.text },
-  irradSub: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    title: { fontSize: 14, fontWeight: '700' as const, color: colors.text, marginBottom: 14, letterSpacing: -0.1 },
+    coneWrap: { height: 80, alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14, position: 'relative' as const },
+    cone: {
+      position: 'absolute' as const,
+      bottom: 0,
+      height: 65,
+      borderLeftColor: 'transparent',
+      borderRightColor: 'transparent',
+      borderBottomWidth: 65,
+    },
+    fixturePoint: {
+      position: 'absolute' as const, top: 0, width: 10, height: 10, borderRadius: 5,
+      backgroundColor: colors.primary,
+    },
+    coneLabel: { position: 'absolute' as const, bottom: 2, fontSize: 10, color: colors.textTertiary },
+    grid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 6, marginBottom: 14 },
+    irradRow: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
+    safetyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+    safetyLabel: { fontSize: 11, fontWeight: '800' as const },
+    irradValues: { flex: 1 },
+    irradMain: { fontSize: 15, fontWeight: '700' as const, color: colors.text },
+    irradSub: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  });
+}
