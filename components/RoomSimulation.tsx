@@ -241,7 +241,13 @@ const RoomSimulation = React.memo(
             const distance3D = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
             if (distance3D > 0.01) {
-              totalIrr += (fixtureData.peak_irradiance_mWm2 * calibrationFactor) / (distance3D * distance3D);
+              const axisLen = Math.abs(dy);
+              const offAxis = Math.sqrt(dx * dx + dz * dz);
+              const halfConeH = ((fixtureData.beam_h_deg || 90) / 2) * (Math.PI / 180);
+              const coneAngle = axisLen > 0.01 ? Math.atan2(offAxis, axisLen) : (offAxis > 0.01 ? Math.PI / 2 : 0);
+              if (coneAngle <= halfConeH) {
+                totalIrr += (fixtureData.peak_irradiance_mWm2 * calibrationFactor) / (distance3D * distance3D);
+              }
             }
           });
 
@@ -289,8 +295,8 @@ const RoomSimulation = React.memo(
             const movedX = dragStartRef.current.x + (gestureState.dx / drawWidth) * roomWidth;
             const movedZ = dragStartRef.current.z + (gestureState.dy / drawHeight) * roomDepth;
 
-            const nextX = Math.max(beam.beamDiamH / 2, Math.min(movedX, roomWidth - beam.beamDiamH / 2));
-            const nextZ = Math.max(beam.beamDiamV / 2, Math.min(movedZ, roomDepth - beam.beamDiamV / 2));
+            const nextX = Math.max(0.1, Math.min(movedX, roomWidth - 0.1));
+            const nextZ = Math.max(0.1, Math.min(movedZ, roomDepth - 0.1));
 
             setFixturePositions((previous) => ({ ...previous, [fixtureId]: { x: nextX, z: nextZ } }));
 
@@ -336,8 +342,8 @@ const RoomSimulation = React.memo(
           const movedX = dragStartRef.current.x + (dx / drawWidth) * roomWidth;
           const movedZ = dragStartRef.current.z + (dy / drawHeight) * roomDepth;
 
-          const nextX = Math.max(currentBeam.beamDiamH / 2, Math.min(movedX, roomWidth - currentBeam.beamDiamH / 2));
-          const nextZ = Math.max(currentBeam.beamDiamV / 2, Math.min(movedZ, roomDepth - currentBeam.beamDiamV / 2));
+          const nextX = Math.max(0.1, Math.min(movedX, roomWidth - 0.1));
+          const nextZ = Math.max(0.1, Math.min(movedZ, roomDepth - 0.1));
 
           setFixturePositions((prev) => ({ ...prev, [fixtureId]: { x: nextX, z: nextZ } }));
 
@@ -375,7 +381,12 @@ const RoomSimulation = React.memo(
     const resetPositions = useCallback(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setFixturePositions({});
-    }, []);
+      if (onFixturePositionChange) {
+        fixtures.forEach((f) => {
+          onFixturePositionChange(f.id, roomWidth / 2, roomDepth / 2);
+        });
+      }
+    }, [fixtures, onFixturePositionChange, roomWidth, roomDepth]);
 
     const handleSurfaceModeChange = useCallback(
       (mode: SurfaceMode) => {
@@ -446,7 +457,7 @@ const RoomSimulation = React.memo(
       const maxIrr = Math.max(...irradiances);
       const avgIrr = irradiances.reduce((sum, current) => sum + current, 0) / irradiances.length;
       const coverage = heatmapData.length
-        ? Math.min(98, Math.round((heatmapData.filter((cell) => cell.totalIrr >= 2500).length / heatmapData.length) * 100))
+        ? Math.round((heatmapData.filter((cell) => cell.totalIrr >= 2500).length / heatmapData.length) * 100)
         : 0;
 
       return { maxIrr: Math.round(maxIrr), avgIrr: Math.round(avgIrr), safety: getSafetyLabel(maxIrr), coverage };
@@ -746,11 +757,9 @@ const RoomSimulation = React.memo(
                 <Ellipse cx={floorCenter.x} cy={floorCenter.y} rx={footprintX} ry={footprintY} fill={beam.color} opacity={isSelected ? 0.3 : 0.16} />
                 <Circle cx={fixture.x} cy={fixture.y} r={isSelected ? 5.5 : 4.2} fill={colors.surface} stroke={beam.color} strokeWidth={2} />
                 <Circle cx={fixture.x} cy={fixture.y} r={2} fill={beam.color} />
-                {index < 3 && (
-                  <SvgText x={fixture.x + 7} y={fixture.y - 6} fontSize="8" fill={colors.textSecondary}>
-                    {beam.model}
-                  </SvgText>
-                )}
+                <SvgText x={fixture.x + 7} y={fixture.y - 6} fontSize="8" fill={colors.textSecondary}>
+                  {beam.model}
+                </SvgText>
               </G>
             );
           })}
@@ -774,8 +783,14 @@ const RoomSimulation = React.memo(
           const dy = p.heightM - beam.verticalHeight;
           const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
           if (dist > 0.01) {
-            const irr = (fixtureData.peak_irradiance_mWm2 * calibrationFactor) / (dist * dist);
-            if (irr > maxIrr) maxIrr = irr;
+            const axisLen = Math.abs(dy);
+            const offAxis = Math.sqrt(dx * dx + dz * dz);
+            const halfConeH = ((fixtureData.beam_h_deg || 90) / 2) * (Math.PI / 180);
+            const coneAngle = axisLen > 0.01 ? Math.atan2(offAxis, axisLen) : (offAxis > 0.01 ? Math.PI / 2 : 0);
+            if (coneAngle <= halfConeH) {
+              const irr = (fixtureData.peak_irradiance_mWm2 * calibrationFactor) / (dist * dist);
+              if (irr > maxIrr) maxIrr = irr;
+            }
           }
         });
         const dose = computeDoseMJcm2(maxIrr, p.dwellMinutes);

@@ -113,11 +113,16 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
+          if (!password) {
+            set({ isLoading: false });
+            return false;
+          }
           const users = await getUsersFromStorage();
           const hashedPassword = await hashPassword(password);
           const user = users.find(u =>
             u.email === email &&
             u.authProvider === 'local' &&
+            u.password !== '' &&
             u.password === hashedPassword
           );
           if (user) {

@@ -45,11 +45,11 @@ export function FixtureCard({ model, isSelected, onSelect, onDetail }: Props) {
             <Text style={[styles.model, isSelected && styles.modelSelected]}>{model}</Text>
             <Text style={styles.series}>{series}</Text>
           </View>
-          <View style={[styles.ctrlBadge, { backgroundColor: isDMX ? 'rgba(155, 109, 255, 0.1)' : 'rgba(34, 197, 94, 0.1)' }]}>
+          <View style={[styles.ctrlBadge, { backgroundColor: isDMX ? colors.accentLight + '1A' : colors.success + '1A' }]}>
             {isDMX
-              ? <Radio size={10} color="#9B6DFF" />
-              : <Zap size={10} color="#22C55E" />}
-            <Text style={[styles.ctrlText, { color: isDMX ? '#9B6DFF' : '#22C55E' }]}>
+              ? <Radio size={10} color={colors.accentLight} />
+              : <Zap size={10} color={colors.success} />}
+            <Text style={[styles.ctrlText, { color: isDMX ? colors.accentLight : colors.success }]}>
               {isDMX ? 'DMX' : 'On/Off'}
             </Text>
           </View>

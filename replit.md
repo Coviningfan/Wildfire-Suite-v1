@@ -41,13 +41,20 @@ assets/           - Images and static assets
   - Side view renders fixtures at actual mounting height (not pinned to ceiling)
   - Fixture legend with color-coded irradiance values appears when 2+ fixtures exist
   - Web drag support via pointer events; native drag via PanResponder
+  - Drag clamped to fixture marker position (0.1m inset), not beam edge
   - Drag uses `onFixturePositionChange(id, x, z)` for atomic position updates
   - State managed by `stores/simulation-store.ts` (persisted via AsyncStorage)
   - `updateFixture` restricted from xPos/zPos fields; use `updateFixturePosition` for positions
   - New fixtures default to room center position
+  - Heatmap uses beam cone check (beam_h_deg) — only illuminated cells receive irradiance
+  - People readouts also use beam cone check for accurate exposure readings
+  - Reset positions notifies parent via `onFixturePositionChange` for all fixtures
+  - Coverage metric shows actual percentage (no artificial cap)
+  - ISO view shows labels for all fixtures (not limited to first 3)
 - **Tutorials System**: Two categories:
   - App Tutorials: Step-by-step guides tied to app features (7 tutorials)
   - Knowledge Base: Educational articles about UV science (7 articles)
+  - All irradiance values in mW/m² (consistent with app calculator units)
 - **Auto App Tour**: First-time users see the app walkthrough automatically
   - Demo accounts: Tour shown once per session (ref-guarded)
   - Registered users: Tour shown once, can restart from Profile or Docs tab
@@ -70,7 +77,7 @@ assets/           - Images and static assets
 - **Splash Screen**: Waits for Zustand persist hydration before hiding; prevents login flash
 - **Route Protection**: Tab layout redirects to auth if not authenticated; auth layout redirects to home if authenticated
 - **Password Storage**: SHA256 hashed via `expo-crypto` (never stored in plaintext)
-- **Apple Sign In**: Accounts flagged with `authProvider: 'apple'`, excluded from password login
+- **Apple Sign In**: Accounts flagged with `authProvider: 'apple'`; login rejects empty passwords and checks `authProvider === 'local'`
 - **Biometric Login**: Requires successful authentication challenge before enabling
 - **User IDs**: Generated via `Crypto.randomUUID()` from `expo-crypto`
 - **Calculation IDs**: Generated via `Crypto.randomUUID()` from `expo-crypto`
@@ -78,7 +85,8 @@ assets/           - Images and static assets
 - **Admin**: Client-side only, cosmetic — not meaningful access control
 
 ## Theme System
-- Auth screens use `useThemeColors()` for dynamic light/dark support
+- Auth screens and FixtureDetailModal use `useThemeColors()` for dynamic light/dark support
+- FixtureCard DMX badge colors use `colors.accentLight` / `colors.success` from theme
 - Dark mode `warning` color (`#EAB308`) distinct from `secondary` (`#F5A623`) for safety visibility
 - Settings store defaults to OS theme on first launch via `Appearance.getColorScheme()`
 - UB series color uses theme `focus` (`#3B82F6`) instead of hardcoded hex
@@ -88,6 +96,10 @@ All safety threshold logic imports from `types/lighting.ts`:
 - `SAFETY_THRESHOLDS`: `{ danger: 25000, warning: 10000, caution: 2500 }` (mW/m²)
 - `SAFETY_LABELS`: Human-readable descriptions for each level
 - Used by: `lighting-store`, `file-helpers`, `RoomSimulation`, `FixtureCoverageCard`
+
+## ResultCard
+- `formatLabel` regex uses case-insensitive patterns to handle title-cased unit suffixes (MWm2 → mW/m²)
+- Large numbers (≥1000) show as rounded integers with locale separators; smaller values use 2 decimal places
 
 ## Error Handling
 - All tab layouts wrapped in `<ErrorBoundary>` with contextual fallback messages

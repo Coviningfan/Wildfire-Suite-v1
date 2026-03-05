@@ -17,14 +17,14 @@ export function ResultCard({ title, data }: ResultCardProps) {
     return key
       .replace(/_/g, ' ')
       .replace(/\b\w/g, l => l.toUpperCase())
-      .replace(/Mwm2/g, 'mW/m²')
-      .replace(/Uwcm2/g, 'uW/cm²')
-      .replace(/Wm2/g, 'W/m²')
-      .replace(/Mwcm2/g, 'mW/cm²')
-      .replace(/M2/g, 'm²')
-      .replace(/Ft2/g, 'ft²')
-      .replace(/M3/g, 'm³')
-      .replace(/Deg/g, '°');
+      .replace(/[Mm][Ww][Mm]2/g, 'mW/m²')
+      .replace(/[Uu][Ww][Cc][Mm]2/g, 'µW/cm²')
+      .replace(/[Mm][Ww][Cc][Mm]2/g, 'mW/cm²')
+      .replace(/[Ww][Mm]2/g, 'W/m²')
+      .replace(/[Mm]2/g, 'm²')
+      .replace(/[Ff][Tt]2/g, 'ft²')
+      .replace(/[Mm]3/g, 'm³')
+      .replace(/[Dd][Ee][Gg]/g, '°');
   };
 
   const entries = Object.entries(data);
@@ -37,7 +37,10 @@ export function ResultCard({ title, data }: ResultCardProps) {
         <View key={key} style={[styles.row, index === entries.length - 1 && styles.rowLast]}>
           <Text style={styles.label}>{formatLabel(key)}</Text>
           <Text style={styles.value}>
-            {typeof value === 'number' ? value.toFixed(2) : value}
+            {typeof value === 'number'
+              ? (Math.abs(value) >= 1000 ? Math.round(value).toLocaleString()
+                : value.toFixed(2))
+              : value}
           </Text>
         </View>
       ))}

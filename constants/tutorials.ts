@@ -1,8 +1,6 @@
 export interface TutorialSection {
   title: string;
   content: string;
-  heading?: string;
-  body?: string;
 }
 
 export interface Tutorial {
@@ -431,7 +429,7 @@ export const TUTORIALS: Tutorial[] = [
       },
       {
         title: 'Formula Components',
-        content: 'FLAME = (Q × P × I × C) / (D² × A) where Q is quantum yield (0-1), P is pigment density (g/m²), I is incident UV irradiance (mW/cm²), C is surface coating quality factor (0-1), D is viewing distance (meters), and A is ambient light factor (1-10). This formula accounts for both the physical light production and the perceptual factors that affect how audiences experience the effect.'
+        content: 'FLAME = (Q × P × I × C) / (D² × A) where Q is quantum yield (0-1), P is pigment density (g/m²), I is incident UV irradiance (mW/m²), C is surface coating quality factor (0-1), D is viewing distance (meters), and A is ambient light factor (1-10). This formula accounts for both the physical light production and the perceptual factors that affect how audiences experience the effect.'
       },
       {
         title: 'Quantum Yield (Q)',
@@ -439,7 +437,7 @@ export const TUTORIALS: Tutorial[] = [
       },
       {
         title: 'UV Irradiance (I)',
-        content: 'Incident UV irradiance measures the UV power hitting the surface per unit area. Higher irradiance produces proportionally brighter fluorescence until saturation occurs. Typical values: standard blacklight tube at 1m = 0.5-1 mW/cm², UV LED fixture at 1m = 2-5 mW/cm², professional Wildfire fixture at 1m = 5-15 mW/cm². The FLAME formula is linear with irradiance below saturation threshold.'
+        content: 'Incident UV irradiance measures the UV power hitting the surface per unit area. Higher irradiance produces proportionally brighter fluorescence until saturation occurs. Typical values: standard blacklight tube at 1m = 5,000–10,000 mW/m², UV LED fixture at 1m = 20,000–50,000 mW/m², professional Wildfire fixture at 1m = 50,000–150,000 mW/m². The FLAME formula is linear with irradiance below saturation threshold. Note: 1 mW/cm² = 10,000 mW/m².'
       },
       {
         title: 'Practical Applications',
