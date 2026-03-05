@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 
-const expo = spawn("bun", ["run", "expo", "start", "--web", "--port", "5000", "--host", "lan"], {
+const expo = spawn("bun", ["run", "expo", "start", "--web", "--port", "5000"], {
   stdio: "inherit",
   env: { ...process.env },
 });

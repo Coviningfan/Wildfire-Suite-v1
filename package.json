@@ -6,7 +6,7 @@
     "start": "expo start --tunnel",
     "start-web": "expo start --web --port 5000 --host lan",
     "start-web-dev": "DEBUG=expo* expo start --web --port 5000 --host lan",
-    "dev": "expo start --web --port 3000 --host lan",
+    "dev": "expo start --web --port 5000",
     "ios": "expo start --ios",
     "android": "expo start --android",
     "lint": "expo lint",
