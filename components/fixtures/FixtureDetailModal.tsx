@@ -101,7 +101,7 @@ export function FixtureDetailModal({ model, isSelected, onSelect, onClose }: Pro
       const { File, Paths } = await import('expo-file-system');
       const file = new File(Paths.cache, `${model}_info.txt`);
       file.create({ overwrite: true });
-      file.write(text);
+      await file.write(text);
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
         await Sharing.shareAsync(file.uri, { mimeType: 'text/plain', dialogTitle: `Share ${model} Info` });

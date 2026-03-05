@@ -129,7 +129,6 @@ export const WILDFIRE_RESOURCES: ResourceCategory[] = [
       { title: 'WF202 Glow Green Phosphorescent — 32oz', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/6krh51t1hpy3yq7hg8dm8', format: 'pdf' },
       { title: 'WF307 Sheen Leveler — Quart', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/znkyecaog1q2sgupqgodx', format: 'pdf' },
       { title: 'WF401 Reducer — Pint', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/hkg7encu4llq64leh0smj', format: 'pdf' },
-      { title: 'VioStorm Optical Radiation Hazard Analysis', url: 'https://wildfirelighting.com/wp-content/uploads/2018/09/VioStorm-VS-120-Optical-Radiation-Hazard-Analysis.pdf', format: 'pdf' },
       { title: 'Bright Orange Water Dye', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/pmms996wvcu2ytlnt5ra1', format: 'pdf' },
       { title: 'Brilliant Yellow Water Dye', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/djp4creovsad4hh0vovbi', format: 'pdf' },
       { title: 'Deep Blue Water Dye', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/4xh6yhzoeriwofjxyzq58', format: 'pdf' },
@@ -162,7 +161,6 @@ export const WILDFIRE_RESOURCES: ResourceCategory[] = [
       { title: 'Wildfire Phosphorescent Paint', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/hiyaznzd9t90fd5xr60ro', format: 'pdf' },
       { title: 'Wildfire Reducer', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/2i310k39le7efvf1xmcvf', format: 'pdf' },
       { title: 'Wildfire Sheen Leveler', url: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/2npdgt1i8lukkqgufu0ey', format: 'pdf' },
-      { title: 'Wildfire Water Dyes', url: 'https://wildfirelighting.com/wp-content/uploads/2018/09/TDS-Wildfire-Water-Dyes.pdf', format: 'pdf' },
     ],
   },
   {

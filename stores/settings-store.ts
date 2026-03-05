@@ -54,7 +54,6 @@ export const useSettingsStore = create<SettingsState>()(
 export const M_TO_FT = 3.28084;
 export const FT_TO_M = 1 / M_TO_FT;
 export const M2_TO_FT2 = 10.7639;
-export const M3_TO_FT3 = 35.3147;
 
 export function convertDistance(value: number, to: UnitSystem): number {
   return to === 'imperial' ? value * M_TO_FT : value;
@@ -63,6 +62,8 @@ export function convertDistance(value: number, to: UnitSystem): number {
 export function convertArea(value: number, to: UnitSystem): number {
   return to === 'imperial' ? value * M2_TO_FT2 : value;
 }
+
+const M3_TO_FT3 = 35.3147;
 
 export function convertVolume(value: number, to: UnitSystem): number {
   return to === 'imperial' ? value * M3_TO_FT3 : value;
