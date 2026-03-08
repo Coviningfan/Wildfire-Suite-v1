@@ -5,7 +5,7 @@
   "scripts": {
     "start": "expo start --tunnel",
     "start-web": "expo start --web --port 5000",
-    "dev": "expo start --web --port 5000",
+    "dev": "expo start --web --port 5000 --tunnel",
     "ios": "expo start --ios",
     "android": "expo start --android",
     "lint": "expo lint",
