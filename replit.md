@@ -125,17 +125,11 @@ All safety threshold logic imports from `types/lighting.ts`:
 ## Running the App
 ```
 bun run dev
-# Starts Expo dev server on port 5000
+# Starts Expo dev server on port 5000 with ngrok tunnel for Expo Go
 ```
 
-## Environment Variables
-- `EXPO_PUBLIC_RORK_API_BASE_URL` — AI toolkit API base
-- `EXPO_PUBLIC_TOOLKIT_URL` — AI toolkit URL
-- `EXPO_PUBLIC_PROJECT_ID` — Project identifier
-- `EXPO_PUBLIC_TEAM_ID` — Team identifier
-
 ## Workflow
-- **Start application**: `bun run dev` — Starts Expo dev server on port 5000
+- **Start application**: `bun run dev` — Starts Expo dev server on port 5000 with tunnel mode
 
 ## Deployment
 - Target: autoscale
