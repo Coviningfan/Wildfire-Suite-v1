@@ -1,16 +1,43 @@
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder, Platform, GestureResponderHandlers } from 'react-native';
-import Svg, { Rect, Ellipse, Line, Defs, RadialGradient, Stop, G, Circle, Text as SvgText } from 'react-native-svg';
-import { Eye, RefreshCw, Target, LayoutGrid, Move, Layers } from 'lucide-react-native';
+import Svg, { Rect, Ellipse, Line, Defs, RadialGradient, Stop, G, Circle, Text as SvgText, Polygon } from 'react-native-svg';
+import { Eye, RefreshCw, Target, LayoutGrid, Move, Layers, Clock, Zap } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useThemeColors } from '@/hooks/useTheme';
 import { ThemeColors } from '@/constants/theme';
 import { LightingCalculator } from '@/utils/lighting-calculator';
-import { SAFETY_THRESHOLDS } from '@/types/lighting';
+import { SAFETY_THRESHOLDS, DOSE_THRESHOLDS } from '@/types/lighting';
+import { SURFACE_MATERIALS } from '@/constants/materials';
 
-const SVG_PADDING = 28;
+const SVG_PADDING = 36;
 const FIXTURE_COLORS = ['#E8412A', '#3B9FE8', '#22C55E', '#F5A623', '#7C6BF0', '#F97316'];
-const GRID_SIZE = 10;
+const GRID_SIZE = 25;
+
+const HEATMAP_GRADIENT = [
+  { stop: 0, color: [34, 197, 94] },
+  { stop: 0.15, color: [34, 197, 94] },
+  { stop: 0.3, color: [245, 166, 35] },
+  { stop: 0.5, color: [249, 115, 22] },
+  { stop: 0.75, color: [239, 68, 68] },
+  { stop: 1.0, color: [185, 28, 28] },
+];
+
+function interpolateGradient(t: number): string {
+  const clamped = Math.max(0, Math.min(1, t));
+  for (let i = 0; i < HEATMAP_GRADIENT.length - 1; i++) {
+    const a = HEATMAP_GRADIENT[i];
+    const b = HEATMAP_GRADIENT[i + 1];
+    if (clamped >= a.stop && clamped <= b.stop) {
+      const local = (clamped - a.stop) / (b.stop - a.stop);
+      const r = Math.round(a.color[0] + (b.color[0] - a.color[0]) * local);
+      const g = Math.round(a.color[1] + (b.color[1] - a.color[1]) * local);
+      const bl = Math.round(a.color[2] + (b.color[2] - a.color[2]) * local);
+      return `rgb(${r},${g},${bl})`;
+    }
+  }
+  const last = HEATMAP_GRADIENT[HEATMAP_GRADIENT.length - 1];
+  return `rgb(${last.color[0]},${last.color[1]},${last.color[2]})`;
+}
 
 export interface SimFixture {
   id: string;
@@ -21,6 +48,7 @@ export interface SimFixture {
   beamHeight?: string;
   xPos?: number;
   zPos?: number;
+  tiltAngle?: number;
 }
 
 export interface PersonMarker {
@@ -45,6 +73,11 @@ interface RoomSimulationProps {
   onFixtureTap?: (fixtureId: string) => void;
   calibrationFactor?: number;
   people?: PersonMarker[];
+  exposureMinutes?: number;
+  floorMaterial?: string;
+  ceilingMaterial?: string;
+  wallMaterial?: string;
+  onSurfaceStatsChange?: (stats: SurfaceStatsData[]) => void;
 }
 
 interface FixtureBeamData {
@@ -60,6 +93,7 @@ interface FixtureBeamData {
   horizontalDistance: number;
   xPos: number;
   zPos: number;
+  tiltAngle: number;
 }
 
 interface HeatmapCell {
@@ -67,6 +101,15 @@ interface HeatmapCell {
   y: number;
   z: number;
   totalIrr: number;
+}
+
+export interface SurfaceStatsData {
+  surface: string;
+  minIrr: number;
+  maxIrr: number;
+  avgIrr: number;
+  coverage: number;
+  cellCount: number;
 }
 
 function getSafetyColor(irradiance: number): string {
@@ -91,6 +134,13 @@ function computeDoseMJcm2(irradiance_mWm2: number, minutes: number): number {
   return mJPerCm2;
 }
 
+function getDoseColor(dose: number): string {
+  if (dose > DOSE_THRESHOLDS.acgih_tlv_365nm) return '#EF4444';
+  if (dose > DOSE_THRESHOLDS.warning_365nm) return '#F97316';
+  if (dose > DOSE_THRESHOLDS.caution_365nm) return '#F5A623';
+  return '#22C55E';
+}
+
 function useContainerWidth() {
   const [width, setWidth] = useState(Dimensions.get('window').width - 32);
   const onLayout = useCallback((e: any) => {
@@ -98,6 +148,10 @@ function useContainerWidth() {
     if (w > 0) setWidth(w);
   }, []);
   return { containerWidth: width, onLayout };
+}
+
+function getMaterialReflectance(materialId: string): number {
+  return SURFACE_MATERIALS.find((m) => m.id === materialId)?.uvReflectance ?? 0;
 }
 
 const RoomSimulation = React.memo(
@@ -112,6 +166,11 @@ const RoomSimulation = React.memo(
     onFixtureTap,
     calibrationFactor = 1,
     people = [],
+    exposureMinutes = 0,
+    floorMaterial = 'default',
+    ceilingMaterial = 'default',
+    wallMaterial = 'default',
+    onSurfaceStatsChange,
   }: RoomSimulationProps) => {
     const colors = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -121,6 +180,8 @@ const RoomSimulation = React.memo(
     const [viewMode, setViewMode] = useState<'top' | 'side' | 'iso'>('top');
     const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('floor');
     const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
+    const [showDose, setShowDose] = useState<boolean>(false);
+    const [showReflections, setShowReflections] = useState<boolean>(false);
     const [selectedFixtureInternal, setSelectedFixtureInternal] = useState<string | null>(null);
     const [fixturePositions, setFixturePositions] = useState<Record<string, { x: number; z: number }>>({});
     const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -194,14 +255,61 @@ const RoomSimulation = React.memo(
             horizontalDistance,
             xPos: clampedX,
             zPos: clampedZ,
+            tiltAngle: fixture.tiltAngle ?? 0,
           };
         })
         .filter(Boolean) as FixtureBeamData[];
     }, [fixtures, fixturePositions, roomWidth, roomDepth, roomHeight, calc, calibrationFactor]);
 
-    const sampleSurfaceCells = useCallback((): HeatmapCell[] => {
+    const computeIrradianceAtPoint = useCallback(
+      (worldX: number, worldY: number, worldZ: number): number => {
+        let totalIrr = 0;
+        beamData.forEach((beam) => {
+          const fixtureData = LightingCalculator.getFixtureData(beam.model);
+          if (!fixtureData) return;
+
+          const tiltRad = (beam.tiltAngle ?? 0) * (Math.PI / 180);
+
+          const dx = worldX - beam.xPos;
+          const dz = worldZ - beam.zPos;
+          const dy = worldY - beam.verticalHeight;
+          const distance3D = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          if (distance3D > 0.01) {
+            const aimDirX = Math.sin(tiltRad);
+            const aimDirY = -Math.cos(tiltRad);
+            const aimDirZ = 0;
+
+            const toDirX = dx / distance3D;
+            const toDirY = dy / distance3D;
+            const toDirZ = dz / distance3D;
+
+            const dotProduct = aimDirX * toDirX + aimDirY * toDirY + aimDirZ * toDirZ;
+            const coneAngle = Math.acos(Math.max(-1, Math.min(1, dotProduct)));
+
+            const halfConeH = ((fixtureData.beam_h_deg || 90) / 2) * (Math.PI / 180);
+            const halfConeV = ((fixtureData.beam_v_deg || fixtureData.beam_h_deg || 90) / 2) * (Math.PI / 180);
+            const halfConeAvg = (halfConeH + halfConeV) / 2;
+
+            if (coneAngle <= halfConeAvg) {
+              const falloff = Math.cos(coneAngle * (Math.PI / 2) / halfConeAvg);
+              totalIrr += (fixtureData.peak_irradiance_mWm2 * calibrationFactor * falloff) / (distance3D * distance3D);
+            }
+          }
+        });
+        return totalIrr;
+      },
+      [beamData, calibrationFactor],
+    );
+
+    const heatmapData = useMemo<HeatmapCell[]>(() => {
       if (!showHeatmap || roomWidth <= 0 || roomDepth <= 0 || roomHeight <= 0) return [];
       const cells: HeatmapCell[] = [];
+
+      const floorRefl = showReflections ? getMaterialReflectance(floorMaterial) : 0;
+      const ceilRefl = showReflections ? getMaterialReflectance(ceilingMaterial) : 0;
+      const wallRefl = showReflections ? getMaterialReflectance(wallMaterial) : 0;
+
       for (let ix = 0; ix < GRID_SIZE; ix += 1) {
         for (let iz = 0; iz < GRID_SIZE; iz += 1) {
           let worldX = 0;
@@ -230,34 +338,101 @@ const RoomSimulation = React.memo(
             worldX = roomWidth;
           }
 
-          let totalIrr = 0;
-          beamData.forEach((beam) => {
-            const fixtureData = LightingCalculator.getFixtureData(beam.model);
-            if (!fixtureData) return;
+          let directIrr = computeIrradianceAtPoint(worldX, worldY, worldZ);
 
-            const dx = worldX - beam.xPos;
-            const dz = worldZ - beam.zPos;
-            const dy = worldY - beam.verticalHeight;
-            const distance3D = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-            if (distance3D > 0.01) {
-              const axisLen = Math.abs(dy);
-              const offAxis = Math.sqrt(dx * dx + dz * dz);
-              const halfConeH = ((fixtureData.beam_h_deg || 90) / 2) * (Math.PI / 180);
-              const coneAngle = axisLen > 0.01 ? Math.atan2(offAxis, axisLen) : (offAxis > 0.01 ? Math.PI / 2 : 0);
-              if (coneAngle <= halfConeH) {
-                totalIrr += (fixtureData.peak_irradiance_mWm2 * calibrationFactor) / (distance3D * distance3D);
-              }
+          if (showReflections && directIrr > 0) {
+            let reflectedBoost = 0;
+            if (surfaceMode === 'floor') {
+              const ceilIrr = computeIrradianceAtPoint(worldX, roomHeight, worldZ);
+              reflectedBoost += ceilIrr * ceilRefl * 0.3;
+              const wallAvgIrr = (
+                computeIrradianceAtPoint(0, worldY + roomHeight * 0.5, worldZ) +
+                computeIrradianceAtPoint(roomWidth, worldY + roomHeight * 0.5, worldZ)
+              ) / 2;
+              reflectedBoost += wallAvgIrr * wallRefl * 0.15;
+            } else if (surfaceMode === 'ceiling') {
+              const floorIrr = computeIrradianceAtPoint(worldX, 0, worldZ);
+              reflectedBoost += floorIrr * floorRefl * 0.3;
+            } else {
+              const floorIrr = computeIrradianceAtPoint(worldX, 0, worldZ);
+              reflectedBoost += floorIrr * floorRefl * 0.15;
+              const ceilIrr = computeIrradianceAtPoint(worldX, roomHeight, worldZ);
+              reflectedBoost += ceilIrr * ceilRefl * 0.15;
             }
-          });
+            directIrr += reflectedBoost;
+          }
 
-          cells.push({ x: worldX, y: worldY, z: worldZ, totalIrr });
+          cells.push({ x: worldX, y: worldY, z: worldZ, totalIrr: directIrr });
         }
       }
       return cells;
-    }, [beamData, calibrationFactor, roomDepth, roomHeight, roomWidth, showHeatmap, surfaceMode]);
+    }, [computeIrradianceAtPoint, roomDepth, roomHeight, roomWidth, showHeatmap, surfaceMode, showReflections, floorMaterial, ceilingMaterial, wallMaterial]);
 
-    const heatmapData = useMemo<HeatmapCell[]>(() => sampleSurfaceCells(), [sampleSurfaceCells]);
+    const heatmapStats = useMemo(() => {
+      if (heatmapData.length === 0) return { min: 0, max: 0, avg: 0, coverage: 0 };
+      const irrs = heatmapData.map((c) => c.totalIrr);
+      const maxVal = Math.max(...irrs);
+      const minVal = Math.min(...irrs);
+      const avg = irrs.reduce((s, v) => s + v, 0) / irrs.length;
+      const coverage = Math.round((irrs.filter((v) => v >= SAFETY_THRESHOLDS.caution).length / irrs.length) * 100);
+      return { min: Math.round(minVal), max: Math.round(maxVal), avg: Math.round(avg), coverage };
+    }, [heatmapData]);
+
+    const allSurfaceStats = useMemo<SurfaceStatsData[]>(() => {
+      if (roomWidth <= 0 || roomDepth <= 0 || roomHeight <= 0 || beamData.length === 0) return [];
+
+      const surfaces: { mode: SurfaceMode; label: string }[] = [
+        { mode: 'floor', label: 'Floor' },
+        { mode: 'ceiling', label: 'Ceiling' },
+        { mode: 'backWall', label: 'Back Wall' },
+        { mode: 'leftWall', label: 'Left Wall' },
+        { mode: 'rightWall', label: 'Right Wall' },
+      ];
+
+      const sampleSize = 10;
+
+      return surfaces.map(({ mode, label }) => {
+        const irrs: number[] = [];
+        for (let ix = 0; ix < sampleSize; ix++) {
+          for (let iz = 0; iz < sampleSize; iz++) {
+            let wx = 0, wy = 0, wz = 0;
+            if (mode === 'floor') {
+              wx = ((ix + 0.5) / sampleSize) * roomWidth;
+              wz = ((iz + 0.5) / sampleSize) * roomDepth;
+              wy = 0;
+            } else if (mode === 'ceiling') {
+              wx = ((ix + 0.5) / sampleSize) * roomWidth;
+              wz = ((iz + 0.5) / sampleSize) * roomDepth;
+              wy = roomHeight;
+            } else if (mode === 'backWall') {
+              wx = ((ix + 0.5) / sampleSize) * roomWidth;
+              wy = ((iz + 0.5) / sampleSize) * roomHeight;
+              wz = 0;
+            } else if (mode === 'leftWall') {
+              wz = ((ix + 0.5) / sampleSize) * roomDepth;
+              wy = ((iz + 0.5) / sampleSize) * roomHeight;
+              wx = 0;
+            } else {
+              wz = ((ix + 0.5) / sampleSize) * roomDepth;
+              wy = ((iz + 0.5) / sampleSize) * roomHeight;
+              wx = roomWidth;
+            }
+            irrs.push(computeIrradianceAtPoint(wx, wy, wz));
+          }
+        }
+        const minIrr = Math.min(...irrs);
+        const maxIrr = Math.max(...irrs);
+        const avgIrr = irrs.reduce((s, v) => s + v, 0) / irrs.length;
+        const coverage = Math.round((irrs.filter((v) => v >= SAFETY_THRESHOLDS.caution).length / irrs.length) * 100);
+        return { surface: label, minIrr, maxIrr, avgIrr, coverage, cellCount: irrs.length };
+      });
+    }, [computeIrradianceAtPoint, roomWidth, roomDepth, roomHeight, beamData]);
+
+    useEffect(() => {
+      if (onSurfaceStatsChange && allSurfaceStats.length > 0) {
+        onSurfaceStatsChange(allSurfaceStats);
+      }
+    }, [allSurfaceStats, onSurfaceStatsChange]);
 
     const toSvgX = useCallback((worldX: number): number => SVG_PADDING + (worldX / roomWidth) * drawWidth, [roomWidth, drawWidth]);
     const toSvgZ = useCallback((worldZ: number): number => SVG_PADDING + (worldZ / roomDepth) * drawHeight, [roomDepth, drawHeight]);
@@ -378,6 +553,16 @@ const RoomSimulation = React.memo(
       setShowHeatmap((previous) => !previous);
     }, []);
 
+    const toggleDose = useCallback(() => {
+      Haptics.selectionAsync();
+      setShowDose((prev) => !prev);
+    }, []);
+
+    const toggleReflections = useCallback(() => {
+      Haptics.selectionAsync();
+      setShowReflections((prev) => !prev);
+    }, []);
+
     const resetPositions = useCallback(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setFixturePositions({});
@@ -451,17 +636,26 @@ const RoomSimulation = React.memo(
     const hasData = beamData.length > 0 && roomWidth > 0 && roomDepth > 0;
 
     const stats = useMemo(() => {
-      if (!hasData) return { maxIrr: 0, avgIrr: 0, safety: 'SAFE', coverage: 0 };
+      if (!hasData) return { maxIrr: 0, avgIrr: 0, minIrr: 0, safety: 'SAFE', coverage: 0 };
 
-      const irradiances = beamData.map((entry) => entry.irradiance);
-      const maxIrr = Math.max(...irradiances);
-      const avgIrr = irradiances.reduce((sum, current) => sum + current, 0) / irradiances.length;
-      const coverage = heatmapData.length
-        ? Math.round((heatmapData.filter((cell) => cell.totalIrr >= 2500).length / heatmapData.length) * 100)
-        : 0;
+      return {
+        maxIrr: heatmapStats.max,
+        avgIrr: heatmapStats.avg,
+        minIrr: heatmapStats.min,
+        safety: getSafetyLabel(heatmapStats.max),
+        coverage: heatmapStats.coverage,
+      };
+    }, [hasData, heatmapStats]);
 
-      return { maxIrr: Math.round(maxIrr), avgIrr: Math.round(avgIrr), safety: getSafetyLabel(maxIrr), coverage };
-    }, [beamData, hasData, heatmapData]);
+    const doseStats = useMemo(() => {
+      if (!hasData || exposureMinutes <= 0) return null;
+      const maxDose = computeDoseMJcm2(heatmapStats.max, exposureMinutes);
+      const avgDose = computeDoseMJcm2(heatmapStats.avg, exposureMinutes);
+      const safeMinutes = heatmapStats.max > 0
+        ? (DOSE_THRESHOLDS.acgih_tlv_365nm * 10 * 1000) / (heatmapStats.max * 60)
+        : Infinity;
+      return { maxDose: Math.round(maxDose * 10) / 10, avgDose: Math.round(avgDose * 10) / 10, safeMinutes: Math.round(safeMinutes * 10) / 10 };
+    }, [hasData, heatmapStats, exposureMinutes]);
 
     const activeSelectionId = selectedFixtureId ?? selectedFixtureInternal;
 
@@ -481,6 +675,80 @@ const RoomSimulation = React.memo(
       [isHorizontalSurface, handleWebPointerDown, draggingId],
     );
 
+    const renderAxisLabels = (spanX: number, spanY: number, isHoriz: boolean) => {
+      const labels: React.ReactNode[] = [];
+      const xSteps = Math.min(5, Math.floor(spanX));
+      const ySteps = Math.min(5, Math.floor(spanY));
+
+      for (let i = 0; i <= xSteps; i++) {
+        const val = (spanX * i) / xSteps;
+        const px = SVG_PADDING + (val / spanX) * drawWidth;
+        labels.push(
+          <SvgText key={`ax-${i}`} x={px} y={svgHeight - 2} textAnchor="middle" fontSize="7" fill={colors.textTertiary}>
+            {val.toFixed(val >= 10 ? 0 : 1)}
+          </SvgText>,
+        );
+      }
+
+      for (let i = 0; i <= ySteps; i++) {
+        const val = (spanY * i) / ySteps;
+        const py = isHoriz
+          ? SVG_PADDING + (val / spanY) * drawHeight
+          : SVG_PADDING + ((spanY - val) / spanY) * drawHeight;
+        labels.push(
+          <SvgText key={`ay-${i}`} x={SVG_PADDING - 4} y={py + 3} textAnchor="end" fontSize="7" fill={colors.textTertiary}>
+            {val.toFixed(val >= 10 ? 0 : 1)}
+          </SvgText>,
+        );
+      }
+
+      return labels;
+    };
+
+    const renderGradientLegend = () => {
+      const legendWidth = drawWidth * 0.6;
+      const legendX = SVG_PADDING + (drawWidth - legendWidth) / 2;
+      const legendY = SVG_PADDING + drawHeight + 14;
+      const legendH = 8;
+      const maxVal = showDose && exposureMinutes > 0
+        ? computeDoseMJcm2(Math.max(heatmapStats.max, 1), exposureMinutes)
+        : Math.max(heatmapStats.max, 1);
+
+      const segments = 20;
+      const rects: React.ReactNode[] = [];
+      for (let i = 0; i < segments; i++) {
+        const t = i / segments;
+        rects.push(
+          <Rect
+            key={`leg-${i}`}
+            x={legendX + (legendWidth * i) / segments}
+            y={legendY}
+            width={legendWidth / segments + 1}
+            height={legendH}
+            fill={interpolateGradient(t)}
+            rx={i === 0 ? 3 : i === segments - 1 ? 3 : 0}
+          />,
+        );
+      }
+
+      const unit = showDose && exposureMinutes > 0 ? 'mJ/cm²' : 'mW/m²';
+
+      return (
+        <G>
+          {rects}
+          <SvgText x={legendX} y={legendY + legendH + 10} fontSize="7" fill={colors.textTertiary} textAnchor="start">
+            0
+          </SvgText>
+          <SvgText x={legendX + legendWidth / 2} y={legendY + legendH + 10} fontSize="7" fill={colors.textTertiary} textAnchor="middle">
+            {(maxVal / 2).toFixed(0)} {unit}
+          </SvgText>
+          <SvgText x={legendX + legendWidth} y={legendY + legendH + 10} fontSize="7" fill={colors.textTertiary} textAnchor="end">
+            {maxVal.toFixed(0)}
+          </SvgText>
+        </G>
+      );
+    };
+
     const renderTopView = () => {
       const isSideWall = surfaceMode === 'leftWall' || surfaceMode === 'rightWall';
       const spanX = isHorizontalSurface ? roomWidth : isSideWall ? roomDepth : roomWidth;
@@ -499,11 +767,28 @@ const RoomSimulation = React.memo(
         };
       };
 
+      const maxIrrForColor = Math.max(heatmapStats.max, 1);
+      const maxDoseForColor = exposureMinutes > 0 ? computeDoseMJcm2(maxIrrForColor, exposureMinutes) : 1;
+
       const heatmapRects = showHeatmap
         ? heatmapData.map((cell, index) => {
             const center = projectSurfacePoint(cell);
             const cellWidth = drawWidth / GRID_SIZE;
             const cellHeight = drawHeight / GRID_SIZE;
+
+            let colorVal: string;
+            let opacityVal: number;
+
+            if (showDose && exposureMinutes > 0) {
+              const dose = computeDoseMJcm2(cell.totalIrr, exposureMinutes);
+              const t = maxDoseForColor > 0 ? dose / maxDoseForColor : 0;
+              colorVal = interpolateGradient(t);
+              opacityVal = Math.min(0.75, t * 0.75 + 0.05);
+            } else {
+              const t = maxIrrForColor > 0 ? cell.totalIrr / maxIrrForColor : 0;
+              colorVal = interpolateGradient(t);
+              opacityVal = Math.min(0.75, t * 0.75 + 0.05);
+            }
 
             return (
               <Rect
@@ -512,8 +797,8 @@ const RoomSimulation = React.memo(
                 y={center.y - cellHeight / 2}
                 width={cellWidth}
                 height={cellHeight}
-                fill={getSafetyColor(cell.totalIrr)}
-                opacity={Math.min(0.65, cell.totalIrr / 35000)}
+                fill={colorVal}
+                opacity={opacityVal}
               />
             );
           })
@@ -532,14 +817,19 @@ const RoomSimulation = React.memo(
         const center = projectSurfacePoint(sourcePoint);
         const beamWidthWorld = isSideWall ? beam.beamDiamV : beam.beamDiamH;
         const beamHeightWorld = isHorizontalSurface ? beam.beamDiamV : Math.min(roomHeight, Math.max(0.8, beam.beamDiamV));
-        const radiusX = Math.max((beamWidthWorld / spanX) * (drawWidth / 2), 8);
+
+        const tiltShiftX = beam.tiltAngle > 0 ? Math.sin((beam.tiltAngle * Math.PI) / 180) * beam.verticalHeight * 0.3 : 0;
+        const tiltStretch = beam.tiltAngle > 0 ? 1 + Math.sin((beam.tiltAngle * Math.PI) / 180) * 0.5 : 1;
+
+        const radiusX = Math.max((beamWidthWorld / spanX) * (drawWidth / 2) * tiltStretch, 8);
         const radiusY = Math.max((beamHeightWorld / spanY) * (drawHeight / 2), 8);
         const isSelected = activeSelectionId === beam.id;
+        const shiftPx = isHorizontalSurface ? (tiltShiftX / spanX) * drawWidth : 0;
 
         return (
           <G key={`beam-${beam.id}`}>
-            <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.82 : 0.5} />
-            <Ellipse cx={center.x} cy={center.y} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} strokeDasharray="4,3" />
+            <Ellipse cx={center.x + shiftPx} cy={center.y} rx={radiusX} ry={radiusY} fill={`url(#beam-grad-${index})`} opacity={isSelected ? 0.82 : 0.5} />
+            <Ellipse cx={center.x + shiftPx} cy={center.y} rx={radiusX} ry={radiusY} fill="none" stroke={beam.color} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray="4,3" />
           </G>
         );
       });
@@ -565,21 +855,51 @@ const RoomSimulation = React.memo(
             )}
             <Circle cx={center.x} cy={center.y} r={isSelected ? 11 : 9} fill={colors.surface} stroke={beam.color} strokeWidth={3} />
             <Circle cx={center.x} cy={center.y} r={4} fill={beam.color} />
-            <SvgText x={center.x} y={center.y - 18} textAnchor="middle" fontSize="9" fontWeight="700" fill={beam.color}>
+            {beam.tiltAngle > 0 && isHorizontalSurface && (
+              <G>
+                <Line
+                  x1={center.x}
+                  y1={center.y}
+                  x2={center.x + Math.sin((beam.tiltAngle * Math.PI) / 180) * 14}
+                  y2={center.y}
+                  stroke={beam.color}
+                  strokeWidth={2}
+                  opacity={0.7}
+                />
+                <Polygon
+                  points={`${center.x + Math.sin((beam.tiltAngle * Math.PI) / 180) * 14},${center.y - 3} ${center.x + Math.sin((beam.tiltAngle * Math.PI) / 180) * 14},${center.y + 3} ${center.x + Math.sin((beam.tiltAngle * Math.PI) / 180) * 18},${center.y}`}
+                  fill={beam.color}
+                  opacity={0.7}
+                />
+              </G>
+            )}
+            <SvgText x={center.x} y={center.y - 18} textAnchor="middle" fontSize="8" fontWeight="700" fill={beam.color}>
               {beam.model}
             </SvgText>
             {isHorizontalSurface && (
               <SvgText x={center.x} y={center.y + 22} textAnchor="middle" fontSize="7" fill={colors.textTertiary}>
-                {beam.xPos.toFixed(1)}, {beam.zPos.toFixed(1)}
+                {beam.xPos.toFixed(1)}, {beam.zPos.toFixed(1)}{beam.tiltAngle > 0 ? ` · ${beam.tiltAngle}°` : ''}
               </SvgText>
             )}
           </G>
         );
       });
 
+      const gridLines: React.ReactNode[] = [];
+      const gridCount = 4;
+      for (let i = 1; i < gridCount; i++) {
+        const frac = i / gridCount;
+        gridLines.push(
+          <G key={`grid-${frac}`}>
+            <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * frac} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * frac} stroke={colors.border} strokeWidth={0.5} strokeDasharray="3,4" opacity={0.5} />
+            <Line x1={SVG_PADDING + drawWidth * frac} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * frac} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.5} strokeDasharray="3,4" opacity={0.5} />
+          </G>,
+        );
+      }
+
       return (
         <View ref={svgRef} {...(Platform.OS === 'web' ? { style: { touchAction: 'none' } as any } : {})}>
-          <Svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+          <Svg width={svgWidth} height={svgHeight + 28} viewBox={`0 0 ${svgWidth} ${svgHeight + 28}`}>
             <Defs>
               {beamData.map((beam, index) => (
                 <RadialGradient key={`grad-${beam.id}`} id={`beam-grad-${index}`} cx="50%" cy="50%" rx="50%" ry="50%">
@@ -593,12 +913,13 @@ const RoomSimulation = React.memo(
 
             <Rect x={SVG_PADDING} y={SVG_PADDING} width={drawWidth} height={drawHeight} fill={colors.surfaceSecondary} stroke={colors.border} strokeWidth={2} rx={6} />
 
-            {[0.25, 0.5, 0.75].map((fraction) => (
-              <G key={`grid-${fraction}`}>
-                <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight * fraction} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight * fraction} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
-                <Line x1={SVG_PADDING + drawWidth * fraction} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth * fraction} y2={SVG_PADDING + drawHeight} stroke={colors.border} strokeWidth={0.75} strokeDasharray="5,3" />
-              </G>
-            ))}
+            {gridLines}
+
+            {renderAxisLabels(spanX, spanY, isHorizontalSurface)}
+
+            <SvgText x={svgWidth / 2} y={SVG_PADDING - 6} textAnchor="middle" fontSize="8" fill={colors.textTertiary}>
+              {isHorizontalSurface ? `Width: ${roomWidth.toFixed(1)} ${unitLabel}` : `${spanX.toFixed(1)} ${unitLabel}`}
+            </SvgText>
 
             {heatmapRects}
             {beamEllipses}
@@ -610,11 +931,7 @@ const RoomSimulation = React.memo(
               </SvgText>
             )}
 
-            <SvgText x={svgWidth / 2} y={svgHeight - 4} textAnchor="middle" fontSize="9" fill={colors.textTertiary}>
-              {isHorizontalSurface
-                ? `${roomWidth.toFixed(1)} × ${roomDepth.toFixed(1)} ${unitLabel}`
-                : `${spanX.toFixed(1)} ${unitLabel} width × ${roomHeight.toFixed(1)} ${unitLabel} height`}
-            </SvgText>
+            {showHeatmap && heatmapStats.max > 0 && renderGradientLegend()}
           </Svg>
           {Platform.OS === 'web' &&
             isHorizontalSurface &&
@@ -661,6 +978,8 @@ const RoomSimulation = React.memo(
         <Line x1={SVG_PADDING} y1={SVG_PADDING + drawHeight} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING + drawHeight} stroke={colors.textTertiary} strokeWidth={2} />
         <Line x1={SVG_PADDING} y1={SVG_PADDING} x2={SVG_PADDING + drawWidth} y2={SVG_PADDING} stroke={colors.textTertiary} strokeWidth={1} strokeDasharray="6,3" opacity={0.5} />
 
+        {renderAxisLabels(roomWidth, roomHeight, false)}
+
         {beamData.map((beam, index) => {
           const fixtureX = toSvgX(beam.xPos);
           const mountHeight = Math.min(beam.verticalHeight, roomHeight);
@@ -670,15 +989,24 @@ const RoomSimulation = React.memo(
           const beamSpreadY = Math.max(floorY - fixtureY, 10);
           const isSelected = activeSelectionId === beam.id;
 
+          const tiltShiftPx = beam.tiltAngle > 0
+            ? Math.sin((beam.tiltAngle * Math.PI) / 180) * beamSpreadY * 0.4
+            : 0;
+
           return (
             <G key={`side-${beam.id}`}>
-              <Line x1={fixtureX} y1={fixtureY} x2={fixtureX - beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
-              <Line x1={fixtureX} y1={fixtureY} x2={fixtureX + beamHalfW} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
-              <Ellipse cx={fixtureX} cy={fixtureY + beamSpreadY / 2} rx={beamHalfW / 2} ry={beamSpreadY / 2} fill={`url(#side-grad-${index})`} opacity={isSelected ? 0.9 : 0.7} />
-              <Line x1={fixtureX - beamHalfW} y1={floorY} x2={fixtureX + beamHalfW} y2={floorY} stroke={getSafetyColor(beam.irradiance)} strokeWidth={3} strokeLinecap="round" opacity={0.8} />
+              <Line x1={fixtureX} y1={fixtureY} x2={fixtureX - beamHalfW + tiltShiftPx} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
+              <Line x1={fixtureX} y1={fixtureY} x2={fixtureX + beamHalfW + tiltShiftPx} y2={floorY} stroke={beam.color} strokeWidth={1} opacity={0.5} strokeDasharray="4,3" />
+              <Ellipse cx={fixtureX + tiltShiftPx / 2} cy={fixtureY + beamSpreadY / 2} rx={beamHalfW / 2} ry={beamSpreadY / 2} fill={`url(#side-grad-${index})`} opacity={isSelected ? 0.9 : 0.7} />
+              <Line x1={fixtureX - beamHalfW + tiltShiftPx} y1={floorY} x2={fixtureX + beamHalfW + tiltShiftPx} y2={floorY} stroke={getSafetyColor(beam.irradiance)} strokeWidth={3} strokeLinecap="round" opacity={0.8} />
               <Line x1={fixtureX} y1={SVG_PADDING} x2={fixtureX} y2={fixtureY} stroke={colors.border} strokeWidth={1} strokeDasharray="3,3" opacity={0.4} />
               <Circle cx={fixtureX} cy={fixtureY} r={6} fill={colors.surface} stroke={beam.color} strokeWidth={isSelected ? 2 : 1.5} />
               <Circle cx={fixtureX} cy={fixtureY} r={2.5} fill={beam.color} />
+              {beam.tiltAngle > 0 && (
+                <SvgText x={fixtureX - 14} y={fixtureY + 4} fontSize="7" fill={colors.textTertiary} textAnchor="end">
+                  {beam.tiltAngle}°
+                </SvgText>
+              )}
               <SvgText x={fixtureX} y={fixtureY - 10} textAnchor="middle" fontSize="8" fill={beam.color} fontWeight="600">
                 {beam.model}
               </SvgText>
@@ -744,6 +1072,13 @@ const RoomSimulation = React.memo(
             <Line x1={corners.floorBackRight.x} y1={corners.floorBackRight.y} x2={corners.ceilBackRight.x} y2={corners.ceilBackRight.y} stroke={colors.border} strokeWidth={1} opacity={0.7} />
           </G>
 
+          <SvgText x={corners.floorFrontLeft.x} y={corners.floorFrontLeft.y + 12} textAnchor="middle" fontSize="7" fill={colors.textTertiary}>
+            {roomDepth.toFixed(1)}{unitLabel}
+          </SvgText>
+          <SvgText x={(corners.floorFrontLeft.x + corners.floorFrontRight.x) / 2} y={(corners.floorFrontLeft.y + corners.floorFrontRight.y) / 2 + 12} textAnchor="middle" fontSize="7" fill={colors.textTertiary}>
+            {roomWidth.toFixed(1)}{unitLabel}
+          </SvgText>
+
           {beamData.map((beam, index) => {
             const fixture = projectIso(beam.xPos, Math.min(roomHeight, beam.verticalHeight), beam.zPos);
             const floorCenter = projectIso(beam.xPos, 0, beam.zPos);
@@ -802,8 +1137,16 @@ const RoomSimulation = React.memo(
       <View style={styles.container} onLayout={onLayout}>
         <View style={styles.header}>
           <View style={styles.headerActions}>
-            <TouchableOpacity testID="toggle-heatmap-button" style={styles.controlBtn} onPress={toggleHeatmap}>
+            <TouchableOpacity testID="toggle-heatmap-button" style={[styles.controlBtn, showHeatmap && styles.controlBtnActive]} onPress={toggleHeatmap}>
               <Target size={14} color={showHeatmap ? colors.accent : colors.textTertiary} />
+            </TouchableOpacity>
+            {exposureMinutes > 0 && (
+              <TouchableOpacity style={[styles.controlBtn, showDose && styles.controlBtnActive]} onPress={toggleDose}>
+                <Clock size={14} color={showDose ? colors.accent : colors.textTertiary} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.controlBtn, showReflections && styles.controlBtnActive]} onPress={toggleReflections}>
+              <Zap size={14} color={showReflections ? colors.accent : colors.textTertiary} />
             </TouchableOpacity>
             <TouchableOpacity testID="reset-positions-button" style={styles.controlBtn} onPress={resetPositions}>
               <RefreshCw size={14} color={colors.textTertiary} />
@@ -878,6 +1221,11 @@ const RoomSimulation = React.memo(
 
             <View style={styles.statsBar}>
               <View style={styles.statItem}>
+                <Text style={styles.statsLabel}>MIN</Text>
+                <Text style={styles.statsValue}>{stats.minIrr}</Text>
+                <Text style={styles.statsUnit}>mW/m²</Text>
+              </View>
+              <View style={styles.statItem}>
                 <Text style={styles.statsLabel}>MAX</Text>
                 <Text style={[styles.statsValue, { color: getSafetyColor(stats.maxIrr) }]}>{stats.maxIrr}</Text>
                 <Text style={styles.statsUnit}>mW/m²</Text>
@@ -896,6 +1244,45 @@ const RoomSimulation = React.memo(
                 <Text style={styles.statsValue}>{stats.coverage}%</Text>
               </View>
             </View>
+
+            {doseStats && (
+              <View style={styles.doseBar}>
+                <View style={styles.doseBarHeader}>
+                  <Clock size={12} color={colors.textSecondary} />
+                  <Text style={styles.doseBarTitle}>UV Dose ({exposureMinutes} min)</Text>
+                </View>
+                <View style={styles.doseBarStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statsLabel}>MAX</Text>
+                    <Text style={[styles.statsValue, { color: getDoseColor(doseStats.maxDose) }]}>{doseStats.maxDose}</Text>
+                    <Text style={styles.statsUnit}>mJ/cm²</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statsLabel}>AVG</Text>
+                    <Text style={styles.statsValue}>{doseStats.avgDose}</Text>
+                    <Text style={styles.statsUnit}>mJ/cm²</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statsLabel}>TLV</Text>
+                    <Text style={styles.statsValue}>{DOSE_THRESHOLDS.acgih_tlv_365nm}</Text>
+                    <Text style={styles.statsUnit}>mJ/cm²</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statsLabel}>SAFE TIME</Text>
+                    <Text style={[styles.statsValue, { color: doseStats.safeMinutes < exposureMinutes ? '#EF4444' : '#22C55E' }]}>
+                      {doseStats.safeMinutes === Infinity ? '--' : `${doseStats.safeMinutes}m`}
+                    </Text>
+                  </View>
+                </View>
+                {doseStats.maxDose > DOSE_THRESHOLDS.acgih_tlv_365nm && (
+                  <View style={styles.doseWarning}>
+                    <Text style={styles.doseWarningText}>
+                      Exceeds ACGIH TLV for 365nm UV-A. Max safe exposure: {doseStats.safeMinutes === Infinity ? '--' : `${doseStats.safeMinutes} min`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             {beamData.length > 1 && (
               <View style={styles.legendRow}>
@@ -965,6 +1352,10 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.surfaceSecondary,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: colors.border,
+    },
+    controlBtnActive: {
+      borderColor: 'rgba(232, 65, 42, 0.3)',
+      backgroundColor: 'rgba(232, 65, 42, 0.06)',
     },
     viewToggle: {
       flexDirection: 'row',
@@ -1100,6 +1491,43 @@ function createStyles(colors: ThemeColors) {
     statsUnit: {
       fontSize: 10,
       color: colors.textTertiary,
+    },
+    doseBar: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      backgroundColor: colors.surfaceSecondary,
+    },
+    doseBarHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 8,
+    },
+    doseBarTitle: {
+      fontSize: 11,
+      fontWeight: '700' as const,
+      color: colors.textSecondary,
+    },
+    doseBarStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+    },
+    doseWarning: {
+      marginTop: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      backgroundColor: 'rgba(239, 68, 68, 0.08)',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(239, 68, 68, 0.2)',
+    },
+    doseWarningText: {
+      fontSize: 11,
+      fontWeight: '600' as const,
+      color: '#EF4444',
+      textAlign: 'center',
     },
     peopleRow: {
       flexDirection: 'row',

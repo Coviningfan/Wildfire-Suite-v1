@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { Layers, Plus, Trash2, RotateCcw, Box, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Layers, Plus, Trash2, RotateCcw, Box, ChevronDown, ChevronUp, Download, Clock, Sliders } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '@/hooks/useTheme';
@@ -8,10 +8,13 @@ import { ThemeColors } from '@/constants/theme';
 import { useSimulationStore } from '@/stores/simulation-store';
 import { useSettingsStore, distanceUnit, areaUnit, convertArea } from '@/stores/settings-store';
 import { LightingCalculator } from '@/utils/lighting-calculator';
-import { RoomSimulation } from '@/components/RoomSimulation';
+import { RoomSimulation, SurfaceStatsData } from '@/components/RoomSimulation';
 import { Input } from '@/components/ui/Input';
 import { Picker } from '@/components/ui/Picker';
 import { CalculationResponse } from '@/types/lighting';
+import { ROOM_PRESETS } from '@/constants/room-presets';
+import { SURFACE_MATERIALS } from '@/constants/materials';
+import { exportSimulationReport } from '@/utils/simulation-export';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -29,20 +32,36 @@ export default function SimulateScreen() {
     roomWidth,
     roomDepth,
     roomCeiling,
+    exposureMinutes,
+    floorMaterial,
+    ceilingMaterial,
+    wallMaterial,
     addBlankFixture,
     removeFixture,
     updateFixture,
     updateFixturePosition,
+    updateFixtureTilt,
     setRoomWidth,
     setRoomDepth,
     setRoomCeiling,
+    setExposureMinutes,
+    setFloorMaterial,
+    setCeilingMaterial,
+    setWallMaterial,
     clearFixtures,
   } = useSimulationStore();
 
   const [expandedFixtures, setExpandedFixtures] = useState<Record<string, boolean>>({});
   const [showRoomDims, setShowRoomDims] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState('custom');
+  const [surfaceStats, setSurfaceStats] = useState<SurfaceStatsData[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
 
   const fixtureModels = useMemo(() => LightingCalculator.getFixtureModels(), []);
+
+  const presetOptions = useMemo(() => ROOM_PRESETS.map((p) => p.label), []);
+  const materialOptions = useMemo(() => SURFACE_MATERIALS.map((m) => m.label), []);
 
   const toggleFixtureExpanded = useCallback((id: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -53,6 +72,32 @@ export default function SimulateScreen() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setShowRoomDims((prev) => !prev);
   }, []);
+
+  const toggleAdvanced = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowAdvanced((prev) => !prev);
+  }, []);
+
+  const handlePresetChange = useCallback((label: string) => {
+    const preset = ROOM_PRESETS.find((p) => p.label === label);
+    if (!preset || preset.id === 'custom') {
+      setSelectedPreset('custom');
+      return;
+    }
+    setSelectedPreset(preset.id);
+    setRoomWidth(preset.width.toString());
+    setRoomDepth(preset.depth.toString());
+    setRoomCeiling(preset.ceiling.toString());
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [setRoomWidth, setRoomDepth, setRoomCeiling]);
+
+  const handleMaterialChange = useCallback((target: 'floor' | 'ceiling' | 'wall', label: string) => {
+    const mat = SURFACE_MATERIALS.find((m) => m.label === label);
+    if (!mat) return;
+    if (target === 'floor') setFloorMaterial(mat.id);
+    else if (target === 'ceiling') setCeilingMaterial(mat.id);
+    else setWallMaterial(mat.id);
+  }, [setFloorMaterial, setCeilingMaterial, setWallMaterial]);
 
   const handleClearAll = useCallback(() => {
     if (zoneFixtures.length === 0) return;
@@ -84,6 +129,55 @@ export default function SimulateScreen() {
     [removeFixture],
   );
 
+  const handleExport = useCallback(async (format: 'text' | 'csv') => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const calc = new LightingCalculator();
+      const fixtureExportData = zoneFixtures
+        .filter((zf) => zf.fixture)
+        .map((zf) => {
+          const result = calc.calculateRadiometricData(
+            zf.fixture,
+            parseFloat(zf.verticalHeight) || 0,
+            parseFloat(zf.horizontalDistance) || 0,
+          );
+          const report = !('error' in result) ? result.irradiance_report : null;
+          return {
+            model: zf.fixture,
+            xPos: zf.xPos ?? 0,
+            zPos: zf.zPos ?? 0,
+            verticalHeight: parseFloat(zf.verticalHeight) || 0,
+            horizontalDistance: parseFloat(zf.horizontalDistance) || 0,
+            beamDiamH: report?.beam_diameter_h_m ?? 0,
+            beamDiamV: report?.beam_diameter_v_m ?? 0,
+            irradiance: report?.irradiance_mWm2 ?? 0,
+            safetyLevel: report ? (report.irradiance_mWm2 > 25000 ? 'DANGER' : report.irradiance_mWm2 > 10000 ? 'WARNING' : report.irradiance_mWm2 > 2500 ? 'CAUTION' : 'SAFE') : 'SAFE',
+            tiltAngle: zf.tiltAngle ?? 0,
+          };
+        });
+
+      await exportSimulationReport({
+        roomWidth: parseFloat(roomWidth) || 0,
+        roomDepth: parseFloat(roomDepth) || 0,
+        roomHeight: parseFloat(roomCeiling) || 0,
+        unitLabel: dUnit,
+        fixtures: fixtureExportData,
+        surfaceStats,
+        exposureMinutes: parseFloat(exposureMinutes) || 0,
+        floorMaterial,
+        ceilingMaterial,
+        wallMaterial,
+      }, format);
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      Alert.alert('Export Failed', 'Could not export the simulation report.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isExporting, zoneFixtures, roomWidth, roomDepth, roomCeiling, dUnit, surfaceStats, exposureMinutes, floorMaterial, ceilingMaterial, wallMaterial]);
+
   const zoneResults = useMemo(() => {
     if (zoneFixtures.length === 0) return null;
     const calc = new LightingCalculator();
@@ -112,8 +206,18 @@ export default function SimulateScreen() {
   const getFixtureSummary = useCallback((zf: typeof zoneFixtures[0]) => {
     if (!zf.fixture) return 'No model selected';
     const height = zf.verticalHeight ? `${zf.verticalHeight}${dUnit}` : '';
-    return [zf.fixture, height].filter(Boolean).join(' · ');
+    const tilt = zf.tiltAngle ? `${zf.tiltAngle}°` : '';
+    return [zf.fixture, height, tilt].filter(Boolean).join(' · ');
   }, [dUnit]);
+
+  const currentPresetLabel = useMemo(() => {
+    const p = ROOM_PRESETS.find((pr) => pr.id === selectedPreset);
+    return p?.label ?? 'Custom';
+  }, [selectedPreset]);
+
+  const floorMaterialLabel = useMemo(() => SURFACE_MATERIALS.find((m) => m.id === floorMaterial)?.label ?? 'Default', [floorMaterial]);
+  const ceilingMaterialLabel = useMemo(() => SURFACE_MATERIALS.find((m) => m.id === ceilingMaterial)?.label ?? 'Default', [ceilingMaterial]);
+  const wallMaterialLabel = useMemo(() => SURFACE_MATERIALS.find((m) => m.id === wallMaterial)?.label ?? 'Default', [wallMaterial]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -133,14 +237,30 @@ export default function SimulateScreen() {
         </View>
         <View style={styles.topBarRight}>
           {zoneFixtures.length > 0 && (
-            <TouchableOpacity
-              style={styles.topBtn}
-              onPress={handleClearAll}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <RotateCcw size={17} color={colors.textTertiary} />
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.topBtn}
+                onPress={() => {
+                  Alert.alert('Export Report', 'Choose export format', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Text Report', onPress: () => handleExport('text') },
+                    { text: 'CSV Data', onPress: () => handleExport('csv') },
+                  ]);
+                }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Download size={17} color={colors.accent} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.topBtn}
+                onPress={handleClearAll}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <RotateCcw size={17} color={colors.textTertiary} />
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
@@ -151,6 +271,15 @@ export default function SimulateScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={styles.section}>
+          <Picker
+            label="Room Preset"
+            value={currentPresetLabel}
+            options={presetOptions}
+            onValueChange={handlePresetChange}
+          />
+        </View>
+
         <View style={styles.section}>
           <TouchableOpacity style={styles.roomDimsHeader} onPress={toggleRoomDims} activeOpacity={0.7}>
             <Text style={styles.sectionTitle}>Room Dimensions</Text>
@@ -174,7 +303,7 @@ export default function SimulateScreen() {
                   <Input
                     label={`Width (${dUnit})`}
                     value={roomWidth}
-                    onChangeText={setRoomWidth}
+                    onChangeText={(v) => { setRoomWidth(v); setSelectedPreset('custom'); }}
                     keyboardType="decimal-pad"
                     placeholder="12"
                   />
@@ -183,7 +312,7 @@ export default function SimulateScreen() {
                   <Input
                     label={`Depth (${dUnit})`}
                     value={roomDepth}
-                    onChangeText={setRoomDepth}
+                    onChangeText={(v) => { setRoomDepth(v); setSelectedPreset('custom'); }}
                     keyboardType="decimal-pad"
                     placeholder="8"
                   />
@@ -192,12 +321,62 @@ export default function SimulateScreen() {
                   <Input
                     label={`Ceiling (${dUnit})`}
                     value={roomCeiling}
-                    onChangeText={setRoomCeiling}
+                    onChangeText={(v) => { setRoomCeiling(v); setSelectedPreset('custom'); }}
                     keyboardType="decimal-pad"
                     placeholder="4"
                   />
                 </View>
               </View>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.roomDimsHeader} onPress={toggleAdvanced} activeOpacity={0.7}>
+            <View style={styles.advancedHeaderLeft}>
+              <Sliders size={14} color={colors.textSecondary} />
+              <Text style={styles.sectionTitle}>Advanced Settings</Text>
+            </View>
+            {showAdvanced ? (
+              <ChevronUp size={16} color={colors.textTertiary} />
+            ) : (
+              <ChevronDown size={16} color={colors.textTertiary} />
+            )}
+          </TouchableOpacity>
+          {showAdvanced && (
+            <View style={styles.roomDimsCard}>
+              <View style={styles.inputRow}>
+                <View style={{ flex: 1 }}>
+                  <Input
+                    label="Exposure Time (min)"
+                    value={exposureMinutes}
+                    onChangeText={setExposureMinutes}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                  />
+                </View>
+              </View>
+              <View style={{ height: 10 }} />
+              <Picker
+                label="Floor Material"
+                value={floorMaterialLabel}
+                options={materialOptions}
+                onValueChange={(v) => handleMaterialChange('floor', v)}
+              />
+              <View style={{ height: 8 }} />
+              <Picker
+                label="Ceiling Material"
+                value={ceilingMaterialLabel}
+                options={materialOptions}
+                onValueChange={(v) => handleMaterialChange('ceiling', v)}
+              />
+              <View style={{ height: 8 }} />
+              <Picker
+                label="Wall Material"
+                value={wallMaterialLabel}
+                options={materialOptions}
+                onValueChange={(v) => handleMaterialChange('wall', v)}
+              />
             </View>
           )}
         </View>
@@ -210,6 +389,11 @@ export default function SimulateScreen() {
             fixtures={zoneFixtures}
             unitLabel={dUnit}
             onFixturePositionChange={updateFixturePosition}
+            exposureMinutes={parseFloat(exposureMinutes) || 0}
+            floorMaterial={floorMaterial}
+            ceilingMaterial={ceilingMaterial}
+            wallMaterial={wallMaterial}
+            onSurfaceStatsChange={setSurfaceStats}
           />
         </View>
 
@@ -342,6 +526,24 @@ export default function SimulateScreen() {
                         />
                       </View>
                     </View>
+                    <View style={styles.inputRow}>
+                      <View style={styles.inputHalf}>
+                        <Input
+                          label="Tilt Angle"
+                          value={zf.tiltAngle?.toString() || '0'}
+                          onChangeText={(v) => updateFixtureTilt(zf.id, parseFloat(v) || 0)}
+                          keyboardType="decimal-pad"
+                          unit="°"
+                          placeholder="0"
+                        />
+                      </View>
+                      <View style={styles.inputHalf}>
+                        <View style={styles.tiltHint}>
+                          <Text style={styles.tiltHintText}>0° = straight down</Text>
+                          <Text style={styles.tiltHintText}>45° = angled forward</Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
                 )}
               </View>
@@ -426,6 +628,11 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    advancedHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
     inputRow: { flexDirection: 'row', gap: 10 },
     inputThird: { flex: 1 },
     inputHalf: { flex: 1 },
@@ -508,6 +715,16 @@ function createStyles(colors: ThemeColors) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: colors.border,
       paddingTop: 12,
+    },
+    tiltHint: {
+      justifyContent: 'center',
+      paddingTop: 20,
+      gap: 2,
+    },
+    tiltHintText: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      fontWeight: '500',
     },
     zoneSummaryCard: {
       backgroundColor: colors.surfaceSecondary,

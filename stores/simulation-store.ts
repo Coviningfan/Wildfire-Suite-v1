@@ -12,6 +12,7 @@ export interface SimFixture {
   beamHeight?: string;
   xPos?: number;
   zPos?: number;
+  tiltAngle?: number;
 }
 
 interface SimulationState {
@@ -19,14 +20,23 @@ interface SimulationState {
   roomWidth: string;
   roomDepth: string;
   roomCeiling: string;
+  exposureMinutes: string;
+  floorMaterial: string;
+  ceilingMaterial: string;
+  wallMaterial: string;
 
   addFixture: (fixture: SimFixture) => void;
   removeFixture: (id: string) => void;
   updateFixture: (id: string, field: Exclude<keyof SimFixture, 'id' | 'xPos' | 'zPos'>, value: string) => void;
   updateFixturePosition: (id: string, xPos: number, zPos: number) => void;
+  updateFixtureTilt: (id: string, tiltAngle: number) => void;
   setRoomWidth: (width: string) => void;
   setRoomDepth: (depth: string) => void;
   setRoomCeiling: (ceiling: string) => void;
+  setExposureMinutes: (minutes: string) => void;
+  setFloorMaterial: (material: string) => void;
+  setCeilingMaterial: (material: string) => void;
+  setWallMaterial: (material: string) => void;
   clearFixtures: () => void;
   addBlankFixture: (id?: string) => void;
   setFixtures: (fixtures: SimFixture[]) => void;
@@ -39,6 +49,10 @@ export const useSimulationStore = create<SimulationState>()(
       roomWidth: '12',
       roomDepth: '8',
       roomCeiling: '4',
+      exposureMinutes: '',
+      floorMaterial: 'default',
+      ceilingMaterial: 'default',
+      wallMaterial: 'default',
 
       addFixture: (fixture) =>
         set((s) => ({ zoneFixtures: [...s.zoneFixtures, fixture] })),
@@ -63,9 +77,20 @@ export const useSimulationStore = create<SimulationState>()(
           ),
         })),
 
+      updateFixtureTilt: (id, tiltAngle) =>
+        set((s) => ({
+          zoneFixtures: s.zoneFixtures.map((f) =>
+            f.id === id ? { ...f, tiltAngle } : f,
+          ),
+        })),
+
       setRoomWidth: (width) => set({ roomWidth: width }),
       setRoomDepth: (depth) => set({ roomDepth: depth }),
       setRoomCeiling: (ceiling) => set({ roomCeiling: ceiling }),
+      setExposureMinutes: (minutes) => set({ exposureMinutes: minutes }),
+      setFloorMaterial: (material) => set({ floorMaterial: material }),
+      setCeilingMaterial: (material) => set({ ceilingMaterial: material }),
+      setWallMaterial: (material) => set({ wallMaterial: material }),
 
       clearFixtures: () => set({ zoneFixtures: [] }),
 
@@ -85,6 +110,7 @@ export const useSimulationStore = create<SimulationState>()(
                 beamHeight: '',
                 xPos: centerX,
                 zPos: centerZ,
+                tiltAngle: 0,
               },
             ],
           };
@@ -100,6 +126,10 @@ export const useSimulationStore = create<SimulationState>()(
         roomWidth: state.roomWidth,
         roomDepth: state.roomDepth,
         roomCeiling: state.roomCeiling,
+        exposureMinutes: state.exposureMinutes,
+        floorMaterial: state.floorMaterial,
+        ceilingMaterial: state.ceilingMaterial,
+        wallMaterial: state.wallMaterial,
       }),
     },
   ),

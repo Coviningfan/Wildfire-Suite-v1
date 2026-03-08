@@ -26,7 +26,7 @@ app/              - Expo Router pages
     resources/    - Docs tab (tutorials, knowledge base, PDF resources)
     profile/      - User profile and settings
 components/       - Reusable UI components
-constants/        - App constants (colors, theme, tutorials, resources)
+constants/        - App constants (colors, theme, tutorials, resources, room-presets, materials)
 hooks/            - Custom React hooks
 stores/           - Zustand stores (auth, lighting, settings, simulation)
 types/            - TypeScript types and shared constants (safety thresholds)
@@ -36,22 +36,24 @@ assets/           - Images and static assets
 
 ## Key Features
 - **FLAME Calculator**: Fixture-Location-Angle-Material-Effect workflow for UV calculations
-- **Room Simulation**: Dedicated tab with 2D/3D room visualization, fixture placement, heatmaps, and auto-layout
-  - Layout: Room dims (collapsible) → Simulation viz → Zone summary → Fixture cards (collapsible)
-  - Fixture cards have color dots matching simulation colors, expand/collapse with summary line
-  - Side view renders fixtures at actual mounting height (not pinned to ceiling)
-  - Fixture legend with color-coded irradiance values appears when 2+ fixtures exist
+- **Room Simulation**: Professional-grade UV simulation with 2D/3D room visualization
+  - **25×25 heatmap grid** (625 cells) with continuous color gradient and legend bar
+  - **UV Dose Calculator**: Exposure time input, dose overlay toggle, ACGIH TLV thresholds (365nm)
+  - **Fixture Tilt/Aim**: Per-fixture tilt angle (0°=down, 45°=angled), affects beam cone and coverage pattern
+  - **Surface Reflectance**: Material presets (white paint, concrete, mirror, etc.) with single-bounce reflection model
+  - **Report Export**: Text/CSV export with room config, fixture data, all-surface analysis, dose data
+  - **Room Presets**: 8 venue types (theaters, nightclub, escape room, gallery, studio, corridor)
+  - **Advanced Settings**: Collapsible panel for exposure time, floor/ceiling/wall materials
+  - Axis labels (meters) on grid edges, room dimension labels, gradient legend with numerical scale
+  - Heatmap uses both beam_h_deg and beam_v_deg in elliptical cone check with cosine falloff
+  - Stats bar shows MIN/MAX/AVG/SAFETY/COVERAGE for current surface
+  - Dose bar shows max/avg dose, ACGIH TLV reference, safe exposure time
+  - Layout: Preset picker → Room dims (collapsible) → Advanced settings → Simulation viz → Zone summary → Fixtures
+  - Fixture cards have tilt angle input, color dots, expand/collapse with summary line
   - Web drag support via pointer events; native drag via PanResponder
-  - Drag clamped to fixture marker position (0.1m inset), not beam edge
-  - Drag uses `onFixturePositionChange(id, x, z)` for atomic position updates
-  - State managed by `stores/simulation-store.ts` (persisted via AsyncStorage)
-  - `updateFixture` restricted from xPos/zPos fields; use `updateFixturePosition` for positions
-  - New fixtures default to room center position
-  - Heatmap uses beam cone check (beam_h_deg) — only illuminated cells receive irradiance
-  - People readouts also use beam cone check for accurate exposure readings
-  - Reset positions notifies parent via `onFixturePositionChange` for all fixtures
-  - Coverage metric shows actual percentage (no artificial cap)
-  - ISO view shows labels for all fixtures (not limited to first 3)
+  - State managed by `stores/simulation-store.ts` (persisted: fixtures, room dims, exposure, materials)
+  - `updateFixture` restricted from xPos/zPos; use `updateFixturePosition` / `updateFixtureTilt`
+  - Surface stats collected for all 5 surfaces (10×10 sampling) for export completeness
 - **Tutorials System**: Two categories:
   - App Tutorials: Step-by-step guides tied to app features (7 tutorials)
   - Knowledge Base: Educational articles about UV science (7 articles)
@@ -92,7 +94,8 @@ assets/           - Images and static assets
 All safety threshold logic imports from `types/lighting.ts`:
 - `SAFETY_THRESHOLDS`: `{ danger: 25000, warning: 10000, caution: 2500 }` (mW/m²)
 - `SAFETY_LABELS`: Human-readable descriptions for each level
-- Used by: `lighting-store`, `file-helpers`, `RoomSimulation`, `FixtureCoverageCard`
+- `DOSE_THRESHOLDS`: ACGIH TLV limits (`{ acgih_tlv_365nm: 33, caution_365nm: 10, warning_365nm: 25 }` mJ/cm²)
+- Used by: `lighting-store`, `file-helpers`, `RoomSimulation`, `FixtureCoverageCard`, `simulation-export`
 
 ## ResultCard
 - `formatLabel` regex uses case-insensitive patterns to handle title-cased unit suffixes (MWm2 → mW/m²)
@@ -129,7 +132,7 @@ bun run dev
 ```
 
 ## Workflow
-- **Start application**: `bun run dev` — Starts Expo dev server on port 5000 with tunnel mode
+- **Start application**: `bun run dev` — Starts Expo dev server on port 5000
 
 ## Deployment
 - Target: static

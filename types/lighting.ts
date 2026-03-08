@@ -68,3 +68,10 @@ export const SAFETY_LABELS: Record<SafetyLevel, string> = {
   warning: 'WARNING — Max 1 min, full PPE required (10001-25000 mW/m2)',
   danger: 'DANGER — Immediate evacuation required (>25000 mW/m2)',
 };
+
+export const DOSE_THRESHOLDS = {
+  acgih_tlv_254nm: 3.0,
+  acgih_tlv_365nm: 33.0,
+  caution_365nm: 10.0,
+  warning_365nm: 25.0,
+} as const;
