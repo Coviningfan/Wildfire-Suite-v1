@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start --tunnel",
-    "dev": "expo start --web --port 5000",
+    "dev": "expo export --platform web && node serve.js",
+    "dev:live": "expo start --web --port 5000",
     "ios": "expo start --ios",
     "android": "expo start --android",
     "lint": "expo lint",

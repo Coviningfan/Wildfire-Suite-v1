@@ -127,12 +127,12 @@ All safety threshold logic imports from `types/lighting.ts`:
 
 ## Running the App
 ```
-bun run dev
-# Starts Expo dev server on port 5000 with ngrok tunnel for Expo Go
+bun run dev         # Builds static web export + serves on port 5000 (stable, no Metro WebSocket)
+bun run dev:live    # Expo Metro dev server with hot reload on port 5000 (may disconnect on Replit)
 ```
 
 ## Workflow
-- **Start application**: `bun run dev` — Starts Expo dev server on port 5000
+- **Start application**: `bun run dev` — Builds web bundle, serves static files on port 5000 via `serve.js`
 
 ## Deployment
 - Target: static
