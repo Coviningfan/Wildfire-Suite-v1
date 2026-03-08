@@ -132,5 +132,6 @@ bun run dev
 - **Start application**: `bun run dev` — Starts Expo dev server on port 5000 with tunnel mode
 
 ## Deployment
-- Target: autoscale
-- Run command: `bun run dev`
+- Target: static
+- Build command: `bun run build:web` (runs `expo export --platform web`)
+- Public directory: `dist`

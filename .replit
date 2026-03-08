@@ -43,5 +43,7 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "static"
 run = ["bun", "run", "dev"]
+build = ["bun", "run", "build:web"]
+publicDir = "dist"
