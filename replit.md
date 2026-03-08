@@ -26,6 +26,7 @@ app/              - Expo Router pages
     resources/    - Docs tab (tutorials, knowledge base, PDF resources)
     profile/      - User profile and settings
 components/       - Reusable UI components
+  simulation/     - Extracted simulation sub-components (TopView, SideView, IsometricView, StatsBar, irradiance engine)
 constants/        - App constants (colors, theme, tutorials, resources, room-presets, materials)
 hooks/            - Custom React hooks
 stores/           - Zustand stores (auth, lighting, settings, simulation)
