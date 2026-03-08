@@ -44,6 +44,6 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "static"
-run = ["bun", "run", "dev"]
+run = ["echo", "static"]
 build = ["bun", "run", "build:web"]
 publicDir = "dist"
