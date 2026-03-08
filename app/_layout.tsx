@@ -33,17 +33,15 @@ export default function RootLayout() {
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    const init = async () => {
-      await initializeAuth();
+    const unsub = useAuthStore.persist.onFinishHydration(() => {
+      initializeAuth();
       setAuthReady(true);
       SplashScreen.hideAsync();
-    };
-
-    const unsub = useAuthStore.persist.onFinishHydration(() => {
-      init();
     });
     if (useAuthStore.persist.hasHydrated()) {
-      init();
+      initializeAuth();
+      setAuthReady(true);
+      SplashScreen.hideAsync();
     }
     return unsub;
   }, [initializeAuth]);

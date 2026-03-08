@@ -1,13 +1,218 @@
-import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity, Animated } from 'react-native';
+import { Stack, router } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
+import { Input } from '@/components/ui/Input';
+import { Logo } from '@/components/ui/Logo';
 import { useAuthStore } from '@/stores/auth-store';
+import { useThemeColors } from '@/hooks/useTheme';
+import { ThemeColors } from '@/constants/theme';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterScreen() {
-  const { login } = useAuthStore();
+  const colors = useThemeColors();
+  const [name, setName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const { register, isLoading } = useAuthStore();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    login();
-  }, [login]);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: false }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: false }),
+    ]).start();
+  }, []);
 
-  return <View style={{ flex: 1, backgroundColor: '#09090B' }} />;
+  const handleRegister = useCallback(async () => {
+    if (!name || !email || !password || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters');
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const success = await register(name, email, password);
+      if (success) {
+        router.replace('/(tabs)/(home)' as any);
+      } else {
+        Alert.alert('Error', 'Registration failed. Email may already be in use.');
+      }
+    } catch {
+      Alert.alert('Error', 'Registration failed. Please try again.');
+    }
+  }, [name, email, password, confirmPassword, register]);
+
+  const canSubmit = name.length > 0 && email.length > 0 && password.length > 0 && confirmPassword.length > 0;
+  const styles = createStyles(colors);
+
+  return (
+    <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.bgAccent} />
+
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => router.back()}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ArrowLeft size={20} color={colors.text} />
+            </TouchableOpacity>
+            <Logo size="small" imageOnly />
+            <View style={styles.backBtn} />
+          </View>
+
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Animated.View style={[styles.formArea, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+              <Text style={[styles.title, { color: colors.text }]}>Create account</Text>
+              <Text style={[styles.subtitle, { color: colors.textTertiary }]}>Join to start calculating</Text>
+
+              <View style={styles.formFields}>
+                <Input label="Full Name" value={name} onChangeText={setName} placeholder="John Doe" />
+                <Input label="Email" value={email} onChangeText={setEmail} placeholder="your@email.com" keyboardType="email-address" autoCapitalize="none" />
+                <Input label="Password" value={password} onChangeText={setPassword} placeholder="Min. 8 characters" secureTextEntry showPasswordToggle />
+                <Input label="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Re-enter password" secureTextEntry showPasswordToggle />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.createBtn, !canSubmit && styles.createBtnDisabled]}
+                onPress={handleRegister}
+                activeOpacity={0.85}
+                disabled={isLoading || !canSubmit}
+              >
+                <Text style={styles.createBtnText}>{isLoading ? 'Creating...' : 'Create Account'}</Text>
+              </TouchableOpacity>
+
+              <View style={styles.linkRow}>
+                <Text style={[styles.linkText, { color: colors.textTertiary }]}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => router.push('/(auth)/login' as any)}>
+                  <Text style={[styles.link, { color: colors.primary }]}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    bgAccent: {
+      position: 'absolute',
+      top: -30,
+      left: -70,
+      width: 200,
+      height: 200,
+      borderRadius: 100,
+      backgroundColor: colors.glow,
+    },
+    safeArea: {
+      flex: 1,
+    },
+    keyboardView: {
+      flex: 1,
+    },
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 28,
+      paddingBottom: 40,
+    },
+    formArea: {},
+    title: {
+      fontSize: 30,
+      fontWeight: '800' as const,
+      letterSpacing: -0.8,
+    },
+    subtitle: {
+      fontSize: 16,
+      marginTop: 6,
+      marginBottom: 32,
+    },
+    formFields: {
+      marginBottom: 8,
+    },
+    createBtn: {
+      height: 54,
+      borderRadius: 15,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.3,
+      shadowRadius: 14,
+      elevation: 6,
+    },
+    createBtnDisabled: {
+      opacity: 0.5,
+      shadowOpacity: 0,
+    },
+    createBtnText: {
+      fontSize: 16,
+      fontWeight: '700' as const,
+      color: '#fff',
+      letterSpacing: 0.1,
+    },
+    linkRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 28,
+    },
+    linkText: {
+      fontSize: 14,
+    },
+    link: {
+      fontSize: 14,
+      fontWeight: '600' as const,
+    },
+  });
 }

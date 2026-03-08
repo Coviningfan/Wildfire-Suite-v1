@@ -1,7 +1,7 @@
 # Wildfire Suite - Replit Configuration
 
 ## Project Overview
-Expo React Native app (web) for Wildfire Lighting professionals. Features UV lighting calculations, fixture catalog, AI insights, room simulation, and educational resources. Backed by Express API server with PostgreSQL database and Replit Auth (OIDC).
+Expo React Native app (web) for Wildfire Lighting professionals. Features UV lighting calculations, fixture catalog, AI insights, room simulation, and educational resources. All data stored locally via AsyncStorage.
 
 ## Architecture
 - **Framework**: Expo SDK 54 + Expo Router v6 (file-based routing)
@@ -9,42 +9,9 @@ Expo React Native app (web) for Wildfire Lighting professionals. Features UV lig
 - **Package Manager**: Bun
 - **Renderer**: React Native Web (web platform)
 - **Bundler**: Metro (configured in app.json)
-- **State Management**: Zustand with AsyncStorage persistence (local preferences only)
-- **Backend**: Express API server (port 5000, proxies to Expo on port 3000)
-- **Database**: PostgreSQL (Drizzle ORM)
-- **Authentication**: Replit Auth (OIDC) — Google, GitHub, Apple, email/password
+- **State Management**: Zustand with AsyncStorage persistence
+- **Authentication**: Local auth with demo accounts (email/password hashed via expo-crypto)
 - **New Architecture**: Disabled (compatibility concerns with some packages)
-
-## Server Architecture
-```
-server/start.ts          - Startup orchestrator (starts Expo then Express)
-server/index.ts          - Express API server (port 5000)
-  - Serves /api/* routes directly
-  - Proxies all other requests to Expo dev server (port 3000)
-  - WebSocket upgrade support for Metro HMR
-server/db.ts             - PostgreSQL connection pool (Drizzle)
-server/replit_integrations/auth/  - Replit Auth OIDC module
-  - replitAuth.ts        - Passport + OpenID Connect setup
-  - storage.ts           - User database operations (getUser, upsertUser)
-  - routes.ts            - GET /api/auth/user endpoint
-  - index.ts             - Re-exports
-shared/schema.ts         - Drizzle schema exports
-shared/models/auth.ts    - Users and sessions table definitions
-drizzle.config.ts        - Drizzle Kit configuration
-```
-
-## Auth Flow
-1. User clicks "Sign In" → `window.location.href = '/api/login'`
-2. Express redirects to Replit OIDC provider
-3. User authenticates with Google/GitHub/Apple/email
-4. Callback at `/api/callback` creates session + upserts user in PostgreSQL
-5. Redirect to `/` → frontend calls `GET /api/auth/user` → gets user object
-6. Zustand auth-store sets `isAuthenticated: true` with server user data
-7. Logout: `window.location.href = '/api/logout'` → clears session
-
-## Database Schema
-- **users**: id (varchar, PK), email, first_name, last_name, profile_image_url, created_at, updated_at
-- **sessions**: sid (varchar, PK), sess (jsonb), expire (timestamp) — used by connect-pg-simple
 
 ## Directory Structure
 ```
@@ -58,8 +25,6 @@ app/              - Expo Router pages
     calculations/ - Saved calculations (hidden tab, accessible from code)
     resources/    - Docs tab (tutorials, knowledge base, PDF resources)
     profile/      - User profile and settings
-server/           - Express API server + Replit Auth
-shared/           - Shared types and database schema
 components/       - Reusable UI components
 constants/        - App constants (colors, theme, tutorials, resources)
 hooks/            - Custom React hooks
@@ -109,13 +74,12 @@ assets/           - Images and static assets
   - EM-44V/EM-43E correctly show DMX 512/RDM control type
 
 ## Authentication
-- **Provider**: Replit Auth (OIDC) — supports Google, GitHub, Apple, email/password
-- **Session Storage**: PostgreSQL via connect-pg-simple (7-day TTL)
-- **Frontend Auth Store**: Zustand persists only `biometricEnabled` locally; user session from server
-- **Splash Screen**: Waits for `initializeAuth()` (fetches `/api/auth/user`) before hiding
-- **Route Protection**: Tab layout redirects to auth if not authenticated; auth layout redirects to home if authenticated
+- **Provider**: Local (AsyncStorage-based with SHA-256 hashed passwords)
+- **Demo accounts**: `demo@example.com` / `password123`, `admin@example.com` / `admin123`
+- **Apple Sign In**: Available on iOS devices
 - **Biometric Login**: Requires successful authentication challenge before enabling
-- **No custom login forms**: All auth handled by Replit OIDC redirect
+- **Route Protection**: Tab layout redirects to auth if not authenticated; auth layout redirects to home if authenticated
+- **Zustand persists**: user, isAuthenticated, isAdmin, biometricEnabled
 
 ## Theme System
 - Auth screens and FixtureDetailModal use `useThemeColors()` for dynamic light/dark support
@@ -147,9 +111,9 @@ All safety threshold logic imports from `types/lighting.ts`:
 - BLB lamp models have correct manual and store URLs
 
 ## Profile
-- Displays user name/email from server session (firstName + lastName)
+- Displays user name/email from local auth store
 - Fixture count stat card dynamically reads from `LightingCalculator.getFixtureModels().length`
-- Sign Out navigates to `/api/logout`
+- Sign Out clears auth state and navigates to welcome screen
 
 ## App Configuration
 - **Bundle ID (iOS)**: `com.wildfirelighting.suite`
@@ -160,29 +124,19 @@ All safety threshold logic imports from `types/lighting.ts`:
 
 ## Running the App
 ```
-bun run server/start.ts
-# Starts Expo dev server on port 3000, then Express API server on port 5000
-# Express proxies non-API requests to Expo
-```
-
-## Database Commands
-```
-bun run db:push          # Push schema changes to database
+bun run dev
+# Starts Expo dev server on port 5000
 ```
 
 ## Environment Variables
-- `DATABASE_URL` — PostgreSQL connection string (auto-provisioned)
-- `SESSION_SECRET` — Session encryption key (auto-provisioned)
-- `REPL_ID` — Replit project ID (auto-set)
-- `ISSUER_URL` — OIDC issuer (defaults to https://replit.com/oidc)
 - `EXPO_PUBLIC_RORK_API_BASE_URL` — AI toolkit API base
 - `EXPO_PUBLIC_TOOLKIT_URL` — AI toolkit URL
 - `EXPO_PUBLIC_PROJECT_ID` — Project identifier
 - `EXPO_PUBLIC_TEAM_ID` — Team identifier
 
 ## Workflow
-- **Start application**: `bun run server/start.ts` — Starts both Expo + Express
+- **Start application**: `bun run dev` — Starts Expo dev server on port 5000
 
 ## Deployment
 - Target: autoscale
-- Run command: `bun run server/start.ts`
+- Run command: `bun run dev`

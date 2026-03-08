@@ -1,10 +1,14 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import React, { useRef, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, Animated, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { Logo } from '@/components/ui/Logo';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Apple } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
+import { isAppleAuthAvailable } from '@/utils/apple-auth';
 import * as Haptics from 'expo-haptics';
+
+const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const logoFade = useRef(new Animated.Value(0)).current;
@@ -15,28 +19,25 @@ export default function WelcomeScreen() {
   const buttonSlide = useRef(new Animated.Value(20)).current;
   const glowPulse = useRef(new Animated.Value(0.4)).current;
 
-  const { login } = useAuthStore();
+  const [appleAvailable, setAppleAvailable] = useState<boolean>(false);
+  const { loginWithApple, isLoading } = useAuthStore();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(logoFade, { toValue: 1, duration: 600, useNativeDriver: false }),
-      Animated.timing(logoScale, { toValue: 1, duration: 600, useNativeDriver: false }),
-    ]).start();
-
-    setTimeout(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(logoFade, { toValue: 1, duration: 600, useNativeDriver: false }),
+        Animated.spring(logoScale, { toValue: 1, tension: 40, friction: 7, useNativeDriver: false }),
+      ]),
       Animated.parallel([
         Animated.timing(textFade, { toValue: 1, duration: 500, useNativeDriver: false }),
         Animated.timing(textSlide, { toValue: 0, duration: 500, useNativeDriver: false }),
-      ]).start();
-    }, 500);
-
-    setTimeout(() => {
+      ]),
       Animated.parallel([
         Animated.timing(buttonFade, { toValue: 1, duration: 400, useNativeDriver: false }),
         Animated.timing(buttonSlide, { toValue: 0, duration: 400, useNativeDriver: false }),
-      ]).start();
-    }, 900);
+      ]),
+    ]).start();
 
     const pulseLoop = Animated.loop(
       Animated.sequence([
@@ -46,14 +47,24 @@ export default function WelcomeScreen() {
     );
     pulseLoop.start();
 
+    checkApple();
+
     return () => {
       pulseLoop.stop();
     };
   }, []);
 
-  const handleSignIn = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    login();
+  const checkApple = async () => {
+    const available = await isAppleAuthAvailable();
+    setAppleAvailable(available);
+  };
+
+  const handleAppleSignIn = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const success = await loginWithApple();
+    if (success) {
+      router.replace('/(tabs)/(home)' as any);
+    }
   };
 
   return (
@@ -76,17 +87,39 @@ export default function WelcomeScreen() {
         <Animated.View style={[styles.actions, { opacity: buttonFade, transform: [{ translateY: buttonSlide }], paddingBottom: insets.bottom + 20 }]}>
           <TouchableOpacity
             style={styles.primaryBtn}
-            onPress={handleSignIn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/(auth)/login' as any);
+            }}
             activeOpacity={0.85}
             testID="welcome-get-started"
           >
-            <Text style={styles.primaryBtnText}>Sign In</Text>
+            <Text style={styles.primaryBtnText}>Get Started</Text>
             <ChevronRight size={18} color="#fff" strokeWidth={2.5} />
           </TouchableOpacity>
 
-          <Text style={styles.authNote}>
-            Sign in with Google, GitHub, Apple, or email
-          </Text>
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={styles.outlineBtn}
+              onPress={() => router.push('/(auth)/register' as any)}
+              activeOpacity={0.7}
+              testID="welcome-create-account"
+            >
+              <Text style={styles.outlineBtnText}>Create Account</Text>
+            </TouchableOpacity>
+
+            {appleAvailable && (
+              <TouchableOpacity
+                style={styles.appleBtn}
+                onPress={handleAppleSignIn}
+                activeOpacity={0.7}
+                disabled={isLoading}
+                testID="welcome-apple-sign-in"
+              >
+                <Apple size={16} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
 
           <Text style={styles.footer}>
             by <Text style={styles.footerBrand}>JABVLabs</Text>
@@ -172,11 +205,35 @@ const styles = StyleSheet.create({
     fontWeight: '700' as const,
     color: '#fff',
   },
-  authNote: {
-    fontSize: 13,
-    color: '#71717A',
-    textAlign: 'center' as const,
-    marginTop: 14,
+  row: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  outlineBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  outlineBtnText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#D4D4D8',
+  },
+  appleBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   footer: {
     fontSize: 11,

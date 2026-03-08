@@ -72,7 +72,7 @@ export default function ProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => { logout(); } },
+      { text: 'Sign Out', style: 'destructive', onPress: () => { logout(); router.replace('/(auth)/welcome' as any); } },
     ]);
   }, [logout]);
 
@@ -133,8 +133,7 @@ export default function ProfileScreen() {
     }
   }, []);
 
-  const displayName = user ? [user.firstName, user.lastName].filter(Boolean).join(' ') || 'User' : 'User';
-  const initial = displayName.charAt(0).toUpperCase();
+  const initial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
   const safeCount = savedCalculations.filter(c => c.safetyLevel === 'safe').length;
 
   return (
@@ -156,7 +155,7 @@ export default function ProfileScreen() {
                 <Text style={styles.avatarText}>{initial}</Text>
               </View>
             </Animated.View>
-            <Text style={styles.userName}>{displayName}</Text>
+            <Text style={styles.userName}>{user?.name ?? 'User'}</Text>
             <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
           </View>
         </AnimatedSection>
@@ -196,7 +195,7 @@ export default function ProfileScreen() {
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionLabel}>ACCOUNT</Text>
             <View style={styles.menuCard}>
-              <InfoRow label="Name" value={displayName} colors={colors} />
+              <InfoRow label="Name" value={user?.name ?? 'N/A'} colors={colors} />
               <InfoRow label="Email" value={user?.email ?? 'N/A'} colors={colors} />
               <InfoRow
                 label="Member Since"
