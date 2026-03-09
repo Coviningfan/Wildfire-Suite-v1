@@ -69,5 +69,5 @@ externalPort = 8080
 [deployment]
 deploymentTarget = "static"
 run = ["echo", "static"]
-build = ["bun", "run", "build:web"]
+build = ["bash", "-c", "npx expo export --platform web"]
 publicDir = "dist"
