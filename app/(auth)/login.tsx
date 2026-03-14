@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView, Animated } from 'react-native';
 import { Stack, Link, router } from 'expo-router';
 import { ArrowLeft, Fingerprint, Apple } from 'lucide-react-native';
@@ -34,8 +34,8 @@ export default function LoginScreen() {
   useEffect(() => {
     checkAuthMethods();
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: false }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: false }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -127,7 +127,7 @@ export default function LoginScreen() {
 
   const showBiometric = biometricAvailable && biometricEnabled && user != null;
   const canSubmit = email.length > 0 && password.length > 0;
-  const styles = createStyles(colors);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>

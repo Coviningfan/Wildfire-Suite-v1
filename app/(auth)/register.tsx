@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, KeyboardAvoidingView, Platform, TouchableOpacity, Animated } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
@@ -24,8 +24,8 @@ export default function RegisterScreen() {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: false }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: false }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -60,7 +60,7 @@ export default function RegisterScreen() {
   }, [name, email, password, confirmPassword, register]);
 
   const canSubmit = name.length > 0 && email.length > 0 && password.length > 0 && confirmPassword.length > 0;
-  const styles = createStyles(colors);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>

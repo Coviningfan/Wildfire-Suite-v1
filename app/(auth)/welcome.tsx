@@ -26,23 +26,23 @@ export default function WelcomeScreen() {
   useEffect(() => {
     Animated.sequence([
       Animated.parallel([
-        Animated.timing(logoFade, { toValue: 1, duration: 600, useNativeDriver: false }),
-        Animated.spring(logoScale, { toValue: 1, tension: 40, friction: 7, useNativeDriver: false }),
+        Animated.timing(logoFade, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.spring(logoScale, { toValue: 1, tension: 40, friction: 7, useNativeDriver: true }),
       ]),
       Animated.parallel([
-        Animated.timing(textFade, { toValue: 1, duration: 500, useNativeDriver: false }),
-        Animated.timing(textSlide, { toValue: 0, duration: 500, useNativeDriver: false }),
+        Animated.timing(textFade, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(textSlide, { toValue: 0, duration: 500, useNativeDriver: true }),
       ]),
       Animated.parallel([
-        Animated.timing(buttonFade, { toValue: 1, duration: 400, useNativeDriver: false }),
-        Animated.timing(buttonSlide, { toValue: 0, duration: 400, useNativeDriver: false }),
+        Animated.timing(buttonFade, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(buttonSlide, { toValue: 0, duration: 400, useNativeDriver: true }),
       ]),
     ]).start();
 
     const pulseLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(glowPulse, { toValue: 0.7, duration: 2000, useNativeDriver: false }),
-        Animated.timing(glowPulse, { toValue: 0.4, duration: 2000, useNativeDriver: false }),
+        Animated.timing(glowPulse, { toValue: 0.7, duration: 2000, useNativeDriver: true }),
+        Animated.timing(glowPulse, { toValue: 0.4, duration: 2000, useNativeDriver: true }),
       ])
     );
     pulseLoop.start();

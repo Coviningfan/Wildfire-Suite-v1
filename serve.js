@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const PORT = 5000;
-const DIST = path.join(__dirname, "dist");
+const DIST = path.resolve(__dirname, "dist");
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -26,6 +26,12 @@ const MIME_TYPES = {
   ".webmanifest": "application/manifest+json",
 };
 
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+};
+
 function getMime(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   return MIME_TYPES[ext] || "application/octet-stream";
@@ -35,29 +41,35 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   let filePath = path.join(DIST, url.pathname);
 
-  if (filePath.endsWith("/")) {
+  // Path traversal guard — resolved path must stay inside DIST
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(DIST)) {
+    res.writeHead(403, { "Content-Type": "text/plain", ...SECURITY_HEADERS });
+    res.end("Forbidden");
+    return;
+  }
+
+  // Serve index.html for directory requests
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
     filePath = path.join(filePath, "index.html");
   }
 
-  fs.stat(filePath, (err, stats) => {
-    if (!err && stats.isFile()) {
-      res.writeHead(200, { "Content-Type": getMime(filePath) });
-      fs.createReadStream(filePath).pipe(res);
-    } else {
-      const indexPath = path.join(DIST, "index.html");
-      fs.stat(indexPath, (err2) => {
-        if (err2) {
-          res.writeHead(404, { "Content-Type": "text/plain" });
-          res.end("Not Found");
-          return;
-        }
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        fs.createReadStream(indexPath).pipe(res);
-      });
+  // SPA fallback
+  if (!fs.existsSync(filePath)) {
+    filePath = path.join(DIST, "index.html");
+  }
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(500, { "Content-Type": "text/plain", ...SECURITY_HEADERS });
+      res.end("Internal Server Error");
+      return;
     }
+    res.writeHead(200, { "Content-Type": getMime(filePath), ...SECURITY_HEADERS });
+    res.end(data);
   });
 });
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Serving dist/ on http://0.0.0.0:${PORT}`);
+  console.log(`Server running at http://0.0.0.0:${PORT}`);
 });
