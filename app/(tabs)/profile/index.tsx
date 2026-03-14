@@ -1,464 +1,427 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Alert, Platform, ScrollView, TouchableOpacity, Switch, Animated, Easing, Linking } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Switch,
+  Image,
+  Animated,
+  Platform,
+  Modal,
+  TextInput,
+  Alert,
+} from 'react-native';
 import { router } from 'expo-router';
-import { LogOut, ChevronRight, Fingerprint, FileDown, Shield, Calculator, Lightbulb, Mail, Phone, Globe, MapPin, Ruler, Moon, Sun, HelpCircle } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
-import { Logo } from '@/components/ui/Logo';
-
+import {
+  User,
+  Settings,
+  Bell,
+  Shield,
+  HelpCircle,
+  LogOut,
+  ChevronRight,
+  Award,
+  Activity,
+  Lock,
+  Fingerprint,
+  Pencil,
+  Check,
+  X,
+  AlertTriangle,
+} from 'lucide-react-native';
 import { useAuthStore } from '@/stores/auth-store';
-import { useLightingStore } from '@/stores/lighting-store';
-import { useThemeColors } from '@/hooks/useTheme';
-import { ThemeColors } from '@/constants/theme';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { isBiometricAvailable, getBiometricType, authenticateWithBiometric } from '@/utils/biometric-auth';
-import { LightingCalculator } from '@/utils/lighting-calculator';
-import { exportCalculationAsCSV } from '@/utils/file-helpers';
-import { useSettingsStore } from '@/stores/settings-store';
-
-const AnimatedSection = React.memo(({ children, index }: { children: React.ReactNode; index: number }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(14)).current;
-
-  useEffect(() => {
-    const delay = index * 80;
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 350, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-      Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 12, delay, useNativeDriver: true }),
-    ]).start();
-  }, [fadeAnim, slideAnim, index]);
-
-  return (
-    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-      {children}
-    </Animated.View>
-  );
-});
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ProfileScreen() {
-  const colors = useThemeColors();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
-  const { user, logout, biometricEnabled, setBiometricEnabled } = useAuthStore();
-  const { savedCalculations } = useLightingStore();
-  const { unitSystem, toggleUnitSystem, themeMode, toggleThemeMode } = useSettingsStore();
-
-  const [biometricAvailable, setBiometricAvailable] = useState<boolean>(false);
-  const [biometricType, setBiometricType] = useState<string>('Biometric');
-  const [isExporting, setIsExporting] = useState<boolean>(false);
-  const avatarScale = useRef(new Animated.Value(0.8)).current;
-  const avatarOpacity = useRef(new Animated.Value(0)).current;
+  const { user, logout, biometricEnabled, setBiometricEnabled, isAdmin } =
+    useAuthStore();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [locationEnabled, setLocationEnabled] = useState(true);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(avatarScale, { toValue: 1, tension: 50, friction: 8, useNativeDriver: true }),
-      Animated.timing(avatarOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [avatarScale, avatarOpacity]);
-
-  useEffect(() => {
-    checkBiometric();
   }, []);
 
-  const checkBiometric = async () => {
-    const available = await isBiometricAvailable();
-    setBiometricAvailable(available);
-    if (available) {
-      const type = await getBiometricType();
-      setBiometricType(type);
-    }
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/login');
   };
 
-  const handleLogout = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => { logout(); router.replace('/(auth)/welcome' as any); } },
-    ]);
-  }, [logout]);
+  const handleSaveName = () => {
+    // TODO: persist name update to Supabase profiles table
+    setIsEditingName(false);
+  };
 
-  const handleToggleBiometric = useCallback(async (value: boolean) => {
-    if (value) {
-      const result = await authenticateWithBiometric(`Authenticate to enable ${biometricType}`);
-      if (result.success) {
-        setBiometricEnabled(true);
-      } else {
-        Alert.alert('Authentication Failed', result.error ?? `${biometricType} authentication failed. Please try again.`);
-      }
-    } else {
-      setBiometricEnabled(false);
-    }
-  }, [biometricType, setBiometricEnabled]);
+  const handleCancelEdit = () => {
+    setEditName(user?.name || '');
+    setIsEditingName(false);
+  };
 
-  const handleExportAll = useCallback(async () => {
-    if (savedCalculations.length === 0) {
-      Alert.alert('No Data', 'No saved calculations to export.');
-      return;
-    }
-    setIsExporting(true);
-    try {
-      const result = await exportCalculationAsCSV(
-        savedCalculations.map(c => ({
-          name: c.name,
-          fixture: c.fixture,
-          timestamp: c.timestamp,
-          safetyLevel: c.safetyLevel,
-          inputs: c.inputs,
-          result: c.result as Record<string, any>,
-        })),
-        unitSystem,
-      );
-      if (result.success) {
-        Alert.alert('Exported', 'All calculations exported as CSV.');
-      } else {
-        Alert.alert('Error', result.error ?? 'Export failed.');
-      }
-    } catch {
-      Alert.alert('Error', 'Export failed. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
-  }, [savedCalculations]);
-
-  const handleOpenUrl = useCallback(async (url: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      if (Platform.OS === 'web') {
-        window.open(url, '_blank');
-      } else {
-        const WB = await import('expo-web-browser');
-        await WB.openBrowserAsync(url);
-      }
-    } catch {
-      Linking.openURL(url);
-    }
-  }, []);
-
-  const initial = user?.name?.charAt(0)?.toUpperCase() ?? 'U';
-  const safeCount = savedCalculations.filter(c => c.safetyLevel === 'safe').length;
+  const menuSections = [
+    {
+      title: 'Account',
+      items: [
+        {
+          icon: Settings,
+          label: 'Account Settings',
+          onPress: () => {},
+          showArrow: true,
+        },
+        {
+          icon: Bell,
+          label: 'Notifications',
+          onPress: () => {},
+          toggle: true,
+          toggleValue: notificationsEnabled,
+          onToggle: setNotificationsEnabled,
+        },
+      ],
+    },
+    {
+      title: 'Security',
+      items: [
+        {
+          icon: Lock,
+          label: 'Change Password',
+          onPress: () => {},
+          showArrow: true,
+        },
+        {
+          icon: Fingerprint,
+          label: 'Biometric Login',
+          onPress: () => {},
+          toggle: true,
+          toggleValue: biometricEnabled,
+          onToggle: setBiometricEnabled,
+        },
+        {
+          icon: Shield,
+          label: 'Privacy Settings',
+          onPress: () => {},
+          showArrow: true,
+        },
+      ],
+    },
+    {
+      title: 'App',
+      items: [
+        {
+          icon: Activity,
+          label: 'Location Services',
+          onPress: () => {},
+          toggle: true,
+          toggleValue: locationEnabled,
+          onToggle: setLocationEnabled,
+        },
+        {
+          icon: HelpCircle,
+          label: 'Help & Support',
+          onPress: () => {},
+          showArrow: true,
+        },
+      ],
+    },
+  ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <AnimatedSection index={0}>
-          <View style={styles.profileSection}>
-            <View style={styles.profileHeaderActions}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#1a1a2e', '#16213e', '#0f3460']}
+        style={styles.header}
+      >
+        <Animated.View
+          style={[
+            styles.headerContent,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <User size={40} color="#fff" />
+            </View>
+            {isAdmin && (
+              <View style={styles.adminBadge}>
+                <Award size={12} color="#fff" />
+              </View>
+            )}
+          </View>
+
+          {isEditingName ? (
+            <View style={styles.editNameContainer}>
+              <TextInput
+                style={styles.nameInput}
+                value={editName}
+                onChangeText={setEditName}
+                autoFocus
+                selectTextOnFocus
+              />
               <TouchableOpacity
-                style={styles.headerActionBtn}
-                onPress={() => { Haptics.selectionAsync(); toggleThemeMode(); }}
-                activeOpacity={0.7}
+                onPress={handleSaveName}
+                style={styles.editActionBtn}
               >
-                {themeMode === 'dark' ? <Moon size={18} color={colors.accent} /> : <Sun size={18} color={colors.secondary} />}
+                <Check size={18} color="#4ade80" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCancelEdit}
+                style={styles.editActionBtn}
+              >
+                <X size={18} color="#f87171" />
               </TouchableOpacity>
             </View>
-            <Animated.View style={[styles.avatarOuter, { transform: [{ scale: avatarScale }], opacity: avatarOpacity }]}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initial}</Text>
-              </View>
-            </Animated.View>
-            <Text style={styles.userName}>{user?.name ?? 'User'}</Text>
-            <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
-          </View>
-        </AnimatedSection>
-
-        <AnimatedSection index={1}>
-          <View style={styles.statsRow}>
-            <TouchableOpacity
-              style={styles.statCard}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(tabs)/calculations' as any); }}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.statIcon, { backgroundColor: colors.glow }]}>
-                <Calculator size={15} color={colors.primary} />
-              </View>
-              <Text style={styles.statValue}>{savedCalculations.length}</Text>
-              <Text style={styles.statLabel}>Calculations</Text>
-              <ChevronRight size={12} color={colors.textTertiary} style={{ position: 'absolute', top: 8, right: 8 }} />
-            </TouchableOpacity>
-            <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
-                <Lightbulb size={15} color={colors.accent} />
-              </View>
-              <Text style={styles.statValue}>{LightingCalculator.getFixtureModels().length}</Text>
-              <Text style={styles.statLabel}>Fixtures</Text>
+          ) : (
+            <View style={styles.nameRow}>
+              <Text style={styles.userName}>{user?.name || 'User'}</Text>
+              <TouchableOpacity
+                onPress={() => setIsEditingName(true)}
+                style={styles.editNameBtn}
+              >
+                <Pencil size={14} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
             </View>
-            <View style={styles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(34, 197, 94, 0.12)' }]}>
-                <Shield size={15} color={colors.success} />
-              </View>
-              <Text style={styles.statValue}>{safeCount}</Text>
-              <Text style={styles.statLabel}>Safe</Text>
-            </View>
-          </View>
-        </AnimatedSection>
+          )}
 
-        <AnimatedSection index={2}>
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>ACCOUNT</Text>
-            <View style={styles.menuCard}>
-              <InfoRow label="Name" value={user?.name ?? 'N/A'} colors={colors} />
-              <InfoRow label="Email" value={user?.email ?? 'N/A'} colors={colors} />
-              <InfoRow
-                label="Member Since"
-                value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                isLast
-                colors={colors}
-              />
+          <Text style={styles.userEmail}>{user?.email}</Text>
+          {isAdmin && (
+            <View style={styles.adminTag}>
+              <Text style={styles.adminTagText}>Administrator</Text>
             </View>
-          </View>
-        </AnimatedSection>
+          )}
+        </Animated.View>
+      </LinearGradient>
 
-        {Platform.OS !== 'web' && biometricAvailable && (
-          <AnimatedSection index={3}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionLabel}>SECURITY</Text>
-              <View style={styles.menuCard}>
-                <View style={styles.biometricRow}>
-                  <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(124, 107, 240, 0.12)' }]}>
-                    <Fingerprint size={16} color={colors.accent} />
-                  </View>
-                  <View style={styles.menuItemText}>
-                    <Text style={styles.menuItemTitle}>{biometricType} Login</Text>
-                    <Text style={styles.menuItemSub}>Quick sign-in</Text>
-                  </View>
-                  <Switch
-                    value={biometricEnabled}
-                    onValueChange={handleToggleBiometric}
-                    trackColor={{ false: colors.surfaceElevated, true: colors.primary + '80' }}
-                    thumbColor={biometricEnabled ? colors.primary : colors.textTertiary}
-                  />
-                </View>
-              </View>
-            </View>
-          </AnimatedSection>
-        )}
-
-        <AnimatedSection index={4}>
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>PREFERENCES</Text>
-            <View style={styles.menuCard}>
-              <View style={styles.biometricRow}>
-                <View style={[styles.menuItemIcon, { backgroundColor: 'rgba(59, 130, 246, 0.12)' }]}>
-                  <Ruler size={16} color={colors.focus} />
-                </View>
-                <View style={styles.menuItemText}>
-                  <Text style={styles.menuItemTitle}>Unit System</Text>
-                  <Text style={styles.menuItemSub}>{unitSystem === 'metric' ? 'Metric (m, m²)' : 'Imperial (ft, ft²)'}</Text>
-                </View>
+      {/* Menu Sections */}
+      <View style={styles.menuContainer}>
+        {menuSections.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View style={styles.sectionCard}>
+              {section.items.map((item, index) => (
                 <TouchableOpacity
-                  style={styles.unitToggle}
-                  onPress={() => { Haptics.selectionAsync(); toggleUnitSystem(); }}
-                  activeOpacity={0.7}
+                  key={item.label}
+                  style={[
+                    styles.menuItem,
+                    index < section.items.length - 1 && styles.menuItemBorder,
+                  ]}
+                  onPress={item.onPress}
+                  activeOpacity={item.toggle ? 1 : 0.7}
                 >
-                  <Text style={styles.unitToggleText}>{unitSystem === 'metric' ? 'M' : 'FT'}</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={[styles.biometricRow, { marginTop: 14, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
-                <View style={[styles.menuItemIcon, { backgroundColor: themeMode === 'dark' ? 'rgba(124, 107, 240, 0.12)' : 'rgba(245, 166, 35, 0.12)' }]}>
-                  {themeMode === 'dark' ? <Moon size={16} color={colors.accent} /> : <Sun size={16} color={colors.secondary} />}
-                </View>
-                <View style={styles.menuItemText}>
-                  <Text style={styles.menuItemTitle}>Appearance</Text>
-                  <Text style={styles.menuItemSub}>{themeMode === 'dark' ? 'Dark mode' : 'Light mode'}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.unitToggle}
-                  onPress={() => { Haptics.selectionAsync(); toggleThemeMode(); }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.unitToggleText}>{themeMode === 'dark' ? '🌙' : '☀️'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </AnimatedSection>
-
-        <AnimatedSection index={5}>
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>ACTIONS</Text>
-            <View style={styles.menuCard}>
-              <MenuItem
-                icon={<FileDown size={16} color={colors.success} />}
-                iconBg="rgba(34, 197, 94, 0.12)"
-                title="Export All Calculations"
-                subtitle={`CSV · ${savedCalculations.length} records`}
-                onPress={handleExportAll}
-                colors={colors}
-              />
-              <MenuItem
-                icon={<HelpCircle size={16} color={colors.accent} />}
-                iconBg="rgba(124, 107, 240, 0.12)"
-                title="Restart App Tour"
-                subtitle="Step-by-step walkthrough of the app"
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/resources/app-walkthrough' as any); }}
-                isLast
-                colors={colors}
-              />
-            </View>
-          </View>
-        </AnimatedSection>
-
-        <AnimatedSection index={6}>
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>CONTACT & SUPPORT</Text>
-            <View style={styles.menuCard}>
-              <MenuItem
-                icon={<Mail size={16} color={colors.primary} />}
-                iconBg={colors.glow}
-                title="Email Support"
-                subtitle="info@wildfirefx.com"
-                onPress={() => Linking.openURL('mailto:info@wildfirefx.com')}
-                colors={colors}
-              />
-              <MenuItem
-                icon={<Phone size={16} color={colors.success} />}
-                iconBg="rgba(34, 197, 94, 0.12)"
-                title="Call Us"
-                subtitle="+1 (818) 846-1650"
-                onPress={() => Linking.openURL('tel:+18188461650')}
-                colors={colors}
-              />
-              <MenuItem
-                icon={<Globe size={16} color={colors.focus} />}
-                iconBg="rgba(59, 130, 246, 0.12)"
-                title="Website"
-                subtitle="wildfirelighting.com"
-                onPress={() => handleOpenUrl('https://wildfirelighting.com')}
-                colors={colors}
-              />
-              <MenuItem
-                icon={<MapPin size={16} color={colors.secondary} />}
-                iconBg="rgba(245, 166, 35, 0.12)"
-                title="Location"
-                subtitle="Burbank, CA, USA"
-                onPress={() => {}}
-                isLast
-                colors={colors}
-              />
-            </View>
-          </View>
-        </AnimatedSection>
-
-        <AnimatedSection index={7}>
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>FLAME FORMULA</Text>
-            <View style={styles.menuCard}>
-              {FLAME_ITEMS.map(({ letter, title, desc }, index) => (
-                <View key={letter} style={[styles.flameRow, index === FLAME_ITEMS.length - 1 && styles.flameRowLast]}>
-                  <View style={[styles.flameBadge, { backgroundColor: FLAME_COLORS[index] }]}>
-                    <Text style={styles.flameLetter}>{letter}</Text>
+                  <View style={styles.menuItemLeft}>
+                    <View style={styles.menuIconContainer}>
+                      <item.icon size={18} color="#e94560" />
+                    </View>
+                    <Text style={styles.menuItemLabel}>{item.label}</Text>
                   </View>
-                  <View style={styles.flameContent}>
-                    <Text style={styles.flameTitle}>{title}</Text>
-                    <Text style={styles.flameDesc}>{desc}</Text>
-                  </View>
-                </View>
+                  {item.toggle ? (
+                    <Switch
+                      value={item.toggleValue}
+                      onValueChange={item.onToggle}
+                      trackColor={{ false: '#374151', true: '#e94560' }}
+                      thumbColor={item.toggleValue ? '#fff' : '#9ca3af'}
+                    />
+                  ) : (
+                    item.showArrow && (
+                      <ChevronRight size={16} color="#6b7280" />
+                    )
+                  )}
+                </TouchableOpacity>
               ))}
             </View>
           </View>
-        </AnimatedSection>
+        ))}
 
-        <AnimatedSection index={8}>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
-            <LogOut size={16} color={colors.error} />
-            <Text style={styles.logoutText}>Sign Out</Text>
-          </TouchableOpacity>
+        {/* Logout Button */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
+          <LogOut size={20} color="#e94560" />
+          <Text style={styles.logoutText}>Sign Out</Text>
+        </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Logo size="small" imageOnly />
-            <Text style={styles.footerVersion}>v1.0.0 · Powered by JABVLabs</Text>
-          </View>
-        </AnimatedSection>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function InfoRow({ label, value, isLast, colors }: { label: string; value: string; isLast?: boolean; colors: ThemeColors }) {
-  return (
-    <View style={[{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 13, borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}>
-      <Text style={{ fontSize: 14, color: colors.textSecondary }}>{label}</Text>
-      <Text style={{ fontSize: 14, color: colors.text, fontWeight: '500' as const }}>{value}</Text>
-    </View>
-  );
-}
-
-function MenuItem({ icon, iconBg, title, subtitle, onPress, isLast, colors }: {
-  icon: React.ReactNode; iconBg: string; title: string; subtitle: string;
-  onPress: () => void; isLast?: boolean; colors: ThemeColors;
-}) {
-  return (
-    <TouchableOpacity
-      style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={{ width: 34, height: 34, borderRadius: 9, justifyContent: 'center', alignItems: 'center', backgroundColor: iconBg }}>
-        {icon}
+        <Text style={styles.versionText}>Wildfire Suite v1.0.0</Text>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: '600' as const, color: colors.text }}>{title}</Text>
-        <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 1 }}>{subtitle}</Text>
-      </View>
-      <ChevronRight size={16} color={colors.textTertiary} />
-    </TouchableOpacity>
+    </ScrollView>
   );
 }
 
-const FLAME_COLORS = ['#E8412A', '#7C6BF0', '#F5A623', '#22C55E', '#3B82F6'];
-const FLAME_ITEMS = [
-  { letter: 'F', title: 'Fixture', desc: 'Choose the right UV fixture' },
-  { letter: 'L', title: 'Location', desc: 'Set mounting height & throw' },
-  { letter: 'A', title: 'Angle', desc: 'Match beam to coverage area' },
-  { letter: 'M', title: 'Material', desc: 'UV-reactive at 365-370nm' },
-  { letter: 'E', title: 'Effect', desc: 'Verify irradiance requirement' },
-];
-
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.background },
-    content: { flex: 1 },
-    scrollContent: { paddingBottom: 40 },
-    profileHeaderActions: { position: 'absolute' as const, top: 16, right: 16, flexDirection: 'row' as const, gap: 8, zIndex: 10 },
-    headerActionBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surface, justifyContent: 'center' as const, alignItems: 'center' as const, borderWidth: 1, borderColor: colors.border },
-    profileSection: { alignItems: 'center', paddingTop: 28, paddingBottom: 22 },
-    avatarOuter: {
-      width: 82, height: 82, borderRadius: 25, borderWidth: 2, borderColor: colors.primary,
-      justifyContent: 'center', alignItems: 'center', marginBottom: 14,
-      shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.25, shadowRadius: 14, elevation: 4,
-    },
-    avatar: { width: 74, height: 74, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center' },
-    avatarText: { fontSize: 28, fontWeight: '800' as const, color: colors.primary },
-    userName: { fontSize: 22, fontWeight: '700' as const, color: colors.text, letterSpacing: -0.3 },
-    userEmail: { fontSize: 14, color: colors.textSecondary, marginTop: 3 },
-    statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 24 },
-    statCard: { flex: 1, alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, position: 'relative' as const },
-    statIcon: { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-    statValue: { fontSize: 20, fontWeight: '800' as const, color: colors.text },
-    statLabel: { fontSize: 10, color: colors.textTertiary, fontWeight: '500' as const, marginTop: 2, letterSpacing: 0.3 },
-    sectionContainer: { paddingHorizontal: 16, marginBottom: 20 },
-    sectionLabel: { fontSize: 11, fontWeight: '700' as const, color: colors.textTertiary, letterSpacing: 1, marginBottom: 8, paddingLeft: 4 },
-    menuCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border },
-    biometricRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    menuItemIcon: { width: 34, height: 34, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
-    menuItemText: { flex: 1 },
-    menuItemTitle: { fontSize: 15, fontWeight: '600' as const, color: colors.text },
-    menuItemSub: { fontSize: 12, color: colors.textSecondary, marginTop: 1 },
-    unitToggle: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.glow, borderWidth: 1, borderColor: 'rgba(232, 65, 42, 0.25)' },
-    unitToggleText: { fontSize: 13, fontWeight: '700' as const, color: colors.primary, letterSpacing: 0.5 },
-    flameRow: { flexDirection: 'row', gap: 12, paddingBottom: 12, marginBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-    flameRowLast: { borderBottomWidth: 0, marginBottom: 0, paddingBottom: 0 },
-    flameBadge: { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
-    flameLetter: { fontSize: 13, fontWeight: '800' as const, color: '#fff' },
-    flameContent: { flex: 1 },
-    flameTitle: { fontSize: 14, fontWeight: '700' as const, color: colors.text },
-    flameDesc: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-    logoutBtn: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      marginHorizontal: 16, marginBottom: 24, paddingVertical: 14, borderRadius: 14,
-      borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', backgroundColor: 'rgba(239, 68, 68, 0.06)',
-    },
-    logoutText: { fontSize: 15, fontWeight: '600' as const, color: colors.error },
-    footer: { alignItems: 'center', paddingBottom: 16, gap: 8 },
-    footerVersion: { fontSize: 11, color: colors.textTertiary },
-  });
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0a0f',
+  },
+  header: {
+    paddingTop: 60,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(233,69,96,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e94560',
+  },
+  adminBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#e94560',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  editNameBtn: {
+    padding: 4,
+  },
+  editNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  nameInput: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e94560',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    minWidth: 120,
+  },
+  editActionBtn: {
+    padding: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 4,
+  },
+  adminTag: {
+    marginTop: 8,
+    backgroundColor: 'rgba(233,69,96,0.2)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(233,69,96,0.4)',
+  },
+  adminTagText: {
+    fontSize: 12,
+    color: '#e94560',
+    fontWeight: '600',
+  },
+  menuContainer: {
+    padding: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  sectionCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  menuItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(233,69,96,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuItemLabel: {
+    fontSize: 15,
+    color: '#e5e7eb',
+    fontWeight: '500',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(233,69,96,0.1)',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(233,69,96,0.3)',
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#e94560',
+  },
+  versionText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#374151',
+    marginTop: 24,
+    marginBottom: 8,
+  },
+});
